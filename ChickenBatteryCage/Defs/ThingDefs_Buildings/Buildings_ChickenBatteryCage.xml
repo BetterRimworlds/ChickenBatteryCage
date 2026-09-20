@@ -28,6 +28,8 @@
 		<blockWind>true</blockWind>
 		<castEdgeShadows>true</castEdgeShadows>
 		<fillPercent>0.70</fillPercent>
+		<!-- Cage mesh occupies the cells but does not fully block shots or sight. -->
+		<disableImpassableShotOverConfigError>true</disableImpassableShotOverConfigError>
 		<canOverlapZones>false</canOverlapZones>
 		<statBases>
 			<WorkToBuild>2500</WorkToBuild>
