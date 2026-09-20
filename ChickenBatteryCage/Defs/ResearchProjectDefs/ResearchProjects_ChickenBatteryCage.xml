@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<ResearchProjectDef>
+		<defName>ChickenBatteryCage</defName>
+		<label>confined poultry husbandry</label>
+		<description>Organize large chicken flocks with stacked battery cages. Confined poultry husbandry concentrates feeding, egg collection, and flock management in a compact roofed structure, reducing the labor of free-range birds without changing what chickens are.</description>
+		<baseCost>800</baseCost>
+		<techLevel>Medieval</techLevel>
+		<prerequisites>
+			<li>ComplexFurniture</li>
+		</prerequisites>
+		<researchViewX>2.00</researchViewX>
+		<researchViewY>2.80</researchViewY>
+		<generalRules>
+			<rulesStrings>
+				<li>subject->poultry husbandry</li>
+				<li>subject->confined flocks</li>
+
+				<li>subject_story->managed a stacked henhouse that fed an entire medieval town</li>
+				<li>subject_story->wrote a treatise on housing chickens under one roof instead of scattering them across the fields</li>
+				<li>subject_story->kept a compact flock through a long winter by organizing the birds in roofed cages</li>
+
+				<li>subject_gerund->organizing confined poultry</li>
+				<li>subject_gerund->building battery cages</li>
+			</rulesStrings>
+		</generalRules>
+	</ResearchProjectDef>
+</Defs>
