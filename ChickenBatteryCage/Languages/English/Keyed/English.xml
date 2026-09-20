@@ -3,4 +3,14 @@
 	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
 	<ChickenBatteryCage.Inspect.RequiresRoof>Requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.RequiresRoof>
 	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: not fully roofed.</ChickenBatteryCage.Inspect.Unroofed>
+	<ChickenBatteryCage.Inspect.Chickens>Chickens:       {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
+	<ChickenBatteryCage.Inspect.AdultHens>Adult hens:     {0}</ChickenBatteryCage.Inspect.AdultHens>
+	<ChickenBatteryCage.Inspect.AdultRoosters>Adult roosters: {0}</ChickenBatteryCage.Inspect.AdultRoosters>
+	<ChickenBatteryCage.Inspect.Juveniles>Juveniles:      {0}</ChickenBatteryCage.Inspect.Juveniles>
+	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
+	<ChickenBatteryCage.Inspect.Eggs>Eggs:           {0}</ChickenBatteryCage.Inspect.Eggs>
+	<ChickenBatteryCage.Inspect.Empty>—</ChickenBatteryCage.Inspect.Empty>
+	<ChickenBatteryCage.Gizmo.Capacity>Chickens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
+	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nChickens: {0} / {1}\nAdult hens: {2}\nAdult roosters: {3}\nJuveniles: {4}</ChickenBatteryCage.Gizmo.CapacityDesc>
+	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many chickens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
 </LanguageData>

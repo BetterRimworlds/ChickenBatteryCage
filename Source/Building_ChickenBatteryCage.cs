@@ -9,6 +9,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System.Collections.Generic;
 using System.Text;
 using RimWorld;
 using UnityEngine;
@@ -23,6 +24,18 @@ public class Building_ChickenBatteryCage : Building
     bool roofedOverOccupiedCells = true;
 
     public bool IsOperational => roofedOverOccupiedCells;
+
+    public virtual int ChickenCount => 0;
+
+    public virtual int AdultHenCount => 0;
+
+    public virtual int AdultRoosterCount => 0;
+
+    public virtual int JuvenileCount => 0;
+
+    protected virtual string FeedInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
+
+    protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
 
     public override void SpawnSetup(Map map, bool respawningAfterLoad)
     {
@@ -57,7 +70,38 @@ public class Building_ChickenBatteryCage : Building
             sb.Append("ChickenBatteryCage.Inspect.Unroofed".Translate());
         }
 
+        sb.AppendLine();
+        sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(ChickenCount, ChickenCapacity));
+        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(AdultHenCount));
+        sb.AppendLine("ChickenBatteryCage.Inspect.AdultRoosters".Translate(AdultRoosterCount));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(JuvenileCount));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Feed".Translate(FeedInspectValue));
+        sb.Append("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
+
         return sb.ToString().TrimEnd();
+    }
+
+    public override IEnumerable<Gizmo> GetGizmos()
+    {
+        foreach (Gizmo gizmo in base.GetGizmos())
+        {
+            yield return gizmo;
+        }
+
+        Command_Action capacityGizmo = new Command_Action
+        {
+            defaultLabel = "ChickenBatteryCage.Gizmo.Capacity".Translate(ChickenCount, ChickenCapacity),
+            defaultDesc = "ChickenBatteryCage.Gizmo.CapacityDesc".Translate(
+                ChickenCount,
+                ChickenCapacity,
+                AdultHenCount,
+                AdultRoosterCount,
+                JuvenileCount),
+            icon = def.uiIcon,
+            action = delegate { },
+        };
+        capacityGizmo.Disable("ChickenBatteryCage.Gizmo.CapacityDisabled".Translate());
+        yield return capacityGizmo;
     }
 
     protected override void DrawAt(Vector3 drawLoc, bool flip = false)
