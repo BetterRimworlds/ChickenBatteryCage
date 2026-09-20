@@ -61,6 +61,13 @@ function build() {
         return 1
     fi
 
+    # Run the unit tests when a test project exists; failures abort the sync.
+    local testProject="Tests/${MOD}.Tests.csproj"
+    if [[ -f "$testProject" ]]; then
+        echo "Running unit tests"
+        dotnet test "$testProject" --nologo || { echo "Unit tests failed. Aborting sync."; return 1; }
+    fi
+
     sync_mod
     echo "All builds completed!"
 }
