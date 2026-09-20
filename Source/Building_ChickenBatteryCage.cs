@@ -118,23 +118,25 @@ public class Building_ChickenBatteryCage : Building
         base.DeSpawn(mode);
     }
 
-    /// A deconstructed cage hands its whole flock back to the map. The records
-    /// are the only copy of those birds, so letting them go down with the
-    /// building would silently destroy the flock.
+    /// A cage that goes away hands its whole flock back to the map, the records
+    /// being the only copy of those birds. Peaceful deconstruction by a
+    /// colonist frees them unharmed; any other destruction, such as combat
+    /// damage or fire, leaves the flock wounded.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
-        if (mode == DestroyMode.Deconstruct)
+        if (chickens.Count > 0)
         {
-            ReleaseFlock();
+            ReleaseFlock(injured: mode != DestroyMode.Deconstruct);
         }
 
         base.Destroy(mode);
     }
 
-    /// Materializes and releases every housed chicken without harming it, the
-    /// way a colonist taking a cage apart would shoo the birds out. Flock-level,
-    /// so it neither consults nor keeps the pending unload queue.
-    void ReleaseFlock()
+    /// Materializes and releases every housed chicken when the cage itself is
+    /// going away. A deconstructed cage is taken apart carefully, so its birds
+    /// come out unharmed; a cage wrecked by force spits them out wounded.
+    /// Flock-level, so it neither consults nor keeps the pending unload queue.
+    void ReleaseFlock(bool injured)
     {
         if (!Spawned || Map == null || chickens.Count == 0)
         {
@@ -154,6 +156,11 @@ public class Building_ChickenBatteryCage : Building
 
             chickens.RemoveAt(i);
             CageHenReleaseMemory.Mark(chicken);
+            if (injured)
+            {
+                CageChickenInjuries.Injure(chicken);
+            }
+
             released++;
         }
 
@@ -161,8 +168,11 @@ public class Building_ChickenBatteryCage : Building
 
         if (released > 0)
         {
+            string message = injured
+                ? "ChickenBatteryCage.Message.ReleasedInjured"
+                : "ChickenBatteryCage.Message.ReleasedOnDeconstruct";
             Messages.Message(
-                "ChickenBatteryCage.Message.ReleasedOnDeconstruct".Translate(released),
+                message.Translate(released),
                 MessageTypeDefOf.NeutralEvent,
                 historical: false);
         }
