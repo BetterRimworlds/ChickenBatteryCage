@@ -1,3 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
+	<ChickenBatteryCage.Inspect.RequiresRoof>Requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.RequiresRoof>
+	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: not fully roofed.</ChickenBatteryCage.Inspect.Unroofed>
 </LanguageData>

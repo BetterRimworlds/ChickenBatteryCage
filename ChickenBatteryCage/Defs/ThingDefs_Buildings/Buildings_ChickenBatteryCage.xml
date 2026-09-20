@@ -44,6 +44,11 @@
 		<defaultPlacingRot>South</defaultPlacingRot>
 		<rotatable>true</rotatable>
 		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
+		<tickerType>Rare</tickerType>
+		<drawPlaceWorkersWhileSelected>true</drawPlaceWorkersWhileSelected>
+		<placeWorkers>
+			<li>BetterRimworlds.ChickenBatteryCage.PlaceWorker_MustBeRoofed</li>
+		</placeWorkers>
 		<stuffCategories>
 			<li>Woody</li>
 			<li>Metallic</li>
