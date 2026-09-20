@@ -28,6 +28,7 @@
 	<ChickenBatteryCage.Job.NoCage>There is no battery cage.</ChickenBatteryCage.Job.NoCage>
 	<ChickenBatteryCage.Job.NoReachableCage>No reachable battery cage has space.</ChickenBatteryCage.Job.NoReachableCage>
 	<ChickenBatteryCage.Message.Released>Released {0}.</ChickenBatteryCage.Message.Released>
+	<ChickenBatteryCage.Message.ReleasedOnDeconstruct>A deconstructed battery cage released {0} chickens.</ChickenBatteryCage.Message.ReleasedOnDeconstruct>
 	<ChickenBatteryCage.Release.Youngest>Youngest</ChickenBatteryCage.Release.Youngest>
 	<ChickenBatteryCage.Release.Oldest>Oldest</ChickenBatteryCage.Release.Oldest>
 	<ChickenBatteryCage.Release.Random>Random</ChickenBatteryCage.Release.Random>

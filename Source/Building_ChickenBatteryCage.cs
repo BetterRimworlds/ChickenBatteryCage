@@ -118,6 +118,56 @@ public class Building_ChickenBatteryCage : Building
         base.DeSpawn(mode);
     }
 
+    /// A deconstructed cage hands its whole flock back to the map. The records
+    /// are the only copy of those birds, so letting them go down with the
+    /// building would silently destroy the flock.
+    public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
+    {
+        if (mode == DestroyMode.Deconstruct)
+        {
+            ReleaseFlock();
+        }
+
+        base.Destroy(mode);
+    }
+
+    /// Materializes and releases every housed chicken without harming it, the
+    /// way a colonist taking a cage apart would shoo the birds out. Flock-level,
+    /// so it neither consults nor keeps the pending unload queue.
+    void ReleaseFlock()
+    {
+        if (!Spawned || Map == null || chickens.Count == 0)
+        {
+            return;
+        }
+
+        Map map = Map;
+        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        int released = 0;
+        for (int i = chickens.Count - 1; i >= 0; i--)
+        {
+            Pawn chicken = CageChickenFactory.Generate(chickens[i], map, near);
+            if (chicken == null)
+            {
+                continue;
+            }
+
+            chickens.RemoveAt(i);
+            CageHenReleaseMemory.Mark(chicken);
+            released++;
+        }
+
+        pendingUnloads.Clear();
+
+        if (released > 0)
+        {
+            Messages.Message(
+                "ChickenBatteryCage.Message.ReleasedOnDeconstruct".Translate(released),
+                MessageTypeDefOf.NeutralEvent,
+                historical: false);
+        }
+    }
+
     public override void ExposeData()
     {
         base.ExposeData();
