@@ -3,7 +3,7 @@
 	<ThingDef ParentName="BuildingBase">
 		<defName>ChickenBatteryCage</defName>
 		<label>battery chicken cage</label>
-		<description>A four-tier battery cage for a flock of ten chickens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Chickens kept here are managed collectively. Must be built under a roof covering every cell of the cage.</description>
+		<description>A four-tier battery cage for a flock of ten hens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Must be built under a roof covering every cell of the cage.</description>
 		<thingClass>BetterRimworlds.ChickenBatteryCage.Building_ChickenBatteryCage</thingClass>
 		<graphicData>
 			<texPath>Things/Building/ChickenBatteryCage/ChickenBatteryCage</texPath>

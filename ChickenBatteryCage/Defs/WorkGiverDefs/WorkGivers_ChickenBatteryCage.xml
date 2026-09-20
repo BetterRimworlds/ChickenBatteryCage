@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<WorkGiverDef>
+		<defName>CBC_TakeHensToBatteryCage</defName>
+		<label>load hens into battery cages</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_TakeHensToBatteryCage</giverClass>
+		<workType>Handling</workType>
+		<verb>load</verb>
+		<gerund>loading</gerund>
+		<!-- Above TakeRoamingAnimalsToPen (160) and TakeToPen (130) so cages win for hens. -->
+		<priorityInType>170</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+		<prioritizeSustains>true</prioritizeSustains>
+	</WorkGiverDef>
+</Defs>

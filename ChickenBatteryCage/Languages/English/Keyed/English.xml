@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
 	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
-	<ChickenBatteryCage.Inspect.RequiresRoof>Requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.RequiresRoof>
-	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: not fully roofed.</ChickenBatteryCage.Inspect.Unroofed>
-	<ChickenBatteryCage.Inspect.Chickens>Chickens:       {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
+	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.Unroofed>
+	<ChickenBatteryCage.Inspect.Chickens>Hens:           {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
 	<ChickenBatteryCage.Inspect.AdultHens>Adult hens:     {0}</ChickenBatteryCage.Inspect.AdultHens>
-	<ChickenBatteryCage.Inspect.AdultRoosters>Adult roosters: {0}</ChickenBatteryCage.Inspect.AdultRoosters>
 	<ChickenBatteryCage.Inspect.Juveniles>Juveniles:      {0}</ChickenBatteryCage.Inspect.Juveniles>
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
 	<ChickenBatteryCage.Inspect.Eggs>Eggs:           {0}</ChickenBatteryCage.Inspect.Eggs>
 	<ChickenBatteryCage.Inspect.Empty>—</ChickenBatteryCage.Inspect.Empty>
-	<ChickenBatteryCage.Gizmo.Capacity>Chickens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
-	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nChickens: {0} / {1}\nAdult hens: {2}\nAdult roosters: {3}\nJuveniles: {4}</ChickenBatteryCage.Gizmo.CapacityDesc>
-	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many chickens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
+	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
+	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nHens: {0} / {1}\nAdult hens: {2}\nJuveniles: {3}</ChickenBatteryCage.Gizmo.CapacityDesc>
+	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many hens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
+	<ChickenBatteryCage.Gizmo.Release>Release chicken</ChickenBatteryCage.Gizmo.Release>
+	<ChickenBatteryCage.Gizmo.ReleaseDesc>Return a hen from this cage to the map. Choose which bird by age or type.</ChickenBatteryCage.Gizmo.ReleaseDesc>
+	<ChickenBatteryCage.Gizmo.ReleaseEmpty>This cage is empty.</ChickenBatteryCage.Gizmo.ReleaseEmpty>
+	<ChickenBatteryCage.FloatMenu.Full>This battery cage is full.</ChickenBatteryCage.FloatMenu.Full>
+	<ChickenBatteryCage.FloatMenu.Unroofed>This battery cage must be fully roofed before it can hold chickens.</ChickenBatteryCage.FloatMenu.Unroofed>
+	<ChickenBatteryCage.Job.NoCage>There is no battery cage.</ChickenBatteryCage.Job.NoCage>
+	<ChickenBatteryCage.Job.NoReachableCage>No reachable battery cage has space.</ChickenBatteryCage.Job.NoReachableCage>
+	<ChickenBatteryCage.Message.Released>Released {0}.</ChickenBatteryCage.Message.Released>
+	<ChickenBatteryCage.Message.ReleaseFailed>Could not release a chicken from this cage.</ChickenBatteryCage.Message.ReleaseFailed>
+	<ChickenBatteryCage.Release.Youngest>Youngest</ChickenBatteryCage.Release.Youngest>
+	<ChickenBatteryCage.Release.Oldest>Oldest</ChickenBatteryCage.Release.Oldest>
+	<ChickenBatteryCage.Release.Random>Random</ChickenBatteryCage.Release.Random>
+	<ChickenBatteryCage.Release.AdultHen>Adult hen</ChickenBatteryCage.Release.AdultHen>
+	<ChickenBatteryCage.Release.Juvenile>Juvenile</ChickenBatteryCage.Release.Juvenile>
 </LanguageData>

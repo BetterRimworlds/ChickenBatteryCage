@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<JobDef>
+		<defName>CBC_RopeHenToBatteryCage</defName>
+		<driverClass>BetterRimworlds.ChickenBatteryCage.JobDriver_RopeHenToBatteryCage</driverClass>
+		<reportString>leading TargetA to a battery cage.</reportString>
+		<casualInterruptible>false</casualInterruptible>
+		<allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+	</JobDef>
+</Defs>
