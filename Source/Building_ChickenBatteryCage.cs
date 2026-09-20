@@ -41,13 +41,31 @@ public class Building_ChickenBatteryCage : Building
     public override void SpawnSetup(Map map, bool respawningAfterLoad)
     {
         base.SpawnSetup(map, respawningAfterLoad);
+
+        // RoofGrid.SetRoof notifies MapEvents.RoofChanged, so react to roof changes
+        // immediately instead of polling on TickRare and leaving IsOperational stale.
+        map.events.RoofChanged -= OnRoofChanged;
+        map.events.RoofChanged += OnRoofChanged;
         RecheckRoofing();
     }
 
-    public override void TickRare()
+    public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
     {
-        base.TickRare();
-        RecheckRoofing();
+        Map map = Map;
+        if (map != null)
+        {
+            map.events.RoofChanged -= OnRoofChanged;
+        }
+
+        base.DeSpawn(mode);
+    }
+
+    void OnRoofChanged(IntVec3 cell)
+    {
+        if (this.OccupiedRect().Contains(cell))
+        {
+            RecheckRoofing();
+        }
     }
 
     public override string GetInspectString()
