@@ -3,6 +3,26 @@
 Prefer these over generic RimWorld mod tutorials. CryoRegenesis is the reference
 implementation this skeleton came from.
 
+## Working agreement
+
+- **Always commit your changes when you finish a task.** Do not leave
+  unrelated work uncommitted in the tree once the task is complete.
+- **Rebase when appropriate.** If the branch has drifted from its target
+  (or history would be cleaner linear), rebase onto the latest target
+  before considering the work done. Prefer rebasing over merge commits.
+- **Write commit messages as full, past-tense sentences.** For example,
+  `Added test scripts for the distroless image builds.` Use a concise
+  subject line and, when it helps, a body explaining the *why*.
+- **Use pinentry for the GPG passphrase.** Commits are signed; enter the
+  key passphrase in the pinentry prompt when asked, and never disable
+  signing. If gpg fails with `cannot open '/dev/tty'`, re-run the commit
+  with `git -c gpg.program=/tmp/opencode/gpg-ask commit ...`, which adds
+  `--pinentry-mode ask` so pinentry can prompt.
+
+## Project
+
+This is the BetterRimworlds.ChickenBatteryCage RimWorld 1.6 mod.
+
 Do **not** invent a different layout. Agents routinely break bootstrapping by:
 
 - Putting the `.csproj` at the repo root instead of `Source/`
@@ -13,7 +33,7 @@ Do **not** invent a different layout. Agents routinely break bootstrapping by:
 - Forgetting Harmony as a workshop dependency when the C# project references 0Harmony
 - Committing `obj/`, `bin/`, `*.dll`, or `*.zip`
 
-## Layout (do not flatten)
+### Layout (do not flatten)
 
 ```
 ChickenBatteryCage/
@@ -51,13 +71,7 @@ textures live unversioned under the inner pack folder in git.
 Never use “latch” as a verb (or latches / latched / latching). Prefer records,
 remembers, keeps, sets once, marks, stores, remains set, one-time flag.
 
-## Commits and changelog
+## Changelog
 
-- Match this repo’s subject style: short, past tense, optional `[m]` tag for minor edits.
 - `CHANGELOG.md` is updated by an external tool. Do not edit, stage, or commit it
   unless the maintainer asks.
-
-## Git signing
-
-This environment signs commits with GPG. If signing fails for lack of a TTY, leave
-changes staged and ask the maintainer to unlock gpg-agent.
