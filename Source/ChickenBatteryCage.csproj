@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10</LangVersion>
+
+    <ProjectGuid>{0A80B0DF-CD84-4DAD-885E-39491A36DA88}</ProjectGuid>
+    <RootNamespace>BetterRimworlds.ChickenBatteryCage</RootNamespace>
+    <AssemblyName>ChickenBatteryCage</AssemblyName>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+
+    <!-- Preserve your existing output root. -->
+    <ModOutputRoot>/rimworld/1.6/Mods/ChickenBatteryCage</ModOutputRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.6' ">
+    <RimWorldVersion>1.6</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.6-steam</RimWorldInstall>
+    <DefineConstants>RIMWORLD16</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(RimWorldVersion)' != '' ">
+    <OutputPath>$(ModOutputRoot)/$(RimWorldVersion)/Assemblies</OutputPath>
+  </PropertyGroup>
+
+  <Target Name="FailOnUnsupportedConfiguration" BeforeTargets="BeforeBuild" Condition=" '$(RimWorldVersion)' == '' ">
+    <Error Text="Unsupported configuration '$(Configuration)'. Use one of: $(Configurations)" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(RimWorldVersion)' != '' ">
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine">
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="0Harmony">
+      <HintPath>$(RimWorldInstall)/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
