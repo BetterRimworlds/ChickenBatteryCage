@@ -55,7 +55,7 @@ public class JobDriver_RopeHenToBatteryCage : JobDriver_RopeToDestination
     protected override IEnumerable<Toil> MakeNewToils()
     {
         this.FailOnDespawnedNullOrForbidden(DestMarkerInd);
-        this.FailOn(() => Cage == null || !Cage.IsOperational);
+        this.FailOn(() => Cage == null || !Cage.IsOperational || !Cage.PenSystemEnabled);
 
         foreach (Toil toil in base.MakeNewToils())
         {

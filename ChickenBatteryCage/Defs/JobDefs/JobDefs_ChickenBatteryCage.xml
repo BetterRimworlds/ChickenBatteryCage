@@ -7,4 +7,10 @@
 		<casualInterruptible>false</casualInterruptible>
 		<allowOpportunisticPrefix>true</allowOpportunisticPrefix>
 	</JobDef>
+	<JobDef>
+		<defName>CBC_UnloadBatteryCage</defName>
+		<driverClass>BetterRimworlds.ChickenBatteryCage.JobDriver_UnloadBatteryCage</driverClass>
+		<reportString>unloading a battery cage.</reportString>
+		<casualInterruptible>false</casualInterruptible>
+	</JobDef>
 </Defs>

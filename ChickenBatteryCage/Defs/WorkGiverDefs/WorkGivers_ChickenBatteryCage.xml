@@ -14,4 +14,17 @@
 		</requiredCapacities>
 		<prioritizeSustains>true</prioritizeSustains>
 	</WorkGiverDef>
+	<WorkGiverDef>
+		<defName>CBC_UnloadBatteryCages</defName>
+		<label>unload battery cages</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_UnloadBatteryCages</giverClass>
+		<workType>Handling</workType>
+		<verb>unload</verb>
+		<gerund>unloading</gerund>
+		<!-- Above loading so a marked bird is moved out before more are roped in. -->
+		<priorityInType>175</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
 </Defs>

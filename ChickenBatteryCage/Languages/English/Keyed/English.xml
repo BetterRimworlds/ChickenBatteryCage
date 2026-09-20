@@ -2,7 +2,10 @@
 <LanguageData>
 	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
 	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.Unroofed>
+	<ChickenBatteryCage.Inspect.PenSystemOff>Pen system: off — handlers will not load hens.</ChickenBatteryCage.Inspect.PenSystemOff>
+	<ChickenBatteryCage.Inspect.PendingUnload>To unload:      {0}</ChickenBatteryCage.Inspect.PendingUnload>
 	<ChickenBatteryCage.Inspect.Chickens>Hens:           {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
+	<ChickenBatteryCage.Inspect.Network>All cages:      {0} / {1} ({2} cages)</ChickenBatteryCage.Inspect.Network>
 	<ChickenBatteryCage.Inspect.AdultHens>Adult hens:     {0}</ChickenBatteryCage.Inspect.AdultHens>
 	<ChickenBatteryCage.Inspect.Juveniles>Juveniles:      {0}</ChickenBatteryCage.Inspect.Juveniles>
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
@@ -11,15 +14,20 @@
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
 	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nHens: {0} / {1}\nAdult hens: {2}\nJuveniles: {3}</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many hens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
-	<ChickenBatteryCage.Gizmo.Release>Release chicken</ChickenBatteryCage.Gizmo.Release>
-	<ChickenBatteryCage.Gizmo.ReleaseDesc>Return a hen from this cage to the map. Choose which bird by age or type.</ChickenBatteryCage.Gizmo.ReleaseDesc>
-	<ChickenBatteryCage.Gizmo.ReleaseEmpty>This cage is empty.</ChickenBatteryCage.Gizmo.ReleaseEmpty>
+	<ChickenBatteryCage.Gizmo.PenSystemOn>Pen system: on</ChickenBatteryCage.Gizmo.PenSystemOn>
+	<ChickenBatteryCage.Gizmo.PenSystemOff>Pen system: off</ChickenBatteryCage.Gizmo.PenSystemOff>
+	<ChickenBatteryCage.Gizmo.PenSystemDesc>When on, handlers rope hens into your battery cages automatically. Toggling this applies to every battery cage on the map at once. Unloading marks are still worked and the hens already housed are unaffected.</ChickenBatteryCage.Gizmo.PenSystemDesc>
+	<ChickenBatteryCage.Gizmo.Unload>Unload chickens</ChickenBatteryCage.Gizmo.Unload>
+	<ChickenBatteryCage.Gizmo.UnloadPending>Unload chickens ({0} marked)</ChickenBatteryCage.Gizmo.UnloadPending>
+	<ChickenBatteryCage.Gizmo.UnloadDesc>Mark chickens to be unloaded. An animal handler will release them from this cage. Choose which birds by age or type.</ChickenBatteryCage.Gizmo.UnloadDesc>
+	<ChickenBatteryCage.Gizmo.UnloadEmpty>This cage is empty.</ChickenBatteryCage.Gizmo.UnloadEmpty>
+	<ChickenBatteryCage.Gizmo.CancelUnload>Cancel all unloading marks</ChickenBatteryCage.Gizmo.CancelUnload>
 	<ChickenBatteryCage.FloatMenu.Full>This battery cage is full.</ChickenBatteryCage.FloatMenu.Full>
 	<ChickenBatteryCage.FloatMenu.Unroofed>This battery cage must be fully roofed before it can hold chickens.</ChickenBatteryCage.FloatMenu.Unroofed>
+	<ChickenBatteryCage.FloatMenu.Disabled>No reachable battery cage has its pen system turned on.</ChickenBatteryCage.FloatMenu.Disabled>
 	<ChickenBatteryCage.Job.NoCage>There is no battery cage.</ChickenBatteryCage.Job.NoCage>
 	<ChickenBatteryCage.Job.NoReachableCage>No reachable battery cage has space.</ChickenBatteryCage.Job.NoReachableCage>
 	<ChickenBatteryCage.Message.Released>Released {0}.</ChickenBatteryCage.Message.Released>
-	<ChickenBatteryCage.Message.ReleaseFailed>Could not release a chicken from this cage.</ChickenBatteryCage.Message.ReleaseFailed>
 	<ChickenBatteryCage.Release.Youngest>Youngest</ChickenBatteryCage.Release.Youngest>
 	<ChickenBatteryCage.Release.Oldest>Oldest</ChickenBatteryCage.Release.Oldest>
 	<ChickenBatteryCage.Release.Random>Random</ChickenBatteryCage.Release.Random>

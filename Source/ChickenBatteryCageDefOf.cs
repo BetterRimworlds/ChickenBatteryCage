@@ -19,6 +19,8 @@ public static class ChickenBatteryCageDefOf
 {
     public static JobDef CBC_RopeHenToBatteryCage;
 
+    public static JobDef CBC_UnloadBatteryCage;
+
     /// The vanilla chicken pawn kind, used both to recognize birds and to
     /// regenerate them on release.
     public static PawnKindDef Chicken;

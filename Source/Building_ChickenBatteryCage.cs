@@ -25,11 +25,21 @@ public class Building_ChickenBatteryCage : Building
 
     bool roofedOverOccupiedCells = true;
 
+    /// When false the cage's pen system is inactive. Handlers stop roping hens
+    /// in, but the player can still release hens by hand and the hens already
+    /// housed stay exactly as they are.
+    protected bool penSystemEnabled = true;
+
     readonly List<IntVec3> unroofedCellsScratch = new List<IntVec3>();
 
     /// The entire confined flock, stored as compact biological records. No
     /// spawned Pawn is kept here.
     protected List<CagedChickenRecord> chickens = new List<CagedChickenRecord>();
+
+    /// Chickens the player has marked for unloading, one filter per bird. An
+    /// animal handler resolves the front of the queue when the unload job
+    /// reaches the cage. Persisted so marks survive save/load.
+    protected List<ChickenReleaseFilter> pendingUnloads = new List<ChickenReleaseFilter>();
 
     /// Sentinel kept at long.MaxValue while unresolved so that, even if a
     /// caller somehow bypasses the guard in IsAdult, no bird is misread as
@@ -41,6 +51,15 @@ public class Building_ChickenBatteryCage : Building
 
     public bool IsOperational => roofedOverOccupiedCells;
 
+    /// Controls whether handlers may rope hens into this cage automatically.
+    /// Defaults to true and persists across saves. Manual release is unaffected.
+    public bool PenSystemEnabled => penSystemEnabled;
+
+    /// True while at least one chicken is marked to be unloaded by a handler.
+    public bool HasPendingUnload => pendingUnloads.Count > 0;
+
+    public int PendingUnloadCount => pendingUnloads.Count;
+
     public bool IsFull => chickens.Count >= ChickenCapacity;
 
     public virtual int ChickenCount => chickens.Count;
@@ -48,6 +67,11 @@ public class Building_ChickenBatteryCage : Building
     public virtual int AdultHenCount => CountMatching(Gender.Female, adult: true);
 
     public virtual int JuvenileCount => CountMatching(Gender.None, adult: false, anyGender: true);
+
+    public CagedChickenRecord RecordAt(int index)
+    {
+        return (index >= 0 && index < chickens.Count) ? chickens[index] : null;
+    }
 
     protected virtual string FeedInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
 
@@ -97,11 +121,21 @@ public class Building_ChickenBatteryCage : Building
     public override void ExposeData()
     {
         base.ExposeData();
+        Scribe_Values.Look(ref penSystemEnabled, "penSystemEnabled", true);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
+        Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
-        if (Scribe.mode == LoadSaveMode.PostLoadInit && chickens == null)
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
-            chickens = new List<CagedChickenRecord>();
+            if (chickens == null)
+            {
+                chickens = new List<CagedChickenRecord>();
+            }
+
+            if (pendingUnloads == null)
+            {
+                pendingUnloads = new List<ChickenReleaseFilter>();
+            }
         }
     }
 
@@ -132,9 +166,33 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate());
         }
 
+        if (!penSystemEnabled)
+        {
+            sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
+        }
+
         sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(ChickenCount, ChickenCapacity));
         sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(AdultHenCount));
         sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(JuvenileCount));
+
+        int cageCount = 0;
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(Map))
+        {
+            cageCount++;
+        }
+
+        if (cageCount > 1)
+        {
+            sb.AppendLine("ChickenBatteryCage.Inspect.Network".Translate(
+                CageNetwork.ChickenCount(Map),
+                CageNetwork.TotalCapacity(Map),
+                cageCount));
+        }
+
+        if (HasPendingUnload)
+        {
+            sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(PendingUnloadCount));
+        }
         sb.AppendLine("ChickenBatteryCage.Inspect.Feed".Translate(FeedInspectValue));
         sb.Append("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
 
@@ -148,84 +206,107 @@ public class Building_ChickenBatteryCage : Building
             yield return gizmo;
         }
 
+        // Every gizmo below reads from the map-wide cage network, so all cages
+        // present identical labels and merge into one control on multi-select.
+        Map map = Map;
+
+        // The CageNetwork aggregates each rescan the map's colonist buildings,
+        // so gather everything this method displays in a single pass instead of
+        // calling ChickenCount/TotalCapacity/... repeatedly for one frame.
+        int chickenCount = 0;
+        int totalCapacity = 0;
+        int adultHenCount = 0;
+        int juvenileCount = 0;
+        int pendingUnloadCount = 0;
+        bool penSystemEnabled = true;
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(map))
+        {
+            chickenCount += cage.ChickenCount;
+            totalCapacity += ChickenCapacity;
+            adultHenCount += cage.AdultHenCount;
+            juvenileCount += cage.JuvenileCount;
+            pendingUnloadCount += cage.PendingUnloadCount;
+            if (!cage.PenSystemEnabled)
+            {
+                penSystemEnabled = false;
+            }
+        }
+
         Command_Action capacityGizmo = new Command_Action
         {
-            defaultLabel = "ChickenBatteryCage.Gizmo.Capacity".Translate(ChickenCount, ChickenCapacity),
+            defaultLabel = "ChickenBatteryCage.Gizmo.Capacity".Translate(chickenCount, totalCapacity),
             defaultDesc = "ChickenBatteryCage.Gizmo.CapacityDesc".Translate(
-                ChickenCount,
-                ChickenCapacity,
-                AdultHenCount,
-                JuvenileCount),
+                chickenCount,
+                totalCapacity,
+                adultHenCount,
+                juvenileCount),
             icon = def.uiIcon,
             action = delegate { },
         };
         capacityGizmo.Disable("ChickenBatteryCage.Gizmo.CapacityDisabled".Translate());
         yield return capacityGizmo;
 
-        Command_Action releaseGizmo = new Command_Action
+        Command_Toggle penSystemGizmo = new Command_Toggle
         {
-            defaultLabel = "ChickenBatteryCage.Gizmo.Release".Translate(),
-            defaultDesc = "ChickenBatteryCage.Gizmo.ReleaseDesc".Translate(),
+            defaultLabel = (penSystemEnabled
+                ? "ChickenBatteryCage.Gizmo.PenSystemOn"
+                : "ChickenBatteryCage.Gizmo.PenSystemOff").Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.PenSystemDesc".Translate(),
             icon = def.uiIcon,
-            groupable = false,
+            isActive = () => CageNetwork.PenSystemEnabled(Map),
+            toggleAction = delegate
+            {
+                CageNetwork.SetPenSystemEnabled(map, !CageNetwork.PenSystemEnabled(map));
+            },
+        };
+        yield return penSystemGizmo;
+
+        Command_Action unloadGizmo = new Command_Action
+        {
+            defaultLabel = (pendingUnloadCount > 0
+                ? "ChickenBatteryCage.Gizmo.UnloadPending"
+                : "ChickenBatteryCage.Gizmo.Unload").Translate(pendingUnloadCount),
+            defaultDesc = "ChickenBatteryCage.Gizmo.UnloadDesc".Translate(),
+            icon = def.uiIcon,
             action = delegate
             {
-                FloatMenu menu = new FloatMenu(BuildReleaseMenu());
+                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(map));
                 menu.vanishIfMouseDistant = false;
                 Find.WindowStack.Add(menu);
             },
         };
-        if (ChickenCount == 0)
+        if (chickenCount == 0)
         {
-            releaseGizmo.Disable("ChickenBatteryCage.Gizmo.ReleaseEmpty".Translate());
+            unloadGizmo.Disable("ChickenBatteryCage.Gizmo.UnloadEmpty".Translate());
         }
-        yield return releaseGizmo;
-    }
-
-    List<FloatMenuOption> BuildReleaseMenu()
-    {
-        var options = new List<FloatMenuOption>();
-        foreach (ChickenReleaseFilter filter in (ChickenReleaseFilter[])Enum.GetValues(typeof(ChickenReleaseFilter)))
-        {
-            ChickenReleaseFilter local = filter;
-            bool available = FindRecordIndex(local) >= 0;
-            FloatMenuOption option = new FloatMenuOption(
-                ReleaseFilterLabel(local),
-                available ? (Action)(() => TryReleaseChicken(local)) : null);
-            if (!available)
-            {
-                option.Disabled = true;
-            }
-            options.Add(option);
-        }
-        return options;
-    }
-
-    static string ReleaseFilterLabel(ChickenReleaseFilter filter)
-    {
-        switch (filter)
-        {
-            case ChickenReleaseFilter.Youngest:
-                return "ChickenBatteryCage.Release.Youngest".Translate();
-            case ChickenReleaseFilter.Oldest:
-                return "ChickenBatteryCage.Release.Oldest".Translate();
-            case ChickenReleaseFilter.Random:
-                return "ChickenBatteryCage.Release.Random".Translate();
-            case ChickenReleaseFilter.AdultHen:
-                return "ChickenBatteryCage.Release.AdultHen".Translate();
-            case ChickenReleaseFilter.Juvenile:
-                return "ChickenBatteryCage.Release.Juvenile".Translate();
-            default:
-                return filter.ToString();
-        }
+        yield return unloadGizmo;
     }
 
     public bool CanAcceptChicken(Pawn chicken)
     {
         return IsHen(chicken)
             && IsOperational
+            && penSystemEnabled
             && !IsFull
             && !CageHenReleaseMemory.IsRecentlyReleased(chicken);
+    }
+
+    public static bool AnyCageWithPendingUnload(Map map)
+    {
+        if (map == null)
+        {
+            return false;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
+        {
+            if (cage.HasPendingUnload)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static bool AnyAcceptingCage(Map map)
@@ -237,7 +318,7 @@ public class Building_ChickenBatteryCage : Building
 
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (cage.IsOperational && !cage.IsFull)
+            if (cage.IsOperational && cage.penSystemEnabled && !cage.IsFull)
             {
                 return true;
             }
@@ -250,6 +331,7 @@ public class Building_ChickenBatteryCage : Building
     {
         bool any = false;
         bool anyOperational = false;
+        bool anyEnabled = false;
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
             any = true;
@@ -259,6 +341,12 @@ public class Building_ChickenBatteryCage : Building
             }
 
             anyOperational = true;
+            if (!cage.penSystemEnabled)
+            {
+                continue;
+            }
+
+            anyEnabled = true;
             if (!cage.IsFull)
             {
                 return "ChickenBatteryCage.Job.NoReachableCage".Translate();
@@ -273,6 +361,11 @@ public class Building_ChickenBatteryCage : Building
         if (!anyOperational)
         {
             return "ChickenBatteryCage.FloatMenu.Unroofed".Translate();
+        }
+
+        if (!anyEnabled)
+        {
+            return "ChickenBatteryCage.FloatMenu.Disabled".Translate();
         }
 
         return "ChickenBatteryCage.FloatMenu.Full".Translate();
@@ -394,31 +487,63 @@ public class Building_ChickenBatteryCage : Building
         chickens.Add(record);
     }
 
-    void TryReleaseChicken(ChickenReleaseFilter filter)
+    /// Marks one chicken of the chosen kind to be unloaded by an animal
+    /// handler. The mark is resolved when a handler reaches the cage.
+    /// Returns false when the cage has no space left in its mark queue; the
+    /// network only calls this after confirming a matching bird is housed here.
+    public bool RequestUnload(ChickenReleaseFilter filter)
     {
-        try
+        if (pendingUnloads.Count < chickens.Count)
         {
-            if (ReleaseChicken(filter))
-            {
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("[ChickenBatteryCage] Exception while releasing a chicken: " + ex);
+            pendingUnloads.Add(filter);
+            return true;
         }
 
-        Messages.Message(
-            "ChickenBatteryCage.Message.ReleaseFailed".Translate(),
-            this,
-            MessageTypeDefOf.RejectInput,
-            historical: false);
+        return false;
     }
 
-    public bool ReleaseChicken(ChickenReleaseFilter filter)
+    public void SetPenSystemEnabled(bool enabled)
     {
-        int index = FindRecordIndex(filter);
-        if (index < 0)
+        penSystemEnabled = enabled;
+    }
+
+    public void ClearPendingUnloads()
+    {
+        pendingUnloads.Clear();
+    }
+
+    /// Resolves the front of the unload queue. Discards marks whose kind of
+    /// chicken is no longer present and stops without losing a mark if the
+    /// bird could not be materialized.
+    public bool TryUnloadNext()
+    {
+        while (pendingUnloads.Count > 0)
+        {
+            ChickenReleaseFilter filter = pendingUnloads[0];
+            int index = FindRecordIndex(filter);
+            if (index < 0)
+            {
+                pendingUnloads.RemoveAt(0);
+                continue;
+            }
+
+            if (!ReleaseRecordAt(index))
+            {
+                // Generation failed; keep both the record and the mark.
+                return false;
+            }
+
+            pendingUnloads.RemoveAt(0);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// Materializes and releases the record at the given index.
+    public bool ReleaseRecordAt(int index)
+    {
+        if (index < 0 || index >= chickens.Count)
         {
             return false;
         }
@@ -442,7 +567,9 @@ public class Building_ChickenBatteryCage : Building
         return true;
     }
 
-    int FindRecordIndex(ChickenReleaseFilter filter)
+    /// The whole network scans this when routing unload marks, e.g. to find
+    /// the true youngest hen across every cage on the map.
+    public int FindRecordIndex(ChickenReleaseFilter filter)
     {
         if (chickens.Count == 0)
         {
