@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<ThingDef ParentName="BuildingBase">
+		<defName>ChickenBatteryCage</defName>
+		<label>battery chicken cage</label>
+		<description>A four-tier battery cage for a flock of ten chickens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Chickens kept here are managed collectively. Must be built under a roof covering every cell of the cage.</description>
+		<thingClass>BetterRimworlds.ChickenBatteryCage.Building_ChickenBatteryCage</thingClass>
+		<graphicData>
+			<texPath>Things/Building/ChickenBatteryCage/ChickenBatteryCage</texPath>
+			<graphicClass>Graphic_Multi</graphicClass>
+			<shaderType>CutoutComplex</shaderType>
+			<drawSize>(2,3)</drawSize>
+			<damageData>
+				<cornerTL>Damage/Corner</cornerTL>
+				<cornerTR>Damage/Corner</cornerTR>
+				<cornerBL>Damage/Corner</cornerBL>
+				<cornerBR>Damage/Corner</cornerBR>
+			</damageData>
+		</graphicData>
+		<uiIconPath>Things/Building/ChickenBatteryCage/ChickenBatteryCage_MenuIcon</uiIconPath>
+		<researchPrerequisites>
+			<li>ChickenBatteryCage</li>
+		</researchPrerequisites>
+		<techLevel>Medieval</techLevel>
+		<altitudeLayer>Building</altitudeLayer>
+		<passability>Impassable</passability>
+		<pathCost>70</pathCost>
+		<blockWind>true</blockWind>
+		<castEdgeShadows>true</castEdgeShadows>
+		<fillPercent>0.70</fillPercent>
+		<canOverlapZones>false</canOverlapZones>
+		<statBases>
+			<WorkToBuild>2500</WorkToBuild>
+			<MaxHitPoints>180</MaxHitPoints>
+			<Flammability>1.0</Flammability>
+			<Mass>50</Mass>
+			<Beauty>-2</Beauty>
+		</statBases>
+		<size>(2,3)</size>
+		<designationCategory>Production</designationCategory>
+		<uiOrder>2070</uiOrder>
+		<hasInteractionCell>true</hasInteractionCell>
+		<interactionCellOffset>(0,0,-2)</interactionCellOffset>
+		<defaultPlacingRot>South</defaultPlacingRot>
+		<rotatable>true</rotatable>
+		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
+		<stuffCategories>
+			<li>Woody</li>
+			<li>Metallic</li>
+		</stuffCategories>
+		<costStuffCount>80</costStuffCount>
+		<building>
+			<ai_chillDestination>false</ai_chillDestination>
+		</building>
+		<terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
+		<staticSunShadowHeight>0.6</staticSunShadowHeight>
+		<constructionSkillPrerequisite>4</constructionSkillPrerequisite>
+	</ThingDef>
+</Defs>
