@@ -11,7 +11,6 @@
 
 using System.Collections.Generic;
 using System.Text;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -22,6 +21,8 @@ public class Building_ChickenBatteryCage : Building
     public const int ChickenCapacity = 10;
 
     bool roofedOverOccupiedCells = true;
+
+    readonly List<IntVec3> unroofedCellsScratch = new List<IntVec3>();
 
     public bool IsOperational => roofedOverOccupiedCells;
 
@@ -104,12 +105,26 @@ public class Building_ChickenBatteryCage : Building
         yield return capacityGizmo;
     }
 
-    protected override void DrawAt(Vector3 drawLoc, bool flip = false)
+    public override void DrawExtraSelectionOverlays()
     {
-        base.DrawAt(drawLoc, flip);
-        if (Spawned && !IsOperational)
+        base.DrawExtraSelectionOverlays();
+        if (!Spawned || IsOperational)
         {
-            Map.overlayDrawer.DrawOverlay(this, OverlayTypes.BrokenDown);
+            return;
+        }
+
+        unroofedCellsScratch.Clear();
+        foreach (IntVec3 cell in this.OccupiedRect())
+        {
+            if (!Map.roofGrid.Roofed(cell))
+            {
+                unroofedCellsScratch.Add(cell);
+            }
+        }
+
+        if (unroofedCellsScratch.Count > 0)
+        {
+            GenDraw.DrawFieldEdges(unroofedCellsScratch, Color.red);
         }
     }
 
