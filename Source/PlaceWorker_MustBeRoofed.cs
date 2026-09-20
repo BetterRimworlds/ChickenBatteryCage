@@ -25,7 +25,13 @@ public class PlaceWorker_MustBeRoofed : PlaceWorker
     {
         foreach (IntVec3 cell in GenAdj.OccupiedRect(loc, rot, checkingDef.Size))
         {
-            if (!cell.InBounds(map) || !map.roofGrid.Roofed(cell))
+            if (!cell.InBounds(map))
+            {
+                // Let core placement rules handle out-of-bounds as an invalid location.
+                return false;
+            }
+
+            if (!map.roofGrid.Roofed(cell))
             {
                 return new AcceptanceReport("ChickenBatteryCage.MustBeRoofed".Translate());
             }
