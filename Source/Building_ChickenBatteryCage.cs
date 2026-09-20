@@ -64,14 +64,12 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine();
         }
 
-        sb.Append("ChickenBatteryCage.Inspect.RequiresRoof".Translate());
         if (!IsOperational)
         {
-            sb.AppendLine();
-            sb.Append("ChickenBatteryCage.Inspect.Unroofed".Translate());
+            sb.AppendLine("ChickenBatteryCage.Inspect.RequiresRoof".Translate());
+            sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate());
         }
 
-        sb.AppendLine();
         sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(ChickenCount, ChickenCapacity));
         sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(AdultHenCount));
         sb.AppendLine("ChickenBatteryCage.Inspect.AdultRoosters".Translate(AdultRoosterCount));
