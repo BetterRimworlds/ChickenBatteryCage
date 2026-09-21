@@ -30,6 +30,7 @@
 	<ChickenBatteryCage.Message.Released>Released {0}.</ChickenBatteryCage.Message.Released>
 	<ChickenBatteryCage.Message.ReleasedOnDeconstruct>A deconstructed battery cage released {0} chickens.</ChickenBatteryCage.Message.ReleasedOnDeconstruct>
 	<ChickenBatteryCage.Message.ReleasedInjured>A destroyed battery cage spilled out {0} injured chickens.</ChickenBatteryCage.Message.ReleasedInjured>
+	<ChickenBatteryCage.Message.StrandedReleased>Freed {0} more chickens that were trapped when a battery cage was destroyed.</ChickenBatteryCage.Message.StrandedReleased>
 	<ChickenBatteryCage.Release.Youngest>Youngest</ChickenBatteryCage.Release.Youngest>
 	<ChickenBatteryCage.Release.Oldest>Oldest</ChickenBatteryCage.Release.Oldest>
 	<ChickenBatteryCage.Release.Random>Random</ChickenBatteryCage.Release.Random>

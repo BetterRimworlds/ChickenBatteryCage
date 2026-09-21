@@ -122,11 +122,17 @@ public class Building_ChickenBatteryCage : Building
     /// being the only copy of those birds. Peaceful deconstruction by a
     /// colonist frees them unharmed; any other destruction, such as combat
     /// damage or fire, leaves the flock wounded.
+    ///
+    /// A bird that cannot be materialized at that instant is not abandoned: the
+    /// record is handed to <see cref="MapComponent_CagedChickenRescue"/>, which
+    /// holds it past the building's destruction and retries the release.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
         if (chickens.Count > 0)
         {
-            ReleaseFlock(injured: mode != DestroyMode.Deconstruct);
+            bool injured = mode != DestroyMode.Deconstruct;
+            ReleaseFlock(injured);
+            PreserveUnreleasedFlock(injured);
         }
 
         base.Destroy(mode);
@@ -176,6 +182,50 @@ public class Building_ChickenBatteryCage : Building
                 MessageTypeDefOf.NeutralEvent,
                 historical: false);
         }
+    }
+
+    /// Handles the records that <see cref="ReleaseFlock"/> could not turn into
+    /// pawns. They outlive the building by moving to a map component, which
+    /// keeps them across save/load and retries the release. A record must never
+    /// be deleted just because the cage that held it is gone.
+    void PreserveUnreleasedFlock(bool injured)
+    {
+        if (chickens.Count == 0)
+        {
+            return;
+        }
+
+        Map map = Map;
+        MapComponent_CagedChickenRescue rescue =
+            map?.GetComponent<MapComponent_CagedChickenRescue>();
+
+        if (rescue == null)
+        {
+            // Nowhere to keep them. There is no map to attach the records to,
+            // so their only copy disappears with the building. Say so loudly
+            // instead of dropping them in silence.
+            Log.Error("[ChickenBatteryCage] Destroying a battery cage with " +
+                chickens.Count + " unreleased chicken record(s) but no map to " +
+                "preserve them on; those chickens were lost.");
+            chickens.Clear();
+            pendingUnloads.Clear();
+            return;
+        }
+
+        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        int preserved = chickens.Count;
+        foreach (CagedChickenRecord record in chickens)
+        {
+            rescue.Preserve(record, near, injured);
+        }
+
+        chickens.Clear();
+        pendingUnloads.Clear();
+
+        Log.Warning("[ChickenBatteryCage] " + preserved +
+            " caged chicken record(s) could not be released when their cage was " +
+            "destroyed; they were handed to the map's rescue component and will " +
+            "be released as soon as a placement cell is free.");
     }
 
     public override void ExposeData()
