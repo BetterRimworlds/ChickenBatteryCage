@@ -234,13 +234,11 @@ public class Building_ChickenBatteryCage : Building
             float adultYears = AdultMinAgeYears;
             int now = GenTicks.TicksAbs;
             float rate = 0f;
+
+            // Gender is no longer persisted: every housed bird is a hen by
+            // construction, so each record contributes laying directly.
             foreach (CagedChickenRecord record in chickens)
             {
-                if (record.gender != Gender.Female)
-                {
-                    continue;
-                }
-
                 rate += CageEggMath.EggsPerHenPerDay(
                     record.BiologicalAgeYearsAt(now),
                     adultYears,
@@ -1068,10 +1066,11 @@ public class Building_ChickenBatteryCage : Building
                 return ExtremeByAge(now, youngest: false);
 
             case ChickenReleaseFilter.AdultHen:
-                return FirstMatching(now, Gender.Female, adult: true);
+                // Every caged bird is female, so "adult hen" reduces to "adult".
+                return FirstMatching(now, adult: true);
 
             case ChickenReleaseFilter.Juvenile:
-                return FirstMatching(now, Gender.None, adult: false, anyGender: true);
+                return FirstMatching(now, adult: false);
 
             default:
                 return -1;
@@ -1094,16 +1093,11 @@ public class Building_ChickenBatteryCage : Building
         return best;
     }
 
-    int FirstMatching(int now, Gender gender, bool adult, bool anyGender = false)
+    int FirstMatching(int now, bool adult)
     {
         for (int i = 0; i < chickens.Count; i++)
         {
-            CagedChickenRecord record = chickens[i];
-            if (IsAdult(record, now) != adult)
-            {
-                continue;
-            }
-            if (!anyGender && record.gender != gender)
+            if (IsAdult(chickens[i], now) != adult)
             {
                 continue;
             }
@@ -1520,13 +1514,13 @@ public class Building_ChickenBatteryCage : Building
         int juveniles = 0;
         foreach (CagedChickenRecord record in chickens)
         {
-            if (!IsAdult(record, now))
-            {
-                juveniles++;
-            }
-            else if (record.gender == Gender.Female)
+            if (IsAdult(record, now))
             {
                 adultHens++;
+            }
+            else
+            {
+                juveniles++;
             }
         }
 

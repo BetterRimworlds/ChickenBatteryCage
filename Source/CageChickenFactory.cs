@@ -87,7 +87,8 @@ public static class CageChickenFactory
                 canGeneratePawnRelations: false,
                 fixedBiologicalAge: biologicalAgeYears,
                 fixedChronologicalAge: biologicalAgeYears,
-                fixedGender: record.gender,
+                // Cages house hens only, so the reconstructed bird is female.
+                fixedGender: Gender.Female,
                 forceNoIdeo: true,
                 developmentalStages: DevelopmentalStageFor(biologicalAgeTicks));
 

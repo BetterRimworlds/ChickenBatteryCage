@@ -24,12 +24,15 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * Biological age is stored as the age at entry plus the absolute tick of
  * entry. The current age is derived on demand, so no per-chicken aging work
  * ever runs while the bird is confined.
+ *
+ * Gender is not stored. Battery cages only ever accept hens, so every housed
+ * bird is female by construction; keeping a constant would be a serialization
+ * field that can never carry information.
  */
 public class CagedChickenRecord : IExposable
 {
     public long biologicalAgeTicksAtEntry;
     public int enteredAtGameTick;
-    public Gender gender;
 
     /// Integrated negative log survival since the last mortality roll. Kept
     /// with the bird so feeding and save/load cannot erase accrued exposure.
@@ -40,11 +43,10 @@ public class CagedChickenRecord : IExposable
     {
     }
 
-    public CagedChickenRecord(long biologicalAgeTicksAtEntry, int enteredAtGameTick, Gender gender)
+    public CagedChickenRecord(long biologicalAgeTicksAtEntry, int enteredAtGameTick)
     {
         this.biologicalAgeTicksAtEntry = biologicalAgeTicksAtEntry;
         this.enteredAtGameTick = enteredAtGameTick;
-        this.gender = gender;
     }
 
     /// Exact biological age at the given absolute tick. No scheduled task ever
@@ -66,15 +68,13 @@ public class CagedChickenRecord : IExposable
     {
         return new CagedChickenRecord(
             chicken.ageTracker.AgeBiologicalTicks,
-            enteredAtGameTick,
-            chicken.gender);
+            enteredAtGameTick);
     }
 
     public void ExposeData()
     {
         Scribe_Values.Look(ref biologicalAgeTicksAtEntry, "biologicalAgeTicksAtEntry", 0L);
         Scribe_Values.Look(ref enteredAtGameTick, "enteredAtGameTick", 0);
-        Scribe_Values.Look(ref gender, "gender", Gender.Female);
         Scribe_Values.Look(ref mortalityExposure, "mortalityExposure", 0.0);
     }
 }
