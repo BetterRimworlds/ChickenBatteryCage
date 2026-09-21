@@ -144,6 +144,28 @@ public class Building_ChickenBatteryCage : Building
         CageNetwork.SettleCluster(cluster, now);
     }
 
+    /// The pure nutrition step, shared by the real tick and the dev simulator.
+    void ApplyNutritionElapsed(int elapsed)
+    {
+        if (elapsed <= 0 || chickens == null)
+        {
+            return;
+        }
+
+        starvingTicks = CageNutritionMath.StarvingTicksAfter(
+            starvingTicks,
+            nutritionStored,
+            chickens.Count,
+            CageNutritionMath.DefaultNutritionPerChickenPerDay,
+            elapsed);
+
+        nutritionStored = CageNutritionMath.RemainingAfter(
+            nutritionStored,
+            chickens.Count,
+            CageNutritionMath.DefaultNutritionPerChickenPerDay,
+            elapsed);
+    }
+
     /// Controls whether handlers may rope hens into this cage automatically.
     /// Defaults to true and persists across saves. Manual release is unaffected.
     public bool PenSystemEnabled => penSystemEnabled;
@@ -1381,13 +1403,14 @@ public class Building_ChickenBatteryCage : Building
         }
 
         int elapsed = now - eggCheckedAtTick;
-        if (elapsed <= 0)
-        {
-            return;
-        }
-
         eggCheckedAtTick = now;
-        if (chickens != null && chickens.Count > 0)
+        ApplyEggProductionElapsed(elapsed);
+    }
+
+    /// The pure laying step, shared by the real tick and the dev simulator.
+    void ApplyEggProductionElapsed(int elapsed)
+    {
+        if (elapsed > 0 && chickens != null && chickens.Count > 0)
         {
             int fedTicks = FedTicksWithin(elapsed);
             if (fedTicks > 0)
@@ -1550,7 +1573,13 @@ public class Building_ChickenBatteryCage : Building
         }
 
         mortalityCheckedAtTick = now;
-        if (chickens == null || chickens.Count == 0)
+        ApplyMortalityElapsed(elapsed);
+    }
+
+    /// The pure mortality step, shared by the real tick and the dev simulator.
+    void ApplyMortalityElapsed(int elapsed)
+    {
+        if (elapsed <= 0 || chickens == null || chickens.Count == 0)
         {
             return;
         }
