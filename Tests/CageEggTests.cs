@@ -69,10 +69,51 @@ public class CageEggTests
     }
 
     [Test]
-    public void FullCartonsCountOnlyWholeTwelves()
+    public void FullBatchesCountOnlyWholeBatches()
     {
-        Assert.AreEqual(0, CageEggMath.FullCartons(11.9f, 12));
-        Assert.AreEqual(1, CageEggMath.FullCartons(12f, 12));
-        Assert.AreEqual(2, CageEggMath.FullCartons(24.5f, 12));
+        Assert.AreEqual(0, CageEggMath.FullBatches(9f, 10));
+        Assert.AreEqual(0, CageEggMath.FullBatches(9.9f, 10));
+        Assert.AreEqual(1, CageEggMath.FullBatches(10f, 10));
+        Assert.AreEqual(2, CageEggMath.FullBatches(20.5f, 10));
+    }
+
+    [Test]
+    public void EggStackIsOneDayOfLayingWithAMinimumOfTen()
+    {
+        // No birds, or less than a full ten eggs a day, still releases a
+        // ten-egg stack.
+        Assert.AreEqual(10, CageEggMath.EggsPerStack(0f, 10));
+        Assert.AreEqual(10, CageEggMath.EggsPerStack(3.4f, 10));
+        Assert.AreEqual(10, CageEggMath.EggsPerStack(9.9f, 10));
+        Assert.AreEqual(10, CageEggMath.EggsPerStack(10f, 10));
+
+        // A network stacks a whole day's combined output, floored.
+        Assert.AreEqual(20, CageEggMath.EggsPerStack(20f, 10));
+        Assert.AreEqual(34, CageEggMath.EggsPerStack(34.8f, 10));
+    }
+
+    [Test]
+    public void EggStackNeverFallsBelowAUsableMinimum()
+    {
+        Assert.AreEqual(1, CageEggMath.EggsPerStack(0f, 0));
+        Assert.AreEqual(1, CageEggMath.EggsPerStack(0.5f, -5));
+    }
+
+    [Test]
+    public void WholeEggsInBoxTruncatesTheRemainder()
+    {
+        Assert.AreEqual(0, CageEggMath.WholeEggsInBox(0.9f));
+        Assert.AreEqual(9, CageEggMath.WholeEggsInBox(9.9f));
+        Assert.AreEqual(10, CageEggMath.WholeEggsInBox(10f));
+        Assert.AreEqual(0, CageEggMath.WholeEggsInBox(-1f));
+    }
+
+    [Test]
+    public void ProgressToNextEggIsTheFractionalPart()
+    {
+        Assert.AreEqual(0f, CageEggMath.ProgressToNextEgg(7f), 0.0001f);
+        Assert.AreEqual(0.5f, CageEggMath.ProgressToNextEgg(7.5f), 0.0001f);
+        Assert.AreEqual(0f, CageEggMath.ProgressToNextEgg(0f), 0.0001f);
+        Assert.AreEqual(0f, CageEggMath.ProgressToNextEgg(-2f), 0.0001f);
     }
 }

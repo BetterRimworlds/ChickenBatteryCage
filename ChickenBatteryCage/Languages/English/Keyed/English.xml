@@ -8,7 +8,8 @@
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
 	<ChickenBatteryCage.Inspect.Eggs>Eggs:           {0}</ChickenBatteryCage.Inspect.Eggs>
 	<ChickenBatteryCage.Inspect.Empty>—</ChickenBatteryCage.Inspect.Empty>
-	<ChickenBatteryCage.Eggs.Held>{0} / {1}</ChickenBatteryCage.Eggs.Held>
+	<ChickenBatteryCage.Eggs.Held>{0} / {1} in the box,</ChickenBatteryCage.Eggs.Held>
+	<ChickenBatteryCage.Eggs.Progress>{0}% to the next egg</ChickenBatteryCage.Eggs.Progress>
 	<ChickenBatteryCage.Feed.Status>{0} / {1} ({2})</ChickenBatteryCage.Feed.Status>
 	<ChickenBatteryCage.Feed.StateFed>sufficient</ChickenBatteryCage.Feed.StateFed>
 	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>

@@ -49,7 +49,7 @@ warnings.
 
 ## PR 6 — Virtualized egg production inside battery cages (`pr6-virtualized-eggs`, 6 commits)
 
-*Serialized hens, age-dependent laying, elapsed-time output, ten-egg boxes.*
+*Serialized hens, age-dependent laying, elapsed-time output, network-sized egg stacks.*
 
 > This PR also carries two unloading fixes (`Replaced the per-hen release memory with a manual network intake cutoff`, `Fixed the newborn-and-other-stages error when unloading a chicken`); exercise unloading alongside the egg checks.
 
@@ -57,7 +57,7 @@ warnings.
 - [ ] Laying rate depends on hen age (young adults peak, very old hens lay little or none).
 - [ ] Egg output is computed from **elapsed cage time** — a cage left alone overnight has a full accrual on return; output accrues while the game is unpaused, not on inspection.
 - [ ] Output is **unfertilized eggs only** — no fertilized or chick-hatching eggs ever leave the cage.
-- [ ] The cage behaves as an **egg box**: it collects eggs internally and, each time ten have accrued, releases one haulable stack of ten regular chicken eggs.
+- [ ] The cage behaves as an **egg box**: it collects eggs internally and releases one haulable stack of regular chicken eggs. A lone cage releases a ten-egg stack; touching cages share one box and release a single stack sized to one whole day of the whole network's laying (floored, minimum ten).
 - [ ] Inspection shows **progress toward the next egg** as a percentage.
 - [ ] Released eggs are ordinary vanilla chicken eggs: they stack, haul, trade, and satisfy "eggs" cooking bills like any other.
 - [ ] No individual egg `Thing` is created while the eggs are still inside the box.

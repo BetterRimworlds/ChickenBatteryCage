@@ -77,14 +77,63 @@ public static class CageEggMath
         return eggsPerDay * ticks / CagedChickenMath.TicksPerDay;
     }
 
-    /// How many whole twelve-egg cartons a batch of eggs fills.
-    public static int FullCartons(float eggs, int eggsPerCarton)
+    /// How many whole batches a pool of eggs fills. A cage releases its eggs in
+    /// whole stacks (see Building_ChickenBatteryCage), so this is the number of
+    /// stacks it can spit out at once.
+    public static int FullBatches(float eggs, int eggsPerBatch)
     {
-        if (eggs <= 0f || eggsPerCarton <= 0)
+        if (eggs <= 0f || eggsPerBatch <= 0)
         {
             return 0;
         }
 
-        return (int)Math.Floor(eggs / eggsPerCarton);
+        return (int)Math.Floor(eggs / eggsPerBatch);
+    }
+
+    /**
+     * The size of one released egg stack: a whole day's laying across the
+     * whole network, floored to whole eggs and never smaller than
+     * <paramref name="minimum"/>. A lone cage produces at most
+     * <see cref="EggsPerHenPerDayAtPrime"/> eggs per hen per day, so the floor
+     * keeps a single box at its familiar size while a network scales each
+     * stack to a full day of its combined output.
+     */
+    public static int EggsPerStack(float eggsPerDay, int minimum)
+    {
+        if (minimum < 1)
+        {
+            minimum = 1;
+        }
+
+        if (eggsPerDay <= 0f)
+        {
+            return minimum;
+        }
+
+        double whole = Math.Floor((double)eggsPerDay);
+        if (whole >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        return whole > minimum ? (int)whole : minimum;
+    }
+
+    /// How many whole eggs are waiting in the box for the next release.
+    public static int WholeEggsInBox(float eggs)
+    {
+        return eggs > 0f ? (int)Math.Floor(eggs) : 0;
+    }
+
+    /// Fractional progress toward the next egg, in the range [0, 1). Used by
+    /// the inspection readout to show how close the box is to another egg.
+    public static float ProgressToNextEgg(float eggs)
+    {
+        if (eggs <= 0f)
+        {
+            return 0f;
+        }
+
+        return eggs - (float)Math.Floor(eggs);
     }
 }

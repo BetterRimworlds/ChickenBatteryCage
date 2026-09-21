@@ -112,4 +112,50 @@ public static class CageClusterMath
             leftover -= amount;
         }
     }
+
+    /**
+     * Re-scales a set of stored amounts so that they sum to
+     * <paramref name="total"/> while keeping each member's share of the whole.
+     *
+     * A cluster's egg box is the sum of its members' own fractional progress.
+     * When a stack is released the remaining eggs must be taken out of every
+     * member in proportion, otherwise the whole remainder would be stranded on
+     * whichever cage happened to place the stack. A non-positive total empties
+     * the box; a box already empty stays empty.
+     */
+    public static void ScaleToTotal(
+        float total,
+        IReadOnlyList<float> stored,
+        IList<float> result)
+    {
+        int count = stored?.Count ?? 0;
+        if (result == null || count == 0)
+        {
+            return;
+        }
+
+        float sum = 0f;
+        for (int i = 0; i < count; i++)
+        {
+            if (stored[i] > 0f)
+            {
+                sum += stored[i];
+            }
+        }
+
+        if (total <= 0f || sum <= 0f)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = 0f;
+            }
+            return;
+        }
+
+        float factor = total / sum;
+        for (int i = 0; i < count; i++)
+        {
+            result[i] = stored[i] > 0f ? stored[i] * factor : 0f;
+        }
+    }
 }

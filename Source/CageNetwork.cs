@@ -249,6 +249,28 @@ public static class CageNetwork
         return PendingUnloadCount(cluster) > 0;
     }
 
+    public static float LayingRatePerDay(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggLayingRatePerDay;
+            }
+        }
+        return total;
+    }
+
+    /// The number of eggs in one released stack: a whole day of the network's
+    /// combined laying, floored to whole eggs and never below
+    /// <paramref name="minimum"/>. Every member of a cluster reports the same
+    /// size because the box they fill is shared.
+    public static int EggStackSize(IReadOnlyList<Building_ChickenBatteryCage> cluster, int minimum)
+    {
+        return CageEggMath.EggsPerStack(LayingRatePerDay(cluster), minimum);
+    }
+
     // ---- The shared feed pool --------------------------------------------
 
     /// Feed held across the whole cluster, treated as one pool.
@@ -309,6 +331,71 @@ public static class CageNetwork
             ChickenCount(cluster),
             CageNutritionMath.DefaultNutritionPerChickenPerDay,
             StarvingDays(cluster));
+    }
+
+    public static int EggsHeld(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        int total = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggsHeld;
+            }
+        }
+        return total;
+    }
+
+    public static float EggProgress(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggProgress;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Removes <paramref name="amount"/> of eggs from the cluster's shared box
+     * after a stack has been placed. Survivors scale their own fractional
+     * progress down in proportion, so the remainder is spread across the
+     * network rather than stranded on the cage that happened to place the
+     * stack. The amount is clamped so the box never goes negative.
+     */
+    public static void WithdrawEggs(IReadOnlyList<Building_ChickenBatteryCage> cluster, float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        int count = cluster.Count;
+        var stored = new float[count];
+        var result = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            stored[i] = Alive(cluster[i]) ? cluster[i].EggProgress : 0f;
+        }
+
+        float remaining = EggProgress(cluster) - amount;
+        if (remaining < 0f)
+        {
+            remaining = 0f;
+        }
+
+        CageClusterMath.ScaleToTotal(remaining, stored, result);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Alive(cluster[i]))
+            {
+                cluster[i].SetEggProgress(result[i]);
+            }
+        }
     }
 
     /**
