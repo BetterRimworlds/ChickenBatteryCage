@@ -177,6 +177,38 @@ public class Building_ChickenBatteryCage : Building
         chickens.Count,
         CageNutritionMath.DefaultNutritionPerChickenPerDay);
 
+    /// Summed daily laying rate of the housed hens, derived purely from their
+    /// exact biological age. No hen owns a ticking egg-production component.
+    public float EggLayingRatePerDay
+    {
+        get
+        {
+            if (chickens.Count == 0)
+            {
+                return 0f;
+            }
+
+            float adultYears = AdultMinAgeYears;
+            int now = GenTicks.TicksAbs;
+            float rate = 0f;
+            foreach (CagedChickenRecord record in chickens)
+            {
+                if (record.gender != Gender.Female)
+                {
+                    continue;
+                }
+
+                rate += CageEggMath.EggsPerHenPerDay(record.BiologicalAgeYearsAt(now), adultYears);
+            }
+
+            return rate;
+        }
+    }
+
+    static float AdultMinAgeYears => EnsureLifeStageTicks()
+        ? adultMinAgeTicks / (float)GenDate.TicksPerYear
+        : 0.2f;
+
     /// Days the flock has spent with an empty store.
     public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
 
