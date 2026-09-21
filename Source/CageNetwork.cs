@@ -370,6 +370,14 @@ public static class CageNetwork
             return;
         }
 
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.AccumulateMortality(last, now);
+            }
+        }
+
         float stored = StoredNutrition(cluster);
         int birds = OperationalBirdCount(cluster);
 

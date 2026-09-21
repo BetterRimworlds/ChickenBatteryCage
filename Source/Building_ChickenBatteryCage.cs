@@ -47,8 +47,8 @@ public class Building_ChickenBatteryCage : Building
     protected int nutritionSettledAtTick;
 
     /// Accumulated ticks the flock has spent with an empty store. Only used to
-    /// describe and (later) to roll starvation mortality; it never spawns a
-    /// starving Pawn or applies a malnutrition Hediff.
+    /// describe and to roll starvation mortality; it never spawns a starving
+    /// Pawn or applies a malnutrition Hediff.
     protected int starvingTicks;
 
     /// Refill hysteresis. Set while the cluster's pool is below the low-water
@@ -58,6 +58,24 @@ public class Building_ChickenBatteryCage : Building
 
     /// Fraction of capacity below which a cluster asks to be refilled.
     public const float FeedLowWaterFraction = 0.5f;
+
+    /// How often the flock is rolled for mortality. Coarse on purpose: a caged
+    /// flock never pays a per-bird death check on every tick.
+    protected const int MortalityEvaluationIntervalTicks = 2500;
+
+    /// Absolute tick at which mortality was last rolled.
+    protected int mortalityCheckedAtTick;
+
+    /// Lifetime tallies. Deaths are counted here, never materialized as Pawns.
+    protected int deathsNatural;
+
+    protected int deathsStarvation;
+
+    public int DeathsNatural => deathsNatural;
+
+    public int DeathsStarvation => deathsStarvation;
+
+    public int TotalDeaths => deathsNatural + deathsStarvation;
 
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
@@ -311,6 +329,7 @@ public class Building_ChickenBatteryCage : Building
         SettleNutrition();
 
         Map map = Map;
+        EvaluateMortality(force: true);
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
         int released = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
@@ -397,6 +416,9 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
+        Scribe_Values.Look(ref deathsNatural, "deathsNatural", 0);
+        Scribe_Values.Look(ref deathsStarvation, "deathsStarvation", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
@@ -846,7 +868,15 @@ public class Building_ChickenBatteryCage : Building
         }
 
         // Settle before the bird leaves so her share of the store is billed.
+        CagedChickenRecord selected = chickens[index];
         SettleNutrition();
+        EvaluateMortality(force: true);
+        index = chickens.IndexOf(selected);
+        if (index < 0)
+        {
+            // The selected bird died while settling her accrued exposure.
+            return true;
+        }
 
         CagedChickenRecord record = chickens[index];
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
@@ -1042,6 +1072,67 @@ public class Building_ChickenBatteryCage : Building
     {
         base.TickRare();
         SettleNutrition();
+        EvaluateMortality();
+    }
+
+    /**
+     * Rolls the whole flock for death at a coarse interval, deleting a record
+     * when its roll fails. No Pawn, corpse, or death history is ever created:
+     * the flock is virtual, so a death is a deletion plus a tally.
+     */
+    internal void AccumulateMortality(int fromTick, int now)
+    {
+        foreach (CagedChickenRecord record in chickens)
+        {
+            int start = CageMortalityMath.ExposureStartTick(fromTick, record.enteredAtGameTick);
+            record.mortalityExposure += CageMortalityMath.ExposureOverTicks(
+                CageMortalityMath.BaselineDailyChance, now - start);
+        }
+    }
+
+    void EvaluateMortality(bool force = false)
+    {
+        int now = GenTicks.TicksAbs;
+        if (mortalityCheckedAtTick <= 0 || mortalityCheckedAtTick > now)
+        {
+            mortalityCheckedAtTick = now;
+            if (!force)
+            {
+                return;
+            }
+        }
+
+        int elapsed = now - mortalityCheckedAtTick;
+        if (!force && elapsed < MortalityEvaluationIntervalTicks)
+        {
+            return;
+        }
+
+        mortalityCheckedAtTick = now;
+        if (chickens == null || chickens.Count == 0)
+        {
+            return;
+        }
+
+        int died = 0;
+        for (int i = chickens.Count - 1; i >= 0; i--)
+        {
+            CagedChickenRecord record = chickens[i];
+            float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
+            record.mortalityExposure = 0.0;
+            if (!Rand.Chance(chance))
+            {
+                continue;
+            }
+
+            chickens.RemoveAt(i);
+            died++;
+        }
+
+        if (died > 0)
+        {
+            deathsNatural += died;
+        }
     }
 
     void RecheckRoofing()

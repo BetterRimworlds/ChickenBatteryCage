@@ -31,6 +31,10 @@ public class CagedChickenRecord : IExposable
     public int enteredAtGameTick;
     public Gender gender;
 
+    /// Integrated negative log survival since the last mortality roll. Kept
+    /// with the bird so feeding and save/load cannot erase accrued exposure.
+    public double mortalityExposure;
+
     // Scribe needs a parameterless constructor; it is also the one used by Capture.
     public CagedChickenRecord()
     {
@@ -71,5 +75,6 @@ public class CagedChickenRecord : IExposable
         Scribe_Values.Look(ref biologicalAgeTicksAtEntry, "biologicalAgeTicksAtEntry", 0L);
         Scribe_Values.Look(ref enteredAtGameTick, "enteredAtGameTick", 0);
         Scribe_Values.Look(ref gender, "gender", Gender.Female);
+        Scribe_Values.Look(ref mortalityExposure, "mortalityExposure", 0.0);
     }
 }
