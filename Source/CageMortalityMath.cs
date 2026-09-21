@@ -22,11 +22,39 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public static class CageMortalityMath
 {
-    /// Baseline daily death chance before age or starvation are considered.
-    public const float BaselineDailyChance = 0.001f;
+    /// Daily death chance reached at exactly the species life expectancy.
+    public const float NaturalDailyChanceAtLifeExpectancy = 0.001f;
+
+    /// How sharply the hazard climbs beyond life expectancy. A larger value
+    /// makes extreme ages rarer without ever ruling them out.
+    public const float NaturalChanceGrowth = 2.5f;
 
     /// No single daily roll may ever be a certainty, so old outliers survive.
     public const float MaxDailyChance = 0.5f;
+
+    /// Fallback when the species def cannot be read.
+    public const float DefaultLifeExpectancyYears = 6f;
+
+    /**
+     * Age-dependent natural hazard. Low for young birds, climbing smoothly
+     * through the species life expectancy and beyond, so a 10-year-old
+     * chicken is unlikely but never impossible.
+     */
+    public static float NaturalDailyChance(float ageYears, float lifeExpectancyYears)
+    {
+        if (ageYears <= 0f)
+        {
+            return 0f;
+        }
+
+        float expectancy = lifeExpectancyYears > 0.01f
+            ? lifeExpectancyYears
+            : DefaultLifeExpectancyYears;
+
+        double ratio = (ageYears - expectancy) / expectancy;
+        double chance = NaturalDailyChanceAtLifeExpectancy * Math.Exp(NaturalChanceGrowth * ratio);
+        return (float)Math.Min(MaxDailyChance, chance);
+    }
 
     public static float CombinedDailyChance(float natural, float starvation)
     {
@@ -63,6 +91,27 @@ public static class CageMortalityMath
 
         return dailyChance >= 1f ? double.PositiveInfinity
             : -Math.Log(1.0 - dailyChance) * ticks / CagedChickenMath.TicksPerDay;
+    }
+
+    /// Integrates the age-dependent curve using two-point Gaussian quadrature
+    /// in short slices. The curve changes smoothly; its end value is not
+    /// charged retroactively to the entire interval.
+    public static double NaturalExposureOverTicks(long ageAtStartTicks, float lifeExpectancy, int ticks)
+    {
+        double exposure = 0.0;
+        const double offset = 0.28867513459481287;
+        for (int elapsed = 0; elapsed < ticks;)
+        {
+            int slice = Math.Min(2500, ticks - elapsed);
+            double middleAge = ageAtStartTicks + (double)elapsed + slice * 0.5;
+            float first = NaturalDailyChance(
+                (float)((middleAge - slice * offset) / CagedChickenMath.TicksPerYear), lifeExpectancy);
+            float second = NaturalDailyChance(
+                (float)((middleAge + slice * offset) / CagedChickenMath.TicksPerYear), lifeExpectancy);
+            exposure += (ExposureOverTicks(first, slice) + ExposureOverTicks(second, slice)) * 0.5;
+            elapsed += slice;
+        }
+        return exposure;
     }
 
     public static float ChanceFromExposure(double exposure)

@@ -90,6 +90,10 @@ public class Building_ChickenBatteryCage : Building
     static bool adultMinAgeTicksResolved;
     static bool warnedMissingChickenDef;
 
+    /// Species life expectancy, resolved from the chicken def once available.
+    static float lifeExpectancyYears = CageMortalityMath.DefaultLifeExpectancyYears;
+    static bool lifeExpectancyResolved;
+
     public bool IsOperational => roofedOverOccupiedCells;
 
     /// True while this cage should be offered to haulers as a feeding target.
@@ -1045,6 +1049,41 @@ public class Building_ChickenBatteryCage : Building
         return true;
     }
 
+    /// The chicken's nominal life expectancy, used as the hinge of the natural
+    /// mortality curve. Falls back to a sane default until defs are loaded.
+    static float ResolveLifeExpectancyYears()
+    {
+        if (lifeExpectancyResolved)
+        {
+            return lifeExpectancyYears;
+        }
+
+        // The two "race" links are different members on different types:
+        // PawnKindDef.race is the species ThingDef, and ThingDef.race is the
+        // RaceProperties that actually carries lifeExpectancy. Null-check every
+        // link: the DefOf stays unbound until defs finish loading.
+        PawnKindDef chickenKind = ChickenBatteryCageDefOf.Chicken;
+        ThingDef chickenDef = chickenKind?.race;
+        RaceProperties chickenRace = chickenDef?.race;
+
+        if (chickenRace == null || chickenRace.lifeExpectancy <= 0f)
+        {
+            // Defs are not loaded yet, or the species omits a value; retry on
+            // the next evaluation rather than caching a degenerate value. Warn
+            // once so the fallback is visible while debugging.
+            Log.WarningOnce(
+                "[ChickenBatteryCage] Chicken race life expectancy is unavailable; caged-bird mortality falls back to "
+                    + CageMortalityMath.DefaultLifeExpectancyYears
+                    + " years until the def resolves.",
+                74129302);
+            return CageMortalityMath.DefaultLifeExpectancyYears;
+        }
+
+        lifeExpectancyYears = chickenRace.lifeExpectancy;
+        lifeExpectancyResolved = true;
+        return lifeExpectancyYears;
+    }
+
     public override void DrawExtraSelectionOverlays()
     {
         base.DrawExtraSelectionOverlays();
@@ -1075,21 +1114,19 @@ public class Building_ChickenBatteryCage : Building
         EvaluateMortality();
     }
 
-    /**
-     * Rolls the whole flock for death at a coarse interval, deleting a record
-     * when its roll fails. No Pawn, corpse, or death history is ever created:
-     * the flock is virtual, so a death is a deletion plus a tally.
-     */
+    /// Accrues exposure before nutrition settlement or population changes.
     internal void AccumulateMortality(int fromTick, int now)
     {
+        float lifeExpectancy = ResolveLifeExpectancyYears();
         foreach (CagedChickenRecord record in chickens)
         {
             int start = CageMortalityMath.ExposureStartTick(fromTick, record.enteredAtGameTick);
-            record.mortalityExposure += CageMortalityMath.ExposureOverTicks(
-                CageMortalityMath.BaselineDailyChance, now - start);
+            record.mortalityExposure += CageMortalityMath.NaturalExposureOverTicks(
+                record.BiologicalAgeTicksAt(start), lifeExpectancy, now - start);
         }
     }
 
+    /// Rolls accumulated exposure coarsely, or before birds leave the cage.
     void EvaluateMortality(bool force = false)
     {
         int now = GenTicks.TicksAbs;

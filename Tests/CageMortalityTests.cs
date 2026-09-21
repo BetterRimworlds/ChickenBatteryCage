@@ -69,6 +69,58 @@ public class CageMortalityTests
     }
 
     [Test]
+    public void HazardAtLifeExpectancyIsTheCalibrationPoint()
+    {
+        float chance = CageMortalityMath.NaturalDailyChance(6f, 6f);
+
+        Assert.AreEqual(CageMortalityMath.NaturalDailyChanceAtLifeExpectancy, chance, 0.0000001f);
+    }
+
+    [Test]
+    public void AgeExposureIsIndependentOfSettlementPartitioning()
+    {
+        long age = 8L * CagedChickenMath.TicksPerYear;
+        double whole = CageMortalityMath.NaturalExposureOverTicks(age, 6f, Day);
+        double split = CageMortalityMath.NaturalExposureOverTicks(age, 6f, 12345)
+            + CageMortalityMath.NaturalExposureOverTicks(age + 12345, 6f, Day - 12345);
+        Assert.AreEqual(whole, split, 0.00000001);
+    }
+
+    [Test]
+    public void AgeExposureUsesTheIntervalRatherThanOnlyTheEndingAge()
+    {
+        long age = 6L * CagedChickenMath.TicksPerYear;
+        int year = CagedChickenMath.TicksPerYear;
+        double integrated = CageMortalityMath.NaturalExposureOverTicks(age, 6f, year);
+        double endOnly = CageMortalityMath.ExposureOverTicks(
+            CageMortalityMath.NaturalDailyChance(7f, 6f), year);
+        Assert.Less(integrated, endOnly);
+        Assert.Greater(integrated, CageMortalityMath.ExposureOverTicks(0.001f, year));
+    }
+
+    [Test]
+    public void YoungBirdsRarelyDie()
+    {
+        float chick = CageMortalityMath.NaturalDailyChance(0.2f, 6f);
+        float adult = CageMortalityMath.NaturalDailyChance(6f, 6f);
+
+        Assert.Less(chick, adult);
+        Assert.Greater(chick, 0f);
+    }
+
+    [Test]
+    public void HazardClimbsWithAgeWithoutEverBeingCertain()
+    {
+        float six = CageMortalityMath.NaturalDailyChance(6f, 6f);
+        float ten = CageMortalityMath.NaturalDailyChance(10f, 6f);
+
+        Assert.Greater(ten, six);
+        // A ten-year-old chicken is unlikely to die on any given day, so old
+        // outliers remain possible.
+        Assert.Less(ten, CageMortalityMath.MaxDailyChance);
+    }
+
+    [Test]
     public void CombinedChanceIsCappedBelowCertainty()
     {
         float combined = CageMortalityMath.CombinedDailyChance(0.4f, 0.4f);
