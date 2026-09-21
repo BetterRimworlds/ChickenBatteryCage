@@ -9,6 +9,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
 using RimWorld.Planet;
 using Verse;
 
@@ -122,6 +123,20 @@ public static class CageHenIntake
         if (pawn.Spawned)
         {
             pawn.DeSpawn(DestroyMode.Vanish);
+        }
+
+        // Scrub the references other pawns and colony systems keep to this one,
+        // so no stale relationship or ownership artifact survives a cage entry
+        // and quietly accumulates across repeated loading cycles.
+        try
+        {
+            pawn.relations?.ClearAllRelations();
+            pawn.ownership?.UnclaimAll();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning("[ChickenBatteryCage] Could not fully scrub a caged chicken's " +
+                "references before discarding her: " + ex);
         }
 
         if (!pawn.Destroyed)
