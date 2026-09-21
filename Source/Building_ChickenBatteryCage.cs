@@ -604,6 +604,61 @@ public class Building_ChickenBatteryCage : Building
             {
                 pendingUnloads = new List<ChickenReleaseFilter>();
             }
+
+            SanitizeLoadedState();
+        }
+    }
+
+    /**
+     * Repairs or drops malformed loaded state so a single bad number cannot
+     * brick the save. Cheap fields are clamped; only an impossible chicken
+     * record is dropped, and even then the rest of the cage is kept.
+     */
+    void SanitizeLoadedState()
+    {
+        if (nutritionStored < 0f)
+        {
+            nutritionStored = 0f;
+        }
+
+        float capacity = NutritionCapacity;
+        if (nutritionStored > capacity)
+        {
+            nutritionStored = capacity;
+        }
+
+        if (eggProgress < 0f)
+        {
+            eggProgress = 0f;
+        }
+
+        if (starvingTicks < 0)
+        {
+            starvingTicks = 0;
+        }
+
+        if (chickens.Count == 0)
+        {
+            return;
+        }
+
+        int now = GenTicks.TicksAbs;
+        int dropped = 0;
+        for (int i = chickens.Count - 1; i >= 0; i--)
+        {
+            CagedChickenRecord record = chickens[i];
+            if (record == null || !record.TryRepair(now))
+            {
+                chickens.RemoveAt(i);
+                dropped++;
+            }
+        }
+
+        if (dropped > 0)
+        {
+            Log.Warning(
+                "[ChickenBatteryCage] Dropped " + dropped + " malformed caged " +
+                "chicken record(s) while loading; the rest of the cage was kept.");
         }
     }
 

@@ -64,6 +64,24 @@ public class CagedChickenRecord : IExposable
         return BiologicalAgeTicksAt(absoluteTick) / (float)GenDate.TicksPerYear;
     }
 
+    /**
+     * Repairs a record loaded from a save, clamping what is safe and reporting
+     * false for a record that cannot be reconstructed at all.
+     */
+    public bool TryRepair(int now)
+    {
+        long age = biologicalAgeTicksAtEntry;
+        int enteredAt = enteredAtGameTick;
+        if (!CagedChickenValidation.TryRepair(ref age, ref enteredAt, now))
+        {
+            return false;
+        }
+
+        biologicalAgeTicksAtEntry = age;
+        enteredAtGameTick = enteredAt;
+        return true;
+    }
+
     public static CagedChickenRecord Capture(Pawn chicken, int enteredAtGameTick)
     {
         return new CagedChickenRecord(
