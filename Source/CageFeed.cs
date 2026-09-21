@@ -112,6 +112,18 @@ public static class CageFeed
             return;
         }
 
+        // Settle laying on every member before the shared store changes. The
+        // pool is shared, so settling only the receiving cage would leave the
+        // others holding an interval that spans the empty stretch, which they
+        // would later credit as fed once the refill landed.
+        foreach (Building_ChickenBatteryCage member in CageNetwork.Cluster(cage))
+        {
+            if (member != null && !member.Destroyed)
+            {
+                member.SettleEggProduction();
+            }
+        }
+
         cage.SettleNutrition();
         float space = cage.ClusterNutritionSpace;
         int take = CageFeedMath.ConsumeUnits(space, perUnit, stack.stackCount);

@@ -62,6 +62,16 @@ public class Building_ChickenBatteryCage : Building
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
 
+    /// Fractional eggs held inside the cage, waiting to become a full carton.
+    protected float eggProgress;
+
+    /// Absolute tick at which egg output was last settled.
+    protected int eggCheckedAtTick;
+
+    /// Eggs held inside the cage that have not yet become a carton.
+    public int EggsHeld => eggProgress > 0f ? (int)eggProgress : 0;
+
+    public float EggProgress => eggProgress;
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -209,6 +219,70 @@ public class Building_ChickenBatteryCage : Building
         ? adultMinAgeTicks / (float)GenDate.TicksPerYear
         : 0.2f;
 
+    /**
+     * How many ticks of an elapsed interval the flock was actually fed.
+     *
+     * Laying is gated by access to feed, and the store is shared across the
+     * cluster, so an interval only earns eggs up to the point the pooled store
+     * covers the whole flock's demand. A store that runs dry partway through
+     * the interval stops earning there, instead of paying for the whole span.
+     * Returns the whole interval when feed is ample (or the flock has no
+     * demand).
+     */
+    int FedTicksWithin(int elapsed)
+    {
+        float demandPerDay = ClusterDemandPerDay;
+        if (demandPerDay <= 0f)
+        {
+            return elapsed;
+        }
+
+        float stored = ClusterStoredNutrition;
+        if (stored <= 0f)
+        {
+            return 0;
+        }
+
+        double fedDays = stored / demandPerDay;
+        long covered = (long)(fedDays * CagedChickenMath.TicksPerDay);
+        if (covered >= elapsed)
+        {
+            return elapsed;
+        }
+
+        return (int)covered;
+    }
+
+    /// Summed daily demand of every live member of this cage's cluster, since
+    /// the feed store — and therefore the fed interval — is shared.
+    float ClusterDemandPerDay
+    {
+        get
+        {
+            float total = 0f;
+            foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(this))
+            {
+                if (cage != null && !cage.Destroyed)
+                {
+                    total += cage.NutritionDemandPerDay;
+                }
+            }
+
+            return total;
+        }
+    }
+
+    /**
+     * Settles accrued laying into this cage's own box at a state transition.
+     * Exposed so a feed delivery can bound an interval at the moment the store
+     * changes, instead of letting the next rare tick judge the whole span
+     * against the refilled store.
+     */
+    internal void SettleEggProduction()
+    {
+        AccrueEggProduction();
+    }
+
     /// Days the flock has spent with an empty store.
     public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
 
@@ -253,7 +327,9 @@ public class Building_ChickenBatteryCage : Building
         }
     }
 
-    protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
+    protected virtual string EggsInspectValue => "ChickenBatteryCage.Eggs.Held".Translate(
+        EggsHeld,
+        12);
 
     public static bool IsChicken(Pawn pawn)
     {
@@ -416,6 +492,8 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
+        Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
@@ -755,6 +833,11 @@ public class Building_ChickenBatteryCage : Building
     /// biology has been captured; appends the record to the housed flock.
     public void AddRecord(CagedChickenRecord record)
     {
+        // Credit the current flock's laying before the newcomer joins, so she
+        // is not paid for time she spent outside the cage. Accrual runs before
+        // the feed is billed for the same reason as in TickRare.
+        AccrueEggProduction();
+
         // Bill the outgoing population before the newcomer joins.
         SettleNutrition();
         chickens.Add(record);
@@ -825,8 +908,10 @@ public class Building_ChickenBatteryCage : Building
             return false;
         }
 
-        // Settle before the bird leaves so her share of the store is billed.
+        // Credit the departing bird's laying before she is removed, then settle
+        // so her share of the store is billed.
         CagedChickenRecord selected = chickens[index];
+        AccrueEggProduction();
         SettleNutrition();
         EvaluateMortality(force: true);
         index = chickens.IndexOf(selected);
@@ -1023,6 +1108,12 @@ public class Building_ChickenBatteryCage : Building
     public override void TickRare()
     {
         base.TickRare();
+
+        // Accrue laying before nutrition settles: settlement can drain the
+        // shared store to zero, and evaluating production against that emptied
+        // pool would erase an interval the flock was really fed. Destroy uses
+        // the same ordering.
+        EvaluateEggProduction();
         SettleNutrition();
         EvaluateMortality();
     }
@@ -1039,6 +1130,53 @@ public class Building_ChickenBatteryCage : Building
                 starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
                 now - start);
         }
+    }
+
+    /**
+     * Adds the eggs laid since the last settlement. Output is a pure function
+     * of elapsed time, the age-derived laying rate, and how well fed the flock
+     * is, so no hen ever ticks an egg-production component of her own.
+     */
+    void EvaluateEggProduction()
+    {
+        AccrueEggProduction();
+    }
+
+    /**
+     * Credits the eggs laid since the last settlement into this cage's own box
+     * without placing a stack. Separated from <see cref="EvaluateEggProduction"/>
+     * so a terminal change such as destruction can settle accrued output
+     * exactly once before spilling it, instead of running a second placement
+     * attempt. Returns false when there was no interval to settle — the first
+     * run, or a clock that moved backwards — so the caller does not place a
+     * stack before time has actually been credited.
+     */
+    bool AccrueEggProduction()
+    {
+        int now = GenTicks.TicksAbs;
+        if (eggCheckedAtTick <= 0 || eggCheckedAtTick > now)
+        {
+            eggCheckedAtTick = now;
+            return false;
+        }
+
+        int elapsed = now - eggCheckedAtTick;
+        if (elapsed <= 0)
+        {
+            return false;
+        }
+
+        eggCheckedAtTick = now;
+        if (chickens != null && chickens.Count > 0)
+        {
+            int fedTicks = FedTicksWithin(elapsed);
+            if (fedTicks > 0)
+            {
+                eggProgress += CageEggMath.EggsOverTicks(EggLayingRatePerDay, fedTicks);
+            }
+        }
+
+        return true;
     }
 
     /// Rolls accumulated exposure coarsely, or before birds leave the cage.

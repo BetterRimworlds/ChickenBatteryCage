@@ -8,6 +8,7 @@
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
 	<ChickenBatteryCage.Inspect.Eggs>Eggs:           {0}</ChickenBatteryCage.Inspect.Eggs>
 	<ChickenBatteryCage.Inspect.Empty>—</ChickenBatteryCage.Inspect.Empty>
+	<ChickenBatteryCage.Eggs.Held>{0} / {1}</ChickenBatteryCage.Eggs.Held>
 	<ChickenBatteryCage.Feed.Status>{0} / {1} ({2})</ChickenBatteryCage.Feed.Status>
 	<ChickenBatteryCage.Feed.StateFed>sufficient</ChickenBatteryCage.Feed.StateFed>
 	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>
