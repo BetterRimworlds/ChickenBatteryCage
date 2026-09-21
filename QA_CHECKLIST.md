@@ -34,14 +34,16 @@ warnings.
 
 ## PR 5 — Added statistical mortality for caged chickens (`pr5-statistical-mortality`, 4 commits)
 
-*Periodic death rolls, age curves, starvation deaths, death tallies in inspection.*
+*Periodic death rolls, age curves, starvation deaths, corpses dropped outside the cage.*
 
-- [ ] Caged chickens die statistically — no corpse, blood, or death tale is spawned per death; the bird is removed and tallied.
+- [ ] Caged chickens die statistically — each death immediately drops a real chicken corpse on the ground outside the cage.
+- [ ] If corpse generation or placement fails, the flock still loses the bird and the map retries delivery. Save/load retains the pending dead record or existing corpse; retrying never revives the bird or produces a second corpse.
+- [ ] After deaths, repeated adult/juvenile unload requests are pruned to the surviving category counts. Mixed requests retain queue priority, and a death during unloading cannot consume the next request by mistake.
+- [ ] Feeding between death rolls preserves prior starvation exposure. Newly admitted hens accrue mortality exposure only from entry; releasing a hen settles her outstanding exposure before materialization.
 - [ ] Flock count declines slowly over in-game years even when well fed (natural mortality).
 - [ ] Mortality rate rises sharply for elderly birds (age curve visible over a long run).
 - [ ] Starving cages lose birds much faster than fed cages.
-- [ ] Cage inspection shows a **mortality summary** (deaths by cause: natural vs. starvation) with correct running totals.
-- [ ] Death tallies persist across save/load.
+- [ ] Cage inspection shows no deaths-by-cause summary.
 - [ ] Long-session check: the log shows one aggregated notice per evaluation, not one per death.
 
 ## PR 6 — Virtualized egg production inside battery cages (`pr6-virtualized-eggs`, 6 commits)

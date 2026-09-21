@@ -16,6 +16,8 @@
     <Compile Include="..\Source\CageClusterMath.cs" Link="CageClusterMath.cs" />
     <Compile Include="..\Source\CageFeedMath.cs" Link="CageFeedMath.cs" />
     <Compile Include="..\Source\CageMortalityMath.cs" Link="CageMortalityMath.cs" />
+    <Compile Include="..\Source\ChickenReleaseFilter.cs" Link="ChickenReleaseFilter.cs" />
+    <Compile Include="..\Source\CageUnloadMath.cs" Link="CageUnloadMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

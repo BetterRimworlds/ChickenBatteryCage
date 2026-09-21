@@ -26,13 +26,52 @@ public static class CageChickenFactory
 {
     public static Pawn Generate(CagedChickenRecord record, Map map, IntVec3 near)
     {
+        Pawn chicken = Reconstruct(record, map, GenTicks.TicksAbs);
+        if (chicken == null)
+        {
+            return null;
+        }
+
+        IntVec3 spawnCell = FindStandableCellNear(map, near);
+        if (!spawnCell.IsValid || !GenPlace.TryPlaceThing(chicken, spawnCell, map, ThingPlaceMode.Near))
+        {
+            Log.Error("[ChickenBatteryCage] Could not place a released chicken; the caller retains her record.");
+            CageHenIntake.UnmakeWithoutDeath(chicken);
+            return null;
+        }
+
+        return chicken;
+    }
+
+    /// Creates the body off-map. Corpse placement does not require a living
+    /// animal's stand cell, and a failed placement can retain this same body.
+    public static Corpse GenerateCorpse(CagedChickenRecord record, Map map, int diedAtTick)
+    {
+        Pawn chicken = Reconstruct(record, map, diedAtTick);
+        if (chicken == null)
+        {
+            return null;
+        }
+
+        chicken.Kill(null);
+        Corpse corpse = chicken.Corpse;
+        if (corpse == null)
+        {
+            Log.Error("[ChickenBatteryCage] Could not create a chicken corpse; the caller retains the dead record.");
+            CageHenIntake.UnmakeWithoutDeath(chicken);
+        }
+        return corpse;
+    }
+
+    static Pawn Reconstruct(CagedChickenRecord record, Map map, int biologicalTick)
+    {
         if (record == null || map == null || ChickenBatteryCageDefOf.Chicken == null)
         {
             return null;
         }
 
         int now = GenTicks.TicksAbs;
-        long biologicalAgeTicks = record.BiologicalAgeTicksAt(now);
+        long biologicalAgeTicks = record.BiologicalAgeTicksAt(biologicalTick);
         float biologicalAgeYears = biologicalAgeTicks / (float)GenDate.TicksPerYear;
 
         Pawn chicken;
@@ -64,7 +103,7 @@ public static class CageChickenFactory
 
         if (chicken == null)
         {
-            Log.Error("[ChickenBatteryCage] Failed to regenerate a chicken from a caged record; the record was kept.");
+            Log.Error("[ChickenBatteryCage] Failed to reconstruct a chicken; the caller retains the record.");
             return null;
         }
 
@@ -72,14 +111,6 @@ public static class CageChickenFactory
         // generation request, so release matches the stored biology precisely.
         chicken.ageTracker.AgeBiologicalTicks = biologicalAgeTicks;
         chicken.ageTracker.BirthAbsTicks = now - biologicalAgeTicks;
-
-        IntVec3 spawnCell = FindStandableCellNear(map, near);
-        if (!spawnCell.IsValid || !GenPlace.TryPlaceThing(chicken, spawnCell, map, ThingPlaceMode.Near))
-        {
-            Log.Error("[ChickenBatteryCage] Could not place a released chicken on the map; the record was kept.");
-            CageHenIntake.UnmakeWithoutDeath(chicken);
-            return null;
-        }
 
         return chicken;
     }

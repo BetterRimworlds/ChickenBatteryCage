@@ -14,19 +14,27 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * A caged chicken record that outlived the cage it was housed in.
+ * A live chicken or dead body awaiting materialization or map placement.
  *
  * The record is the only copy of the bird, so when the cage is destroyed
  * before the bird can be materialized the record is not deleted. It is paired
  * here with the cell it should be released near and whether the destruction
  * that stranded it was violent, so the delayed release can still wound the
- * bird the way the original destruction would have.
+ * bird the way the original destruction would have. Dead entries instead
+ * retain their death tick and, once generated, the same corpse across retries.
  */
 public class StrandedCagedChicken : IExposable
 {
     public CagedChickenRecord record;
     public IntVec3 near;
     public bool injured;
+
+    /// Nonnegative only for a dead bird. Its age is fixed at this tick while
+    /// generation is pending; a generated body is retained across retries.
+    public int diedAtTick = -1;
+    public Corpse corpse;
+
+    public bool IsDead => diedAtTick >= 0;
 
     // Scribe needs a parameterless constructor.
     public StrandedCagedChicken()
@@ -45,5 +53,7 @@ public class StrandedCagedChicken : IExposable
         Scribe_Deep.Look(ref record, "record");
         Scribe_Values.Look(ref near, "near");
         Scribe_Values.Look(ref injured, "injured", false);
+        Scribe_Values.Look(ref diedAtTick, "diedAtTick", -1);
+        Scribe_Deep.Look(ref corpse, "corpse");
     }
 }

@@ -18,7 +18,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *
  * Mortality is probabilistic, never a fixed expiration date, so a well-kept
  * flock can still produce rare long-lived birds. Nothing here materializes a
- * Pawn: a failed roll simply means the record is deleted.
+ * Pawn: callers turn a failed survival roll into a corpse.
  */
 public static class CageMortalityMath
 {

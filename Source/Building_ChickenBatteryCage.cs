@@ -66,17 +66,6 @@ public class Building_ChickenBatteryCage : Building
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
 
-    /// Lifetime tallies. Deaths are counted here, never materialized as Pawns.
-    protected int deathsNatural;
-
-    protected int deathsStarvation;
-
-    public int DeathsNatural => deathsNatural;
-
-    public int DeathsStarvation => deathsStarvation;
-
-    public int TotalDeaths => deathsNatural + deathsStarvation;
-
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -421,8 +410,6 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
-        Scribe_Values.Look(ref deathsNatural, "deathsNatural", 0);
-        Scribe_Values.Look(ref deathsStarvation, "deathsStarvation", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
@@ -850,13 +837,17 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
+            // Remove this request before settlement reconciles the remaining
+            // queue. A death during settlement can satisfy this request too.
+            pendingUnloads.RemoveAt(0);
             if (!ReleaseRecordAt(index))
             {
                 // Generation failed; keep both the record and the mark.
+                pendingUnloads.Insert(0, filter);
+                ReconcilePendingUnloads();
                 return false;
             }
 
-            pendingUnloads.RemoveAt(0);
             return true;
         }
 
@@ -893,6 +884,7 @@ public class Building_ChickenBatteryCage : Building
 
         chickens.RemoveAt(index);
         CageHenReleaseMemory.Mark(released);
+        ReconcilePendingUnloads();
         Messages.Message(
             "ChickenBatteryCage.Message.Released".Translate(released.LabelShortCap),
             released,
@@ -1153,15 +1145,10 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
-        float lifeExpectancy = ResolveLifeExpectancyYears();
-        float starvationDaily = CageMortalityMath.StarvationDailyChance(StarvingDays);
-        int starved = 0;
-        int natural = 0;
+        int died = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
             CagedChickenRecord record = chickens[i];
-            float naturalDaily = CageMortalityMath.NaturalDailyChance(
-                record.BiologicalAgeYearsAt(now), lifeExpectancy);
             float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
             record.mortalityExposure = 0.0;
             if (!Rand.Chance(chance))
@@ -1170,21 +1157,76 @@ public class Building_ChickenBatteryCage : Building
             }
 
             chickens.RemoveAt(i);
+            DropCorpse(record);
+            died++;
+        }
 
-            // Attribute the death to whichever hazard dominated this roll, so
-            // the summary separates famine losses from old age.
-            if (starvationDaily > 0f && starvationDaily >= naturalDaily)
+        if (died == 0)
+        {
+            return;
+        }
+
+        // A death can leave an unload mark with no bird left to satisfy it.
+        // Prune those here so a stale mark cannot keep reporting an
+        // unavailable bird, send a handler to an emptied cage, or hold a
+        // request slot the survivors could still use.
+        ReconcilePendingUnloads();
+
+        // One aggregated notice per evaluation, however many birds were lost,
+        // so a bad die-off never floods the message log.
+        Messages.Message(
+            "ChickenBatteryCage.Message.Mortality".Translate(died),
+            MessageTypeDefOf.NegativeEvent,
+            historical: false);
+    }
+
+    /// Materializes a freshly dead chicken from her record and drops the body
+    /// on the ground outside the cage, so a virtual flock still leaves real
+    /// corpses behind. Failed generation or placement is handed to the map's
+    /// recovery component, which retries without reviving the dead bird.
+    void DropCorpse(CagedChickenRecord record)
+    {
+        if (!Spawned || Map == null)
+        {
+            return;
+        }
+
+        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        int diedAtTick = GenTicks.TicksAbs;
+        Corpse corpse = CageChickenFactory.GenerateCorpse(record, Map, diedAtTick);
+        if (corpse != null && GenPlace.TryPlaceThing(corpse, near, Map, ThingPlaceMode.Near))
+        {
+            return;
+        }
+
+        Map.GetComponent<MapComponent_CagedChickenRescue>().PreserveCorpse(
+            record, corpse, near, diedAtTick);
+    }
+
+    /**
+     * Reconciles the unload queue with the surviving flock after one or more
+     * deaths or releases. Marks are kind selectors, not per-bird handles.
+     * Keep the earliest jointly satisfiable requests, allowing unrestricted
+     * selectors to use whichever birds the restricted requests do not need.
+     */
+    void ReconcilePendingUnloads()
+    {
+        int now = GenTicks.TicksAbs;
+        int adultHens = 0;
+        int juveniles = 0;
+        foreach (CagedChickenRecord record in chickens)
+        {
+            if (!IsAdult(record, now))
             {
-                starved++;
+                juveniles++;
             }
-            else
+            else if (record.gender == Gender.Female)
             {
-                natural++;
+                adultHens++;
             }
         }
 
-        deathsNatural += natural;
-        deathsStarvation += starved;
+        CageUnloadMath.Reconcile(pendingUnloads, chickens.Count, adultHens, juveniles);
     }
 
     void RecheckRoofing()
