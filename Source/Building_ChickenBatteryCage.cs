@@ -836,6 +836,8 @@ public class Building_ChickenBatteryCage : Building
             new FloatMenuOption("Spawn 2,000 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 2000); }),
             new FloatMenuOption("Generate 10,000 eggs", delegate { CageDevTools.SpawnEggStacks(map, 10000); }),
             new FloatMenuOption("Log population report", delegate { CageDevTools.LogPopulationReport(map, "manual"); }),
+            new FloatMenuOption("Begin benchmark", delegate { CageProfiler.Begin(map); }),
+            new FloatMenuOption("End benchmark", delegate { CageProfiler.End(map, "manual"); }),
         };
     }
 
