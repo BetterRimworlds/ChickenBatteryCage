@@ -806,6 +806,37 @@ public class Building_ChickenBatteryCage : Building
             unloadGizmo.Disable("ChickenBatteryCage.Gizmo.UnloadEmpty".Translate());
         }
         yield return unloadGizmo;
+
+        if (Prefs.DevMode)
+        {
+            Command_Action devGizmo = new Command_Action
+            {
+                defaultLabel = "Dev: poultry stress tools",
+                defaultDesc = "Fill cages, flood the map with chickens or egg stacks, and log population figures.",
+                icon = def.uiIcon,
+                action = delegate
+                {
+                    FloatMenu menu = new FloatMenu(BuildDevMenu());
+                    menu.vanishIfMouseDistant = false;
+                    Find.WindowStack.Add(menu);
+                },
+            };
+            yield return devGizmo;
+        }
+    }
+
+    List<FloatMenuOption> BuildDevMenu()
+    {
+        Map map = Map;
+        return new List<FloatMenuOption>
+        {
+            new FloatMenuOption("Fill this cage", delegate { CageDevTools.FillCage(this); }),
+            new FloatMenuOption("Fill all cages", delegate { CageDevTools.FillAllCages(map); }),
+            new FloatMenuOption("Spawn 500 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 500); }),
+            new FloatMenuOption("Spawn 2,000 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 2000); }),
+            new FloatMenuOption("Generate 10,000 eggs", delegate { CageDevTools.SpawnEggStacks(map, 10000); }),
+            new FloatMenuOption("Log population report", delegate { CageDevTools.LogPopulationReport(map, "manual"); }),
+        };
     }
 
     public bool CanAcceptChicken(Pawn chicken)
