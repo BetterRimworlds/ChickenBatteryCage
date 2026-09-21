@@ -98,6 +98,42 @@ public static class CageNutritionMath
         return left > 0f ? left : 0f;
     }
 
+    /**
+     * Starving time after another stretch of elapsed ticks. If the store had
+     * enough feed to outlast the stretch the counter resets; otherwise only
+     * the time past the moment the store ran dry is added. Keeping this exact
+     * avoids counting a bird as starving while it still has feed left.
+     */
+    public static int StarvingTicksAfter(
+        int currentStarvingTicks,
+        float stored,
+        int chickenCount,
+        float perChickenPerDay,
+        int elapsedTicks)
+    {
+        if (chickenCount <= 0 || elapsedTicks <= 0)
+        {
+            return 0;
+        }
+
+        float demandPerTick = DemandPerDay(chickenCount, perChickenPerDay)
+            / CagedChickenMath.TicksPerDay;
+        if (demandPerTick <= 0f)
+        {
+            return 0;
+        }
+
+        float ticksOfFeed = stored > 0f ? stored / demandPerTick : 0f;
+        if (elapsedTicks <= ticksOfFeed)
+        {
+            return 0;
+        }
+
+        double starvingElapsed = elapsedTicks - ticksOfFeed;
+        double total = currentStarvingTicks + starvingElapsed;
+        return total > int.MaxValue ? int.MaxValue : (int)total;
+    }
+
     public static CageNutritionState Classify(
         float stored,
         int chickenCount,

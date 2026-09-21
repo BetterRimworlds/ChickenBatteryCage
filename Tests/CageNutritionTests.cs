@@ -75,6 +75,42 @@ public class CageNutritionTests
     }
 
     [Test]
+    public void FeedingResetsTheStarvationClock()
+    {
+        int ticks = CageNutritionMath.StarvingTicksAfter(5 * Day, 10f, 10, PerChicken, Day);
+
+        Assert.AreEqual(0, ticks);
+    }
+
+    [Test]
+    public void OnlyTimePastTheEmptyStoreCountsAsStarving()
+    {
+        // Half a day of feed, then a full day passes: half a day of starvation.
+        float halfDay = CageNutritionMath.DemandPerDay(10, PerChicken) / 2f;
+        int ticks = CageNutritionMath.StarvingTicksAfter(0, halfDay, 10, PerChicken, Day);
+
+        // Float division of the half-day store can land one tick shy; the
+        // contract is the elapsed-time split, not bit-exact rounding.
+        Assert.That(ticks, Is.EqualTo(Day / 2).Within(2));
+    }
+
+    [Test]
+    public void StarvationClockAccumulatesAcrossSettlements()
+    {
+        int ticks = CageNutritionMath.StarvingTicksAfter(Day / 2, 0f, 10, PerChicken, Day / 2);
+
+        Assert.AreEqual(Day, ticks);
+    }
+
+    [Test]
+    public void EmptyCageClearsTheStarvationClock()
+    {
+        int ticks = CageNutritionMath.StarvingTicksAfter(3 * Day, 0f, 0, PerChicken, Day);
+
+        Assert.AreEqual(0, ticks);
+    }
+
+    [Test]
     public void WellStockedFlockReadsFed()
     {
         CageNutritionState state = CageNutritionMath.Classify(10f, 10, PerChicken, 0f);
