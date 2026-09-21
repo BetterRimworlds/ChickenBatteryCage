@@ -135,7 +135,7 @@ public static class CageDevTools
             ? Find.CameraDriver.MapPosition
             : map.Center;
 
-        int perStack = Building_ChickenBatteryCage.EggsPerBatch;
+        int perStack = Building_ChickenBatteryCage.MinEggsPerStack;
         int stacks = eggs / perStack;
         int spawned = 0;
         for (int i = 0; i < stacks; i++)

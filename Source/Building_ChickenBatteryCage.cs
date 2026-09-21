@@ -62,6 +62,24 @@ public class Building_ChickenBatteryCage : Building
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
 
+    /// Developer-simulation clock offset. Never persisted, and always zero
+    /// outside a run; the dev simulator advances it to age the flock quickly
+    /// and clears it when the run ends, so normal play never sees a shifted
+    /// clock.
+    int simulationOffsetTicks;
+
+    /// True while the dev simulator is advancing the cage math directly, so
+    /// notices and egg spawning can be suppressed.
+    bool simulating;
+
+    /// Eggs produced during a dev simulation, logged instead of spawned. Kept
+    /// fractional so a short step's sub-egg output is not rounded away before
+    /// the run total is summed.
+    double debugEggsProduced;
+
+    /// Now, including any developer-simulation offset.
+    int NowTick => GenTicks.TicksAbs + simulationOffsetTicks;
+
     /// Fractional eggs held inside the cage's egg box, on their way to the next
     /// whole egg. Once the box holds a full batch it spits the eggs out as one
     /// haulable stack and starts filling again.
@@ -142,28 +160,6 @@ public class Building_ChickenBatteryCage : Building
         // The cage runs whether or not it is roofed: an unroofed cage still
         // eats, ages, and dies exactly as a roofed one does.
         CageNetwork.SettleCluster(cluster, now);
-    }
-
-    /// The pure nutrition step, shared by the real tick and the dev simulator.
-    void ApplyNutritionElapsed(int elapsed)
-    {
-        if (elapsed <= 0 || chickens == null)
-        {
-            return;
-        }
-
-        starvingTicks = CageNutritionMath.StarvingTicksAfter(
-            starvingTicks,
-            nutritionStored,
-            chickens.Count,
-            CageNutritionMath.DefaultNutritionPerChickenPerDay,
-            elapsed);
-
-        nutritionStored = CageNutritionMath.RemainingAfter(
-            nutritionStored,
-            chickens.Count,
-            CageNutritionMath.DefaultNutritionPerChickenPerDay,
-            elapsed);
     }
 
     /// Controls whether handlers may rope hens into this cage automatically.
@@ -254,7 +250,7 @@ public class Building_ChickenBatteryCage : Building
             }
 
             float adultYears = AdultMinAgeYears;
-            int now = GenTicks.TicksAbs;
+            int now = NowTick;
             float rate = 0f;
 
             // Gender is no longer persisted: every housed bird is a hen by
@@ -276,56 +272,12 @@ public class Building_ChickenBatteryCage : Building
         : 0.2f;
 
     /**
-     * How many ticks of an elapsed interval the flock was actually fed.
-     *
-     * Laying is gated by access to feed, and the store is shared across the
-     * cluster, so an interval only earns eggs up to the point the pooled store
-     * covers the whole flock's demand. A store that runs dry partway through
-     * the interval stops earning there, instead of paying for the whole span.
-     * Returns the whole interval when feed is ample (or the flock has no
-     * demand).
+     * How many ticks of an elapsed interval the flock was actually fed, given
+     * the cluster's shared store. See <see cref="CageNetwork.FedTicksWithin"/>.
      */
     int FedTicksWithin(int elapsed)
     {
-        float demandPerDay = ClusterDemandPerDay;
-        if (demandPerDay <= 0f)
-        {
-            return elapsed;
-        }
-
-        float stored = ClusterStoredNutrition;
-        if (stored <= 0f)
-        {
-            return 0;
-        }
-
-        double fedDays = stored / demandPerDay;
-        long covered = (long)(fedDays * CagedChickenMath.TicksPerDay);
-        if (covered >= elapsed)
-        {
-            return elapsed;
-        }
-
-        return (int)covered;
-    }
-
-    /// Summed daily demand of every live member of this cage's cluster, since
-    /// the feed store — and therefore the fed interval — is shared.
-    float ClusterDemandPerDay
-    {
-        get
-        {
-            float total = 0f;
-            foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(this))
-            {
-                if (cage != null && !cage.Destroyed)
-                {
-                    total += cage.NutritionDemandPerDay;
-                }
-            }
-
-            return total;
-        }
+        return CageNetwork.FedTicksWithin(CageNetwork.Cluster(this), elapsed);
     }
 
     /**
@@ -860,6 +812,8 @@ public class Building_ChickenBatteryCage : Building
             new FloatMenuOption("Log population report", delegate { CageDevTools.LogPopulationReport(map, "manual"); }),
             new FloatMenuOption("Begin benchmark", delegate { CageProfiler.Begin(map); }),
             new FloatMenuOption("End benchmark", delegate { CageProfiler.End(map, "manual"); }),
+            new FloatMenuOption("Simulate 1 year (all cages)", delegate { DebugSimulateAllCages(map, 60); }),
+            new FloatMenuOption("Simulate 5 years (all cages)", delegate { DebugSimulateAllCages(map, 300); }),
         };
     }
 
@@ -1407,16 +1361,46 @@ public class Building_ChickenBatteryCage : Building
         ApplyEggProductionElapsed(elapsed);
     }
 
-    /// The pure laying step, shared by the real tick and the dev simulator.
+    /**
+     * The pure laying step, shared by the real tick and the dev simulator. It
+     * only credits output; releasing a ready stack is the caller's job, so the
+     * normal rare tick does not scan the cluster twice for the same accrual.
+     */
     void ApplyEggProductionElapsed(int elapsed)
     {
-        if (elapsed > 0 && chickens != null && chickens.Count > 0)
+        if (elapsed <= 0 || chickens == null || chickens.Count == 0)
         {
-            int fedTicks = FedTicksWithin(elapsed);
-            if (fedTicks > 0)
-            {
-                eggProgress += CageEggMath.EggsOverTicks(EggLayingRatePerDay, fedTicks);
-            }
+            return;
+        }
+
+        ApplyEggProductionElapsed(elapsed, FedTicksWithin(elapsed));
+    }
+
+    /**
+     * The laying step for a caller that has already resolved the shared fed
+     * interval once for the whole cluster. Crediting each member then costs
+     * only that member's own laying-rate scan, instead of rescanning the
+     * cluster's demand and store for every cage in the step.
+     */
+    void ApplyEggProductionElapsed(int elapsed, int fedTicks)
+    {
+        if (elapsed <= 0 || fedTicks <= 0 || chickens == null || chickens.Count == 0)
+        {
+            return;
+        }
+
+        float produced = CageEggMath.EggsOverTicks(EggLayingRatePerDay, fedTicks);
+
+        // A multi-year simulation would otherwise bury the map in egg
+        // stacks; count the output instead and keep the simulation
+        // purely mathematical.
+        if (simulating)
+        {
+            debugEggsProduced += produced;
+        }
+        else
+        {
+            eggProgress += produced;
         }
     }
 
@@ -1596,11 +1580,14 @@ public class Building_ChickenBatteryCage : Building
             }
 
             chickens.RemoveAt(i);
-            DropCorpse(record);
+            if (!simulating)
+            {
+                DropCorpse(record);
+            }
             died++;
         }
 
-        if (died == 0)
+        if (died == 0 || simulating)
         {
             return;
         }
@@ -1617,6 +1604,159 @@ public class Building_ChickenBatteryCage : Building
             "ChickenBatteryCage.Message.Mortality".Translate(died),
             MessageTypeDefOf.NegativeEvent,
             historical: false);
+    }
+
+    /**
+     * Dev-only: advances this cage's whole cluster by the given ticks without
+     * waiting for real time, so multi-year feeding, starvation, mortality, and
+     * laying behaviour can be exercised in a moment. Touching cages are one
+     * giant cage, so the cluster is advanced in lockstep through the same
+     * shared feed pool and exposure path the real rare tick uses. Cartons are
+     * counted rather than spawned and mortality notices are suppressed,
+     * keeping the step mathematical and the map clean.
+     */
+    public void DebugSimulateTicks(int ticks)
+    {
+        SimulateClusterTicks(CageNetwork.Cluster(this), ticks);
+    }
+
+    /**
+     * The cluster-aware simulation body. Every member ages, feeds, lays, and
+     * dies against the same clock, matching <see cref="TickRare"/>'s ordering:
+     * laying is credited before the shared store is drained, settlement accrues
+     * age and starvation exposure for every member at once, and only then is
+     * mortality rolled. Settlement is measured from the most recent member
+     * settle, so the cluster is billed exactly once per step however many
+     * members are advanced.
+     */
+    static void SimulateClusterTicks(IReadOnlyList<Building_ChickenBatteryCage> cluster, int ticks)
+    {
+        if (ticks <= 0 || cluster == null || cluster.Count == 0)
+        {
+            return;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!cage.Destroyed)
+            {
+                cage.simulating = true;
+                cage.debugEggsProduced = 0.0;
+            }
+        }
+
+        try
+        {
+            int remaining = ticks;
+            while (remaining > 0)
+            {
+                int step = remaining < MortalityEvaluationIntervalTicks
+                    ? remaining
+                    : MortalityEvaluationIntervalTicks;
+
+                // Credit laying before nutrition settles, exactly as TickRare
+                // does: settlement can drain the shared pool to zero, and
+                // judging the interval against that emptied pool would erase
+                // time the flock was really fed. The fed interval is a cluster
+                // aggregate, so resolve it once for the step rather than
+                // rescanning the whole cluster for every member.
+                int fedTicks = CageNetwork.FedTicksWithin(cluster, step);
+                foreach (Building_ChickenBatteryCage cage in cluster)
+                {
+                    if (!cage.Destroyed)
+                    {
+                        cage.ApplyEggProductionElapsed(step, fedTicks);
+                    }
+                }
+
+                // One settle bills the whole cluster: it accrues every member's
+                // mortality exposure and drains the shared pool exactly once.
+                int now = NextSimulatedTick(cluster, step);
+                CageNetwork.SettleCluster(cluster, now);
+
+                foreach (Building_ChickenBatteryCage cage in cluster)
+                {
+                    if (cage.Destroyed)
+                    {
+                        continue;
+                    }
+
+                    cage.ApplyMortalityElapsed(step);
+                    cage.simulationOffsetTicks += step;
+                }
+
+                remaining -= step;
+            }
+        }
+        finally
+        {
+            foreach (Building_ChickenBatteryCage cage in cluster)
+            {
+                if (!cage.Destroyed)
+                {
+                    cage.simulating = false;
+                    // Drop the simulated clock. A lingering offset would age the
+                    // flock into the future during ordinary play and make the
+                    // next run bill the whole previous span again.
+                    cage.simulationOffsetTicks = 0;
+                }
+            }
+        }
+
+        double eggs = 0.0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            eggs += cage.debugEggsProduced;
+        }
+
+        Log.Message(string.Format(
+            "[ChickenBatteryCage] Simulated {0} days: {1} birds left, {2} eggs produced.",
+            ticks / (float)CagedChickenMath.TicksPerDay,
+            CageNetwork.ChickenCount(cluster),
+            (long)eggs));
+    }
+
+    /// One step's absolute tick, including the run's shared developer-simulation
+    /// offset. Every live member carries the same offset, so the first live one
+    /// names the cluster's simulated present.
+    static int NextSimulatedTick(IReadOnlyList<Building_ChickenBatteryCage> cluster, int step)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!cage.Destroyed)
+            {
+                return cage.NowTick + step;
+            }
+        }
+
+        return GenTicks.TicksAbs + step;
+    }
+
+    /// Dev-only: simulates whole game days across every cluster on the map.
+    public static void DebugSimulateAllCages(Map map, int days)
+    {
+        if (map == null || days <= 0)
+        {
+            return;
+        }
+
+        int ticks = days * CagedChickenMath.TicksPerDay;
+        var simulated = new HashSet<Building_ChickenBatteryCage>();
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(map))
+        {
+            if (simulated.Contains(cage))
+            {
+                continue;
+            }
+
+            IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(cage);
+            foreach (Building_ChickenBatteryCage member in cluster)
+            {
+                simulated.Add(member);
+            }
+
+            SimulateClusterTicks(cluster, ticks);
+        }
     }
 
     /// Materializes a freshly dead chicken from her record and drops the body
