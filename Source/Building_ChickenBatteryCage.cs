@@ -362,12 +362,17 @@ public class Building_ChickenBatteryCage : Building
     {
         get
         {
-            int held = EggsHeld;
+            // Pooled on purpose. The network box is shared, so the whole-egg
+            // count is the floor of the pooled progress — not the sum of each
+            // cage's floored share — because that is exactly what
+            // ReleaseEggBatches releases. Keep the two in step.
+            float raw = CageNetwork.EggProgress(CageNetwork.Cluster(this));
+            int held = CageEggMath.WholeEggsInBox(raw);
             string batch = "ChickenBatteryCage.Eggs.Held".Translate(
                 held,
                 EggStackSize);
             string progress = "ChickenBatteryCage.Eggs.Progress".Translate(
-                (ProgressToNextEgg * 100f).ToString("0"));
+                (CageEggMath.ProgressToNextEgg(raw) * 100f).ToString("0"));
             return batch + " " + progress;
         }
     }
@@ -422,6 +427,12 @@ public class Building_ChickenBatteryCage : Building
     /// holds it past the building's destruction and retries the release.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
+        // Capture the network's surviving cages while this cage is still a live
+        // member: after base.Destroy the building is gone and its cluster can no
+        // longer be discovered from here. Every bird released below must not be
+        // roped straight back in, so those survivors' intake is cut off in turn.
+        IReadOnlyList<Building_ChickenBatteryCage> origin = SurvivingNetwork();
+
         // Credit laying accrued since the last rare tick before the flock can
         // leave. This runs before ReleaseFlock's SettleNutrition so a fed
         // interval is not evaluated against a pool that is already drained.
@@ -435,18 +446,43 @@ public class Building_ChickenBatteryCage : Building
         if (chickens.Count > 0)
         {
             bool injured = mode != DestroyMode.Deconstruct;
-            ReleaseFlock(injured);
-            PreserveUnreleasedFlock(injured);
+            ReleaseFlock(injured, origin);
+            PreserveUnreleasedFlock(injured, origin);
         }
 
         base.Destroy(mode);
+    }
+
+    /// The connected cages that will outlive this one, excluding the cage being
+    /// destroyed. Captured before base.Destroy so the cluster is still
+    /// discoverable; used to cut intake off after a release.
+    IReadOnlyList<Building_ChickenBatteryCage> SurvivingNetwork()
+    {
+        var survivors = new List<Building_ChickenBatteryCage>();
+        if (Map == null)
+        {
+            return survivors;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(this))
+        {
+            if (cage != null && cage != this && !cage.Destroyed)
+            {
+                survivors.Add(cage);
+            }
+        }
+
+        return survivors;
     }
 
     /// Materializes and releases every housed chicken when the cage itself is
     /// going away. A deconstructed cage is taken apart carefully, so its birds
     /// come out unharmed; a cage wrecked by force spits them out wounded.
     /// Flock-level, so it neither consults nor keeps the pending unload queue.
-    void ReleaseFlock(bool injured)
+    /// <paramref name="origin"/> is the releasing network, captured while this
+    /// cage was still spawned, and is cut off so the freed birds are not roped
+    /// straight back in.
+    void ReleaseFlock(bool injured, IReadOnlyList<Building_ChickenBatteryCage> origin)
     {
         if (!Spawned || Map == null || chickens.Count == 0)
         {
@@ -468,7 +504,6 @@ public class Building_ChickenBatteryCage : Building
             }
 
             chickens.RemoveAt(i);
-            CageHenReleaseMemory.Mark(chicken);
             if (injured)
             {
                 CageChickenInjuries.Injure(chicken);
@@ -481,6 +516,10 @@ public class Building_ChickenBatteryCage : Building
 
         if (released > 0)
         {
+            // The flock just spilled onto the map; shut the network's intake so
+            // handlers cannot immediately rope it back into a cage.
+            CageNetwork.DisableIntakeOnRelease(origin);
+
             string message = injured
                 ? "ChickenBatteryCage.Message.ReleasedInjured"
                 : "ChickenBatteryCage.Message.ReleasedOnDeconstruct";
@@ -494,8 +533,10 @@ public class Building_ChickenBatteryCage : Building
     /// Handles the records that <see cref="ReleaseFlock"/> could not turn into
     /// pawns. They outlive the building by moving to a map component, which
     /// keeps them across save/load and retries the release. A record must never
-    /// be deleted just because the cage that held it is gone.
-    void PreserveUnreleasedFlock(bool injured)
+    /// be deleted just because the cage that held it is gone. The releasing
+    /// network is recorded alongside each record so the eventual rescue release
+    /// can cut its intake too.
+    void PreserveUnreleasedFlock(bool injured, IReadOnlyList<Building_ChickenBatteryCage> origin)
     {
         if (chickens.Count == 0)
         {
@@ -523,7 +564,7 @@ public class Building_ChickenBatteryCage : Building
         int preserved = chickens.Count;
         foreach (CagedChickenRecord record in chickens)
         {
-            rescue.Preserve(record, near, injured);
+            rescue.Preserve(record, near, injured, origin);
         }
 
         chickens.Clear();
@@ -690,8 +731,7 @@ public class Building_ChickenBatteryCage : Building
     {
         return IsHen(chicken)
             && penSystemEnabled
-            && !IsFull
-            && !CageHenReleaseMemory.IsRecentlyReleased(chicken);
+            && !IsFull;
     }
 
     public static bool AnyCageWithPendingUnload(Map map)
@@ -982,7 +1022,11 @@ public class Building_ChickenBatteryCage : Building
         }
 
         chickens.RemoveAt(index);
-        CageHenReleaseMemory.Mark(released);
+
+        // Turn the cluster's intake off: the bird just set down must not be
+        // roped straight back into a cage. The player turns it back on with
+        // the "Pen system" gizmo once the released flock has cleared.
+        CageNetwork.DisableIntakeOnRelease(CageNetwork.Cluster(this));
 
         ReconcilePendingUnloads();
         Messages.Message(

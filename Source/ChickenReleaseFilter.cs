@@ -19,6 +19,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public enum ChickenReleaseFilter
 {
+    All,
     Youngest,
     Oldest,
     Random,

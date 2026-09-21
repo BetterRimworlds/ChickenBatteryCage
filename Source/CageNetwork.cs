@@ -646,6 +646,23 @@ public static class CageNetwork
         }
     }
 
+    /**
+     * Cuts off automatic intake for every live member of a cluster that just
+     * put live birds back on the map, so handlers do not rope the freed
+     * chickens straight back into a cage. The player turns intake back on with
+     * the "Pen system" gizmo. Every live-release path funnels through here:
+     * manual unloads, cage destruction, and the deferred rescue releases.
+     *
+     * Only the releasing cluster is affected. If that network is gone and an
+     * unrelated cage is still accepting, the freed bird can still be roped
+     * there; that is a deliberate limit of a cluster-level cutoff, kept instead
+     * of per-bird memory or disabling every cage on the map.
+     */
+    public static void DisableIntakeOnRelease(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        SetPenSystemEnabled(cluster, false);
+    }
+
     public static void ClearPendingUnloads(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         foreach (Building_ChickenBatteryCage cage in cluster)
@@ -666,8 +683,42 @@ public static class CageNetwork
      */
     public static bool RequestUnload(IReadOnlyList<Building_ChickenBatteryCage> cluster, ChickenReleaseFilter filter)
     {
+        if (filter == ChickenReleaseFilter.All)
+        {
+            return RequestUnloadAll(cluster);
+        }
+
         Building_ChickenBatteryCage target = FindCageWithRecord(cluster, filter);
         return target != null && target.RequestUnload(filter);
+    }
+
+    /**
+     * Queues a release mark for every housed bird in the cluster, not just one
+     * per cage. Each cage only takes as many extra marks as it has unmarked
+     * birds, so calling this never queues a mark that would be discarded.
+     */
+    public static bool RequestUnloadAll(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            int toMark = cage.ChickenCount - cage.PendingUnloadCount;
+            for (int i = 0; i < toMark; i++)
+            {
+                if (!cage.RequestUnload(ChickenReleaseFilter.All))
+                {
+                    break;
+                }
+                any = true;
+            }
+        }
+
+        return any;
     }
 
     /// A cage can only hold as many marks as it has birds; routing past a
@@ -803,6 +854,8 @@ public static class CageNetwork
     {
         switch (filter)
         {
+            case ChickenReleaseFilter.All:
+                return "ChickenBatteryCage.Release.All".Translate();
             case ChickenReleaseFilter.Youngest:
                 return "ChickenBatteryCage.Release.Youngest".Translate();
             case ChickenReleaseFilter.Oldest:

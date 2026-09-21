@@ -24,11 +24,13 @@ public static class CageHenIntake
     /**
      * Puts a delivered hen into her cage.
      *
-     * The caller must deliver a spawned, unowned, roped hen — that is the
-     * contract, and it is enforced here: anything else is refused with an
-     * error and left untouched rather than being silently fixed up.
-     * Returns false when the cage cannot accept her or the contract was
-     * violated; true means the record was captured and the Pawn unmade.
+     * The caller must deliver a spawnable, unowned hen. A small hen may still be
+     * carried in a handler's hands when the rope job reports her as arrived,
+     * so she is first set down out of whatever container holds her; only a
+     * holder that refuses to let go, or a bird that cannot reach the map, is
+     * refused with an error and left untouched. Returns false when the cage
+     * cannot accept her or she could not be freed; true means the record was
+     * captured and the Pawn unmade.
      */
     public static bool PutHenInCage(Building_ChickenBatteryCage cage, Pawn hen)
     {
@@ -37,13 +39,17 @@ public static class CageHenIntake
             return false;
         }
 
-        if (hen.holdingOwner != null || !hen.Spawned)
+        if (hen.holdingOwner != null && !TryFreeHeldHen(hen, cage))
         {
-            Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: the handler delivered her " +
-                (hen.holdingOwner != null
-                    ? "while still held by " + hen.holdingOwner + "."
-                    : "while she was not on the map.") +
-                " The hen was left untouched.");
+            Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is still held by " +
+                hen.holdingOwner + " and could not be set down. The hen was left untouched.");
+            return false;
+        }
+
+        if (!hen.Spawned)
+        {
+            Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is not on the map. " +
+                "The hen was left untouched.");
             return false;
         }
 
@@ -53,6 +59,43 @@ public static class CageHenIntake
         cage.AddRecord(record);
         UnmakeWithoutDeath(hen);
         return true;
+    }
+
+    /**
+     * Sets a held hen down on her holder's cell so she can be un-made like any
+     * other delivered bird. Returns true once nothing holds her any more.
+     */
+    static bool TryFreeHeldHen(Pawn hen, Building_ChickenBatteryCage cage)
+    {
+        ThingOwner holder = hen.holdingOwner;
+        if (holder == null)
+        {
+            return true;
+        }
+
+        Thing owner = holder.Owner as Thing;
+        Map map = owner != null ? owner.MapHeld : hen.MapHeld;
+        if (map == null)
+        {
+            return false;
+        }
+
+        IntVec3 dropCell = owner != null ? owner.PositionHeld : hen.PositionHeld;
+        if (!dropCell.IsValid || !dropCell.InBounds(map))
+        {
+            dropCell = cage.Position;
+        }
+
+        if (owner is Pawn carrier && carrier.carryTracker != null && carrier.carryTracker.CarriedThing == hen)
+        {
+            carrier.carryTracker.TryDropCarriedThing(dropCell, ThingPlaceMode.Near, out Thing _);
+        }
+        else
+        {
+            holder.TryDrop(hen, dropCell, map, ThingPlaceMode.Near, out Thing _);
+        }
+
+        return hen.holdingOwner == null;
     }
 
     /**

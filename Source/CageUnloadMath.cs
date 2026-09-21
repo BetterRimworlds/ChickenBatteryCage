@@ -36,6 +36,7 @@ public static class CageUnloadMath
                 case ChickenReleaseFilter.Random:
                 case ChickenReleaseFilter.Youngest:
                 case ChickenReleaseFilter.Oldest:
+                case ChickenReleaseFilter.All:
                     break;
                 default:
                     available = false;
