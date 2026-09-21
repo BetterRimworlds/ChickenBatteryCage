@@ -103,4 +103,25 @@ public class CagedChickenAgingTests
         Assert.IsFalse(CagedChickenMath.IsAdult(0, adultMin));
         Assert.IsFalse(CagedChickenMath.IsAdult((long)(0.12f * Year), adultMin));
     }
+
+    [Test]
+    public void NewbornStage_IsChosenOnlyBelowTheAdultThreshold()
+    {
+        long adultMin = (long)(0.2f * Year);
+
+        Assert.IsTrue(CagedChickenMath.IsNewbornStage(0, adultMin));
+        Assert.IsTrue(CagedChickenMath.IsNewbornStage((long)(0.12f * Year), adultMin));
+        Assert.IsTrue(CagedChickenMath.IsNewbornStage(adultMin - 1, adultMin));
+        Assert.IsFalse(CagedChickenMath.IsNewbornStage(adultMin, adultMin));
+        Assert.IsFalse(CagedChickenMath.IsNewbornStage(2 * Year, adultMin));
+    }
+
+    [Test]
+    public void NewbornStage_WithUnresolvedThreshold_FallsBackToAdult()
+    {
+        // A zero threshold means the life stages are not loaded yet. The bird
+        // must be generated as an adult rather than be mislabelled a newborn.
+        Assert.IsFalse(CagedChickenMath.IsNewbornStage(0, 0));
+        Assert.IsFalse(CagedChickenMath.IsNewbornStage(Year, 0));
+    }
 }
