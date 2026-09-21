@@ -121,10 +121,74 @@ public class CageMortalityTests
     }
 
     [Test]
+    public void FedFlockSuffersNoStarvationHazard()
+    {
+        Assert.AreEqual(0f, CageMortalityMath.StarvationDailyChance(0f));
+        Assert.AreEqual(
+            0f,
+            CageMortalityMath.StarvationDailyChance(CageNutritionMath.StarvingAfterDays));
+    }
+
+    [Test]
+    public void StarvationHazardGrowsWithTimeWithoutFeed()
+    {
+        float oneDay = CageMortalityMath.StarvationDailyChance(1f);
+        float threeDays = CageMortalityMath.StarvationDailyChance(3f);
+
+        Assert.Greater(oneDay, 0f);
+        Assert.Greater(threeDays, oneDay);
+        Assert.LessOrEqual(threeDays, CageMortalityMath.MaxDailyChance);
+    }
+
+    [Test]
     public void CombinedChanceIsCappedBelowCertainty()
     {
         float combined = CageMortalityMath.CombinedDailyChance(0.4f, 0.4f);
 
         Assert.AreEqual(CageMortalityMath.MaxDailyChance, combined, 0.0001f);
+    }
+
+    [Test]
+    public void AvailableFeedDelaysStarvationExposure()
+    {
+        long age = CagedChickenMath.TicksPerYear;
+        float demand = CageNutritionMath.DefaultNutritionPerChickenPerDay;
+        double start = CageMortalityMath.StarvingDaysAtStart(12345, demand * 10, 10, demand);
+        Assert.AreEqual(-1.0, start, 0.000001);
+        Assert.AreEqual(CageMortalityMath.NaturalExposureOverTicks(age, 6f, Day),
+            CageMortalityMath.CombinedExposureOverTicks(age, 6f, start, Day), 0.00000001);
+    }
+
+    [Test]
+    public void CrossingStarvationThresholdOnlyChargesTimeAfterTheThreshold()
+    {
+        long age = CagedChickenMath.TicksPerYear;
+        double whole = CageMortalityMath.CombinedExposureOverTicks(age, 6f, 0.49, 2500);
+        double split = CageMortalityMath.NaturalExposureOverTicks(age, 6f, 600)
+            + CageMortalityMath.CombinedExposureOverTicks(age + 600, 6f, 0.5, 1900);
+        Assert.AreEqual(split, whole, 0.00000001);
+        Assert.Less(whole, CageMortalityMath.ExposureOverTicks(
+            CageMortalityMath.CombinedDailyChance(
+                CageMortalityMath.NaturalDailyChance(1f, 6f),
+                CageMortalityMath.StarvationDailyChance(0.49f + 2500f / Day)), 2500));
+    }
+
+    [Test]
+    public void FeedingRetainsAlreadyAccruedStarvationExposure()
+    {
+        long age = CagedChickenMath.TicksPerYear;
+        double beforeFeed = CageMortalityMath.CombinedExposureOverTicks(age, 6f, 2.0, 1000);
+        double afterFeed = CageMortalityMath.CombinedExposureOverTicks(age + 1000, 6f, -1.0, 1500);
+        float accumulated = CageMortalityMath.ChanceFromExposure(beforeFeed + afterFeed);
+        float fedOnly = CageMortalityMath.ChanceFromExposure(
+            CageMortalityMath.NaturalExposureOverTicks(age, 6f, 2500));
+        Assert.Greater(accumulated, fedOnly * 100);
+    }
+
+    [Test]
+    public void SaturatedStarvationExposureMatchesConstantCappedChance()
+    {
+        Assert.AreEqual(CageMortalityMath.ExposureOverTicks(0.5f, Day),
+            CageMortalityMath.CombinedExposureOverTicks(0, 6f, 20.0, Day), 0.00000001);
     }
 }

@@ -370,16 +370,21 @@ public static class CageNetwork
             return;
         }
 
+        float stored = StoredNutrition(cluster);
+        int birds = OperationalBirdCount(cluster);
+        // A negative starting duration represents the feed still available.
+        // Once that duration reaches zero, the empty-store clock begins.
+        double starvingDaysAtStart = CageMortalityMath.StarvingDaysAtStart(
+            WorstStarvingTicks(cluster), stored, birds,
+            CageNutritionMath.DefaultNutritionPerChickenPerDay);
+
         foreach (Building_ChickenBatteryCage cage in cluster)
         {
             if (Alive(cage))
             {
-                cage.AccumulateMortality(last, now);
+                cage.AccumulateMortality(last, now, starvingDaysAtStart);
             }
         }
-
-        float stored = StoredNutrition(cluster);
-        int birds = OperationalBirdCount(cluster);
 
         int starving = CageNutritionMath.StarvingTicksAfter(
             WorstStarvingTicks(cluster),
@@ -480,6 +485,9 @@ public static class CageNetwork
         {
             return 0f;
         }
+
+        // Preserve mortality exposure before incoming feed resets starvation.
+        SettleCluster(cluster, GenTicks.TicksAbs);
 
         float space = NutritionSpace(cluster);
         if (space <= 0f)

@@ -1115,14 +1115,16 @@ public class Building_ChickenBatteryCage : Building
     }
 
     /// Accrues exposure before nutrition settlement or population changes.
-    internal void AccumulateMortality(int fromTick, int now)
+    internal void AccumulateMortality(int fromTick, int now, double starvingDaysAtStart)
     {
         float lifeExpectancy = ResolveLifeExpectancyYears();
         foreach (CagedChickenRecord record in chickens)
         {
             int start = CageMortalityMath.ExposureStartTick(fromTick, record.enteredAtGameTick);
-            record.mortalityExposure += CageMortalityMath.NaturalExposureOverTicks(
-                record.BiologicalAgeTicksAt(start), lifeExpectancy, now - start);
+            record.mortalityExposure += CageMortalityMath.CombinedExposureOverTicks(
+                record.BiologicalAgeTicksAt(start), lifeExpectancy,
+                starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
+                now - start);
         }
     }
 
@@ -1151,10 +1153,15 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
-        int died = 0;
+        float lifeExpectancy = ResolveLifeExpectancyYears();
+        float starvationDaily = CageMortalityMath.StarvationDailyChance(StarvingDays);
+        int starved = 0;
+        int natural = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
             CagedChickenRecord record = chickens[i];
+            float naturalDaily = CageMortalityMath.NaturalDailyChance(
+                record.BiologicalAgeYearsAt(now), lifeExpectancy);
             float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
             record.mortalityExposure = 0.0;
             if (!Rand.Chance(chance))
@@ -1163,13 +1170,21 @@ public class Building_ChickenBatteryCage : Building
             }
 
             chickens.RemoveAt(i);
-            died++;
+
+            // Attribute the death to whichever hazard dominated this roll, so
+            // the summary separates famine losses from old age.
+            if (starvationDaily > 0f && starvationDaily >= naturalDaily)
+            {
+                starved++;
+            }
+            else
+            {
+                natural++;
+            }
         }
 
-        if (died > 0)
-        {
-            deathsNatural += died;
-        }
+        deathsNatural += natural;
+        deathsStarvation += starved;
     }
 
     void RecheckRoofing()

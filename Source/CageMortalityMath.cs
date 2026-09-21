@@ -56,6 +56,25 @@ public static class CageMortalityMath
         return (float)Math.Min(MaxDailyChance, chance);
     }
 
+    /// Starvation hazard on the first day past the starvation threshold.
+    public const float StarvationBaseDailyChance = 0.05f;
+
+    /**
+     * Hazard from an empty store. A flock only begins to die once it has gone
+     * past the starvation threshold, and the risk climbs with every further
+     * day without feed.
+     */
+    public static float StarvationDailyChance(float starvingDays)
+    {
+        if (starvingDays <= CageNutritionMath.StarvingAfterDays)
+        {
+            return 0f;
+        }
+
+        float daysOver = starvingDays - CageNutritionMath.StarvingAfterDays;
+        return Math.Min(MaxDailyChance, StarvationBaseDailyChance * (1f + daysOver));
+    }
+
     public static float CombinedDailyChance(float natural, float starvation)
     {
         float combined = natural + starvation;
@@ -98,20 +117,52 @@ public static class CageMortalityMath
     /// charged retroactively to the entire interval.
     public static double NaturalExposureOverTicks(long ageAtStartTicks, float lifeExpectancy, int ticks)
     {
+        return CombinedExposureOverTicks(ageAtStartTicks, lifeExpectancy, double.NegativeInfinity, ticks);
+    }
+
+    /// Feed remaining is represented as negative days until the store empties.
+    public static double StarvingDaysAtStart(int starvingTicks, float stored, int birds, float demandPerBird)
+    {
+        double demand = CageNutritionMath.DemandPerDay(birds, demandPerBird);
+        return demand <= 0.0 ? double.NegativeInfinity
+            : stored > 0f ? -stored / demand
+            : starvingTicks / (double)CagedChickenMath.TicksPerDay;
+    }
+
+    /// Integrates the combined daily chance, splitting at the starvation
+    /// threshold so its discontinuity is never spread over a fed interval.
+    public static double CombinedExposureOverTicks(
+        long ageAtStartTicks, float lifeExpectancy, double starvingDaysAtStart, int ticks)
+    {
         double exposure = 0.0;
         const double offset = 0.28867513459481287;
-        for (int elapsed = 0; elapsed < ticks;)
+        double thresholdTick = (CageNutritionMath.StarvingAfterDays - starvingDaysAtStart)
+            * CagedChickenMath.TicksPerDay;
+        for (double elapsed = 0; elapsed < ticks;)
         {
-            int slice = Math.Min(2500, ticks - elapsed);
-            double middleAge = ageAtStartTicks + (double)elapsed + slice * 0.5;
-            float first = NaturalDailyChance(
-                (float)((middleAge - slice * offset) / CagedChickenMath.TicksPerYear), lifeExpectancy);
-            float second = NaturalDailyChance(
-                (float)((middleAge + slice * offset) / CagedChickenMath.TicksPerYear), lifeExpectancy);
-            exposure += (ExposureOverTicks(first, slice) + ExposureOverTicks(second, slice)) * 0.5;
+            double slice = Math.Min(2500.0, ticks - elapsed);
+            if (thresholdTick > elapsed && thresholdTick < elapsed + slice)
+            {
+                slice = thresholdTick - elapsed;
+            }
+            double firstTick = elapsed + slice * (0.5 - offset);
+            double secondTick = elapsed + slice * (0.5 + offset);
+            float first = DailyChanceAt(firstTick);
+            float second = DailyChanceAt(secondTick);
+            exposure -= (Math.Log(1.0 - first) + Math.Log(1.0 - second))
+                * 0.5 * slice / CagedChickenMath.TicksPerDay;
             elapsed += slice;
         }
         return exposure;
+
+        float DailyChanceAt(double elapsed)
+        {
+            float natural = NaturalDailyChance(
+                (float)((ageAtStartTicks + elapsed) / CagedChickenMath.TicksPerYear), lifeExpectancy);
+            float starvation = StarvationDailyChance(
+                (float)(starvingDaysAtStart + elapsed / CagedChickenMath.TicksPerDay));
+            return CombinedDailyChance(natural, starvation);
+        }
     }
 
     public static float ChanceFromExposure(double exposure)
