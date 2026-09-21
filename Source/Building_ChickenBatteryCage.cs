@@ -46,6 +46,11 @@ public class Building_ChickenBatteryCage : Building
     /// a per-chicken schedule.
     protected int nutritionSettledAtTick;
 
+    /// Accumulated ticks the flock has spent with an empty store. Only used to
+    /// describe and (later) to roll starvation mortality; it never spawns a
+    /// starving Pawn or applies a malnutrition Hediff.
+    protected int starvingTicks;
+
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -83,6 +88,13 @@ public class Building_ChickenBatteryCage : Building
         {
             return;
         }
+
+        starvingTicks = CageNutritionMath.StarvingTicksAfter(
+            starvingTicks,
+            nutritionStored,
+            chickens.Count,
+            CageNutritionMath.DefaultNutritionPerChickenPerDay,
+            elapsed);
 
         nutritionStored = CageNutritionMath.RemainingAfter(
             nutritionStored,
@@ -129,6 +141,16 @@ public class Building_ChickenBatteryCage : Building
         chickens.Count,
         CageNutritionMath.DefaultNutritionPerChickenPerDay);
 
+    /// Days the flock has spent with an empty store.
+    public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
+
+    /// Fed, hungry, or starving, derived from the collective store alone.
+    public CageNutritionState NutritionState => CageNutritionMath.Classify(
+        nutritionStored,
+        chickens.Count,
+        CageNutritionMath.DefaultNutritionPerChickenPerDay,
+        StarvingDays);
+
     /// Adds feed to the collective store and returns how much was accepted.
     /// Anything above capacity is refused rather than silently wasted.
     public float AddNutrition(float amount)
@@ -143,9 +165,26 @@ public class Building_ChickenBatteryCage : Building
         return accepted;
     }
 
-    protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Amount".Translate(
+    protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Status".Translate(
         nutritionStored.ToString("0.#"),
-        NutritionCapacity.ToString("0.#"));
+        NutritionCapacity.ToString("0.#"),
+        NutritionStateLabel);
+
+    string NutritionStateLabel
+    {
+        get
+        {
+            switch (NutritionState)
+            {
+                case CageNutritionState.Starving:
+                    return "ChickenBatteryCage.Feed.StateStarving".Translate();
+                case CageNutritionState.Hungry:
+                    return "ChickenBatteryCage.Feed.StateHungry".Translate();
+                default:
+                    return "ChickenBatteryCage.Feed.StateFed".Translate();
+            }
+        }
+    }
 
     protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
 
@@ -308,6 +347,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref penSystemEnabled, "penSystemEnabled", true);
         Scribe_Values.Look(ref nutritionStored, "nutritionStored", 0f);
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
+        Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
