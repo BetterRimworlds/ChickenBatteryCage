@@ -36,6 +36,16 @@ public class Building_ChickenBatteryCage : Building
     /// spawned Pawn is kept here.
     protected List<CagedChickenRecord> chickens = new List<CagedChickenRecord>();
 
+    /// Collective nutrition held for the whole flock and drained by the summed
+    /// demand of its members. No caged bird owns a personal food need, so feed
+    /// is stored, consumed, and displayed at the cage level only.
+    protected float nutritionStored;
+
+    /// Absolute tick at which <see cref="nutritionStored"/> was last settled
+    /// against elapsed time, so consumption is computed lazily instead of on
+    /// a per-chicken schedule.
+    protected int nutritionSettledAtTick;
+
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -73,7 +83,38 @@ public class Building_ChickenBatteryCage : Building
         return (index >= 0 && index < chickens.Count) ? chickens[index] : null;
     }
 
-    protected virtual string FeedInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
+    /// Collective nutrition currently held for the flock.
+    public float StoredNutrition => nutritionStored;
+
+    /// Largest collective store the cage can hold, scaled by bird capacity.
+    public float NutritionCapacity => CageNutritionMath.MaxNutrition(ChickenCapacity);
+
+    /// Free room left in the collective store.
+    public float NutritionSpace =>
+        nutritionStored >= NutritionCapacity ? 0f : NutritionCapacity - nutritionStored;
+
+    /// Summed daily demand of every bird currently housed.
+    public float NutritionDemandPerDay => CageNutritionMath.DemandPerDay(
+        chickens.Count,
+        CageNutritionMath.DefaultNutritionPerChickenPerDay);
+
+    /// Adds feed to the collective store and returns how much was accepted.
+    /// Anything above capacity is refused rather than silently wasted.
+    public float AddNutrition(float amount)
+    {
+        if (amount <= 0f)
+        {
+            return 0f;
+        }
+
+        float accepted = amount < NutritionSpace ? amount : NutritionSpace;
+        nutritionStored += accepted;
+        return accepted;
+    }
+
+    protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Amount".Translate(
+        nutritionStored.ToString("0.#"),
+        NutritionCapacity.ToString("0.#"));
 
     protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
 
@@ -232,6 +273,8 @@ public class Building_ChickenBatteryCage : Building
     {
         base.ExposeData();
         Scribe_Values.Look(ref penSystemEnabled, "penSystemEnabled", true);
+        Scribe_Values.Look(ref nutritionStored, "nutritionStored", 0f);
+        Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 

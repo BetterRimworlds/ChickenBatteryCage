@@ -11,6 +11,10 @@
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
 	<ChickenBatteryCage.Inspect.Eggs>Eggs:           {0}</ChickenBatteryCage.Inspect.Eggs>
 	<ChickenBatteryCage.Inspect.Empty>—</ChickenBatteryCage.Inspect.Empty>
+	<ChickenBatteryCage.Feed.Amount>{0} / {1}</ChickenBatteryCage.Feed.Amount>
+	<ChickenBatteryCage.Feed.StateFed>fed</ChickenBatteryCage.Feed.StateFed>
+	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>
+	<ChickenBatteryCage.Feed.StateStarving>starving</ChickenBatteryCage.Feed.StateStarving>
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
 	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nHens: {0} / {1}\nAdult hens: {2}\nJuveniles: {3}</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many hens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
