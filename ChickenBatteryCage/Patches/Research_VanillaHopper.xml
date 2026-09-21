@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+	The cage feeds through the vanilla hopper, which by default only unlocks
+	with Nutrient Paste. Let the battery cage research unlock it too, so a
+	player can build cage + hopper together the moment the cage is researched.
+-->
+<Patch>
+	<Operation Class="PatchOperationAdd">
+		<xpath>Defs/ThingDef[defName="Hopper"]/researchPrerequisites</xpath>
+		<value>
+			<li>ChickenBatteryCage</li>
+		</value>
+	</Operation>
+</Patch>

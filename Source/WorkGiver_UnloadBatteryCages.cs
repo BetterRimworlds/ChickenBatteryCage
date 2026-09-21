@@ -25,7 +25,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public class WorkGiver_UnloadBatteryCages : WorkGiver_Scanner
 {
-    public override PathEndMode PathEndMode => PathEndMode.InteractionCell;
+    public override PathEndMode PathEndMode => PathEndMode.Touch;
 
     public override IEnumerable<Thing> PotentialWorkThingsGlobal(Pawn pawn)
     {
@@ -55,7 +55,7 @@ public class WorkGiver_UnloadBatteryCages : WorkGiver_Scanner
             return false;
         }
 
-        if (!pawn.CanReach(cage, PathEndMode.InteractionCell, Danger.Deadly))
+        if (!pawn.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
         {
             JobFailReason.Is("NoPath".Translate());
             return false;

@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="..\Source\CagedChickenMath.cs" Link="CagedChickenMath.cs" />
     <Compile Include="..\Source\CageNutrition.cs" Link="CageNutrition.cs" />
+    <Compile Include="..\Source\FeedHopperMath.cs" Link="FeedHopperMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

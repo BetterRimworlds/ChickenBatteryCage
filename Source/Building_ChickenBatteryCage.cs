@@ -152,7 +152,9 @@ public class Building_ChickenBatteryCage : Building
         StarvingDays);
 
     /// Adds feed to the collective store and returns how much was accepted.
-    /// Anything above capacity is refused rather than silently wasted.
+    /// Anything above capacity is refused rather than silently wasted. Only
+    /// <see cref="DrawFromHoppers"/> may call this: hoppers are the sole way
+    /// food enters a cage.
     public float AddNutrition(float amount)
     {
         if (amount <= 0f)
@@ -421,6 +423,12 @@ public class Building_ChickenBatteryCage : Building
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(PendingUnloadCount));
         }
+
+        if (chickens.Count > 0 && !HasAdjacentHopper())
+        {
+            sb.AppendLine("ChickenBatteryCage.Inspect.NoHopper".Translate());
+        }
+
         sb.AppendLine("ChickenBatteryCage.Inspect.Feed".Translate(FeedInspectValue));
         sb.Append("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
 
@@ -615,7 +623,7 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            if (!handler.CanReach(cage, PathEndMode.InteractionCell, Danger.Deadly))
+            if (!handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
             {
                 continue;
             }
@@ -641,13 +649,6 @@ public class Building_ChickenBatteryCage : Building
 
     private static bool HasAvailableStandCell(Building_ChickenBatteryCage cage, Pawn handler)
     {
-        // Check the primary interaction cell
-        if (cage.InteractionCell.IsValid && cage.IsGoodStandCell(cage.InteractionCell, handler))
-        {
-            return true;
-        }
-
-        // Check adjacent cells
         foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(cage))
         {
             if (cage.IsGoodStandCell(cell, handler))
@@ -664,11 +665,6 @@ public class Building_ChickenBatteryCage : Building
         if (!Spawned || handler == null || Map == null)
         {
             return IntVec3.Invalid;
-        }
-
-        if (IsGoodStandCell(InteractionCell, handler))
-        {
-            return InteractionCell;
         }
 
         foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(this))
@@ -975,6 +971,68 @@ public class Building_ChickenBatteryCage : Building
     {
         base.TickRare();
         SettleNutrition();
+        DrawFromHoppers();
+    }
+
+    /// Every vanilla feed hopper touching this cage's edge. The cage network
+    /// shares them in the sense that whichever cage a hopper touches, that
+    /// hopper feeds the network's flock through the cage it is bolted to.
+    public IEnumerable<Building_Storage> AdjacentHoppers()
+    {
+        if (!Spawned || Map == null)
+        {
+            yield break;
+        }
+
+        foreach (IntVec3 cell in GenAdj.CellsAdjacentCardinal(this))
+        {
+            if (HopperFeeding.IsHopper(Map.edificeGrid[cell])
+                && Map.edificeGrid[cell] is Building_Storage hopper)
+            {
+                yield return hopper;
+            }
+        }
+    }
+
+    public bool HasAdjacentHopper()
+    {
+        foreach (Building_Storage _ in AdjacentHoppers())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Siphons feed out of the attached hoppers into the collective store.
+     * This is the only path by which food ever enters a cage: colonists fill
+     * the vanilla hoppers with the ordinary hauling pipeline, and the machine
+     * does the rest.
+     */
+    void DrawFromHoppers()
+    {
+        float space = NutritionSpace;
+        if (space <= 0f)
+        {
+            return;
+        }
+
+        foreach (Building_Storage hopper in AdjacentHoppers())
+        {
+            if (space <= 0f)
+            {
+                break;
+            }
+
+            float delivered = HopperFeeding.TryConsume(hopper, space);
+            if (delivered <= 0f)
+            {
+                continue;
+            }
+
+            AddNutrition(delivered);
+            space = NutritionSpace;
+        }
     }
 
     void RecheckRoofing()
