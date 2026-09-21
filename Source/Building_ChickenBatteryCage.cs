@@ -61,6 +61,37 @@ public class Building_ChickenBatteryCage : Building
 
     public bool IsOperational => roofedOverOccupiedCells;
 
+    /**
+     * Drains the collective store for the time that has passed since the last
+     * settlement. Aging-style: no per-chicken food tick exists, the flock's
+     * summed demand is applied in one calculation whenever a value is needed.
+     */
+    public void SettleNutrition()
+    {
+        int now = GenTicks.TicksAbs;
+
+        // A fresh or pre-fix save has no stored clock; start it now instead of
+        // charging the whole game's elapsed time against an empty store.
+        if (nutritionSettledAtTick <= 0 || nutritionSettledAtTick > now)
+        {
+            nutritionSettledAtTick = now;
+            return;
+        }
+
+        int elapsed = now - nutritionSettledAtTick;
+        if (elapsed <= 0 || chickens == null)
+        {
+            return;
+        }
+
+        nutritionStored = CageNutritionMath.RemainingAfter(
+            nutritionStored,
+            chickens.Count,
+            CageNutritionMath.DefaultNutritionPerChickenPerDay,
+            elapsed);
+        nutritionSettledAtTick = now;
+    }
+
     /// Controls whether handlers may rope hens into this cage automatically.
     /// Defaults to true and persists across saves. Manual release is unaffected.
     public bool PenSystemEnabled => penSystemEnabled;
@@ -190,6 +221,8 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
+        SettleNutrition();
+
         Map map = Map;
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
         int released = 0;
@@ -302,6 +335,8 @@ public class Building_ChickenBatteryCage : Building
 
     public override string GetInspectString()
     {
+        SettleNutrition();
+
         var sb = new StringBuilder();
         string baseString = base.GetInspectString();
         if (!baseString.NullOrEmpty())
@@ -637,6 +672,8 @@ public class Building_ChickenBatteryCage : Building
     /// biology has been captured; appends the record to the housed flock.
     public void AddRecord(CagedChickenRecord record)
     {
+        // Bill the outgoing population before the newcomer joins.
+        SettleNutrition();
         chickens.Add(record);
     }
 
@@ -700,6 +737,9 @@ public class Building_ChickenBatteryCage : Building
         {
             return false;
         }
+
+        // Settle before the bird leaves so her share of the store is billed.
+        SettleNutrition();
 
         CagedChickenRecord record = chickens[index];
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
@@ -889,6 +929,12 @@ public class Building_ChickenBatteryCage : Building
         {
             GenDraw.DrawFieldEdges(unroofedCellsScratch, Color.red);
         }
+    }
+
+    public override void TickRare()
+    {
+        base.TickRare();
+        SettleNutrition();
     }
 
     void RecheckRoofing()
