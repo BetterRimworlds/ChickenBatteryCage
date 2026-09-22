@@ -51,14 +51,10 @@ public static class CageNutritionMath
     public const float DefaultNutritionPerChickenPerDay =
         VanillaChickenNutritionPerDay * (1f - ConfinementDiscount);
 
-    /// How many days of feed a cage can hold per bird. Full cages therefore
-    /// buffer a long absence without letting a player stockpile forever.
-    public const float MaxDaysOfFeedPerChicken = 6f;
-
-    /// Nutrition held per bird slot: the six days of feed above at the caged
-    /// daily demand, not six raw nutrition (which would last about a month).
-    public const float MaxNutritionPerChicken =
-        MaxDaysOfFeedPerChicken * DefaultNutritionPerChickenPerDay;
+    /// Nutrition a cage can hold per bird. A ten-bird cage therefore buffers
+    /// 33 nutrition, about seventeen days of feed for a full flock, which
+    /// covers a long absence without letting a player stockpile forever.
+    public const float MaxNutritionPerChicken = 3.3f;
 
     /// A flock with less than this many days of feed reads as hungry.
     public const float HungryThresholdDays = 1f;
@@ -74,6 +70,15 @@ public static class CageNutritionMath
     public static float DemandPerDay(int chickenCount, float perChickenPerDay)
     {
         return chickenCount <= 0 ? 0f : chickenCount * perChickenPerDay;
+    }
+
+    /// In-game days the given store lasts at the flock's summed appetite.
+    /// Fewer birds stretch the same feed further; a flock that consumes
+    /// nothing has no finite horizon, so it reports zero.
+    public static float DaysOfFeed(float stored, int chickenCount, float perChickenPerDay)
+    {
+        float demand = DemandPerDay(chickenCount, perChickenPerDay);
+        return demand <= 0f ? 0f : stored / demand;
     }
 
     /**

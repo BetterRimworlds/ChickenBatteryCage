@@ -75,12 +75,28 @@ public class CageNutritionTests
     }
 
     [Test]
-    public void CapacityIsSixDaysOfFeedPerBird()
+    public void ATenBirdCageBuffersThirtyThreeNutrition()
     {
-        Assert.AreEqual(
-            CageNutritionMath.MaxDaysOfFeedPerChicken * PerChicken,
-            CageNutritionMath.MaxNutritionPerChicken,
-            0.0001f);
+        Assert.AreEqual(33f, CageNutritionMath.MaxNutrition(10), 0.001f);
+    }
+
+    [Test]
+    public void DaysOfFeedIsTheStoreOverTheFlocksAppetite()
+    {
+        float tenBirds = CageNutritionMath.DaysOfFeed(33f, 10, PerChicken);
+        Assert.AreEqual(33f / (10f * PerChicken), tenBirds, 0.001f);
+
+        // Half the flock eats half as fast, so the same store lasts twice as
+        // long: this is what makes the panel's figure grow as hens are removed.
+        float fiveBirds = CageNutritionMath.DaysOfFeed(33f, 5, PerChicken);
+        Assert.AreEqual(tenBirds * 2f, fiveBirds, 0.001f);
+    }
+
+    [Test]
+    public void DaysOfFeedIsZeroWhenNothingEats()
+    {
+        Assert.AreEqual(0f, CageNutritionMath.DaysOfFeed(10f, 0, PerChicken));
+        Assert.AreEqual(0f, CageNutritionMath.DaysOfFeed(10f, 10, 0f));
     }
 
     [Test]

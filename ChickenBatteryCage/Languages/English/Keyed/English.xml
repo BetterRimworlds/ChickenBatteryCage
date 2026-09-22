@@ -11,10 +11,13 @@
 	<ChickenBatteryCage.Eggs.Held>{0} / {1} in the box,</ChickenBatteryCage.Eggs.Held>
 	<ChickenBatteryCage.Eggs.Progress>{0}% to the next egg</ChickenBatteryCage.Eggs.Progress>
 	<ChickenBatteryCage.Feed.Status>{0} / {1} ({2})</ChickenBatteryCage.Feed.Status>
-	<ChickenBatteryCage.Feed.StateFed>sufficient</ChickenBatteryCage.Feed.StateFed>
-	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>
-	<ChickenBatteryCage.Feed.StateStarving>starving</ChickenBatteryCage.Feed.StateStarving>
 	<ChickenBatteryCage.Feed.None>No suitable animal feed is available.</ChickenBatteryCage.Feed.None>
+	<ChickenBatteryCage.Feed.Days>{0} days</ChickenBatteryCage.Feed.Days>
+	<ChickenBatteryCage.Feed.OneDay>1 day</ChickenBatteryCage.Feed.OneDay>
+	<ChickenBatteryCage.Feed.LessThanADay>less than a day</ChickenBatteryCage.Feed.LessThanADay>
+	<ChickenBatteryCage.Feed.NoFeed>no feed</ChickenBatteryCage.Feed.NoFeed>
+	<ChickenBatteryCage.Feed.Starving>starving</ChickenBatteryCage.Feed.Starving>
+	<ChickenBatteryCage.Feed.NoHens>no hens</ChickenBatteryCage.Feed.NoHens>
 	<ChickenBatteryCage.Settings.AgeDecline>Hens lay fewer eggs as they age</ChickenBatteryCage.Settings.AgeDecline>
 	<ChickenBatteryCage.Settings.AgeDeclineTip>When on, a caged hen's output declines gradually after she turns two years old, without ever quite stopping. Turn this off to have every adult hen lay one egg a day for the rest of her life, as in vanilla RimWorld. Default: on.</ChickenBatteryCage.Settings.AgeDeclineTip>
 	<ChickenBatteryCage.Settings.ForbidDairyInFeed>Forbid dairy in battery-cage feed?</ChickenBatteryCage.Settings.ForbidDairyInFeed>

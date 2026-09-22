@@ -20,13 +20,13 @@ warnings.
 
 *Collective feed store, elapsed-time consumption, starvation state, direct hauling of feed, and touching cages behaving as one giant cage.*
 
-- [ ] Cage inspection shows a **nutrition/feed** figure that drains over in-game time.
-- [ ] Drain scales with flock size (more hens = faster drain) and pauses while the game is paused.
+- [x] Cage inspection shows a **nutrition/feed** figure that drains over in-game time, with the estimated days of feed remaining; an empty store reads **starving** instead of a day estimate.
+- [x] Drain scales with flock size (more hens = faster drain) and pauses while the game is paused.
 - [ ] **Feeding is by direct hauling:** colonists carry raw plant food, hay, or kibble straight to a cage with the ordinary hauling pipeline, and the cage converts it immediately into the shared feed store. No hopper or nutrient paste is required.
 - [ ] Haulers only start when the cluster's pool falls below half its capacity, then keep topping up until full, so flocks are fed in infrequent bursts rather than a continuous trickle.
 - [ ] A **cluster with no reachable food stockpile** never gains feed and eventually starves; inspection explains the feed state.
 - [ ] Food is destroyed on delivery and is never left lying on the cage; the cage stores only abstract nutrition.
-- [ ] The store caps at six days of feed per bird **across the whole cluster**; surplus food stays in the stockpile rather than being wasted.
+- [ ] The store caps at **3.3 nutrition per bird (33 for a full ten-hen cage)** across the whole cluster; surplus food stays in the stockpile rather than being wasted.
 - [ ] When nutrition hits zero, hens pass through **hungry** and **starving** states — no starving pawns are spawned.
 - [ ] Starving birds recover once feed is hauled in.
 - [ ] **Unroofed cages keep running.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving; the inspection panel no longer marks the cage inoperable or mentions the roof.
