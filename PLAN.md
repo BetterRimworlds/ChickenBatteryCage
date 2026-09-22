@@ -37,7 +37,7 @@ of the stack and is reviewed on its own. PRs 1–3 are merged into `trunk`; PRs
 | 8 | Profiled large industrial poultry colonies | `pr8-profiling` | `pr7-savegame-hardening` | 4 | Open |
 | 9 | Finished the RimWorld 1.6 battery-poultry release | `pr9-release` | `pr8-profiling` | 5 | Open |
 | 10 | Added a per-chicken picker window for unloading battery cages | `pr10-chicken-picker` | `pr9-release` | 5 | Open |
-| 11 | Forbade dairy in the battery-cage feed hopper system | `pr11-feed-hopper-dairy` | `pr10-chicken-picker` | 4 | Open |
+| 11 | Forbade dairy in the battery-cage feed hopper system | `pr11-feed-hopper-dairy` | `pr10-chicken-picker` | 3 | Open |
 
 ---
 
