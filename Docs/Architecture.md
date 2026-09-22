@@ -68,13 +68,27 @@ bolted to any member feeds the whole cluster. Because the state stays per-cage
 on disk, no save migration is needed and a cage leaving the cluster keeps only
 its own share.
 
+The egg box is pooled the same way. Each cage banks its own fractional
+`eggProgress`, but release is decided on the cluster total: whenever the sum
+reaches a whole stack — one full day of the whole network's laying, never fewer
+than ten eggs — the cage that settles first places one haulable stack and the
+remaining progress is scaled back proportionally across the members
+(`CageNetwork.WithdrawEggs` via `CageClusterMath.ScaleToTotal`). Five unevenly
+stocked cages therefore empty together however the hens are distributed,
+instead of each cage having to reach the threshold on its own. A stack that
+cannot be placed leaves its eggs in the pool and the attempt is retried on the
+next settlement, so no output is lost to a crowded map.
+
 ## Output
 
-Egg production accumulates internally and materializes a `ChickenEggCarton`
-`Thing` once a dozen eggs are ready. The carton's stack count is the eggs left
-in it, so vanilla nutrition-based cooking draws a few eggs at a time and no
-individual egg `Thing` is ever created. The def carries no hatcher component,
-and a startup guard strips one if another mod adds it.
+Egg production accumulates internally and materializes a single vanilla
+unfertilized-egg stack once the pooled box is full, so cooking draws whole eggs
+from an ordinary stack and no individual egg `Thing` is ever created per hen.
+The stack holds at least ten eggs (`MinEggsPerStack`) and grows to a full day of
+the whole network's laying when the cluster's combined output is higher, matching
+the release threshold described above. The pooled pull-out keeps every member's
+fractions summing to the same total, so no fractional egg is lost at a cluster
+boundary.
 
 ## Safety
 
