@@ -16,7 +16,22 @@ namespace BetterRimworlds.ChickenBatteryCage;
 /// Verse-free reconciliation of kind-selector requests with a surviving flock.
 public static class CageUnloadMath
 {
-    public static void Reconcile(IList<ChickenReleaseFilter> requests, int birds, int adultHens, int juveniles)
+    /**
+     * Prunes requests that can no longer be satisfied. When a parallel
+     * <paramref name="targets"/> list is supplied, the entry aligned with a
+     * dropped request is dropped too, so a specific mark never loses the
+     * record it points at. A specific mark survives only while the record it
+     * names is still in <paramref name="surviving"/>; a dead bird's stale mark
+     * must be dropped before the capacity test, or it would consume a slot
+     * that a living mark needs.
+     */
+    public static void Reconcile(
+        IList<ChickenReleaseFilter> requests,
+        int birds,
+        int adultHens,
+        int juveniles,
+        System.Collections.IList targets = null,
+        System.Collections.IList surviving = null)
     {
         int kept = 0;
         int adultsRequested = 0;
@@ -38,6 +53,14 @@ public static class CageUnloadMath
                 case ChickenReleaseFilter.Oldest:
                 case ChickenReleaseFilter.All:
                     break;
+                case ChickenReleaseFilter.Specific:
+                    // Validate the exact bird before the capacity test: a
+                    // target that died (or is missing) must not keep a slot.
+                    available &= targets != null
+                        && surviving != null
+                        && i < targets.Count
+                        && surviving.Contains(targets[i]);
+                    break;
                 default:
                     available = false;
                     break;
@@ -46,6 +69,10 @@ public static class CageUnloadMath
             if (!available)
             {
                 requests.RemoveAt(i);
+                if (targets != null && i < targets.Count)
+                {
+                    targets.RemoveAt(i);
+                }
                 continue;
             }
 

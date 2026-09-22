@@ -25,4 +25,9 @@ public enum ChickenReleaseFilter
     Random,
     AdultHen,
     Juvenile,
+
+    /// The mark names one exact record, held alongside it in the cage's
+    /// pending-target list. Used by the picker window so a player can release
+    /// the precise birds they ticked rather than a whole life stage.
+    Specific,
 }

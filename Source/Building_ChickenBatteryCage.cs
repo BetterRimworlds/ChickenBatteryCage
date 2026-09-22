@@ -119,6 +119,13 @@ public class Building_ChickenBatteryCage : Building
     /// reaches the cage. Persisted so marks survive save/load.
     protected List<ChickenReleaseFilter> pendingUnloads = new List<ChickenReleaseFilter>();
 
+    /// When a pending mark names one exact bird rather than a kind, the record
+    /// it points at sits here, aligned by index with <see cref="pendingUnloads"/>.
+    /// A null entry means that mark resolves by its filter as usual. The picker
+    /// window uses this to release precisely the birds the player ticked, even
+    /// when several birds share a life stage and age.
+    protected List<CagedChickenRecord> pendingUnloadTargets = new List<CagedChickenRecord>();
+
     /// Sentinel kept at long.MaxValue while unresolved so that, even if a
     /// caller somehow bypasses the guard in IsAdult, no bird is misread as
     /// an adult before the chicken def's life stages are known.
@@ -289,6 +296,93 @@ public class Building_ChickenBatteryCage : Building
     internal void SettleEggProduction()
     {
         AccrueEggProduction();
+    }
+
+    /// The juvenile stage's own lower age, in ticks, from the chicken def.
+    /// Sentinel at long.MaxValue until the def resolves, mirroring
+    /// <see cref="adultMinAgeTicks"/>.
+    static long juvenileMinAgeTicks = long.MaxValue;
+
+    static bool juvenileMinAgeTicksResolved;
+
+    /// A caged bird's exact biological age right now, in years.
+    public float BiologicalAgeYears(CagedChickenRecord record)
+    {
+        return record == null
+            ? 0f
+            : record.BiologicalAgeYearsAt(GenTicks.TicksAbs);
+    }
+
+    /// Which of chick, juvenile, or adult this bird currently is, derived from
+    /// its exact stored age and the chicken def's own life-stage ages.
+    public CagedChickenStage StageOf(CagedChickenRecord record)
+    {
+        if (record == null)
+        {
+            return CagedChickenStage.Adult;
+        }
+
+        // Pass a non-positive threshold for any stage the def has not yet
+        // supplied, so StageAt's documented Adult fallback applies instead of
+        // the long.MaxValue sentinel mislabelling every bird as a Chick.
+        bool adultResolved = EnsureLifeStageTicks();
+        EnsureJuvenileStageTicks();
+
+        return CagedChickenStageMath.StageAt(
+            record.BiologicalAgeTicksAt(GenTicks.TicksAbs),
+            juvenileMinAgeTicksResolved ? juvenileMinAgeTicks : 0,
+            adultResolved ? adultMinAgeTicks : 0);
+    }
+
+    /**
+     * The name RimWorld itself gives a bird of this life stage. Caged birds are
+     * always hens, so the female label is preferred and falls back through the
+     * stage and kind labels. A chick therefore reads "Chick" and a grown bird
+     * "Hen", matching the game rather than labelling every bird a "chicken".
+     * Our own stage words are the last resort if the def cannot be read.
+     */
+    public string LifeStageName(CagedChickenStage stage)
+    {
+        PawnKindDef kind = ChickenBatteryCageDefOf.Chicken;
+        List<PawnKindLifeStage> stages = kind?.lifeStages;
+        int index = (int)stage;
+
+        if (stages != null && index >= 0 && index < stages.Count)
+        {
+            PawnKindLifeStage lifeStage = stages[index];
+            string label = FirstNonEmpty(
+                lifeStage.labelFemale,
+                lifeStage.label,
+                kind.labelFemale,
+                kind.label);
+            if (!label.NullOrEmpty())
+            {
+                return label.CapitalizeFirst();
+            }
+        }
+
+        switch (stage)
+        {
+            case CagedChickenStage.Chick:
+                return "ChickenBatteryCage.Picker.StageChick".Translate();
+            case CagedChickenStage.Juvenile:
+                return "ChickenBatteryCage.Picker.StageJuvenile".Translate();
+            default:
+                return "ChickenBatteryCage.Picker.StageAdult".Translate();
+        }
+    }
+
+    static string FirstNonEmpty(params string[] values)
+    {
+        foreach (string value in values)
+        {
+            if (!value.NullOrEmpty())
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     /// Days the flock has spent with an empty store.
@@ -489,7 +583,7 @@ public class Building_ChickenBatteryCage : Building
             released++;
         }
 
-        pendingUnloads.Clear();
+        ClearPendingUnloads();
 
         if (released > 0)
         {
@@ -533,7 +627,7 @@ public class Building_ChickenBatteryCage : Building
                 chickens.Count + " unreleased chicken record(s) but no map to " +
                 "preserve them on; those chickens were lost.");
             chickens.Clear();
-            pendingUnloads.Clear();
+            ClearPendingUnloads();
             return;
         }
 
@@ -545,7 +639,7 @@ public class Building_ChickenBatteryCage : Building
         }
 
         chickens.Clear();
-        pendingUnloads.Clear();
+        ClearPendingUnloads();
 
         Log.Warning("[ChickenBatteryCage] " + preserved +
             " caged chicken record(s) could not be released when their cage was " +
@@ -567,6 +661,35 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
+        // The targets must not be saved as deep copies: every consumer matches
+        // them against the "chickens" list by reference, so a reloaded copy
+        // would never match and the mark would be silently dropped. Save
+        // positions in that list instead and re-link to the loaded records.
+        if (Scribe.mode == LoadSaveMode.Saving)
+        {
+            List<int> targetIndices = new List<int>(pendingUnloadTargets.Count);
+            foreach (CagedChickenRecord target in pendingUnloadTargets)
+            {
+                targetIndices.Add(target == null ? -1 : chickens.IndexOf(target));
+            }
+
+            Scribe_Collections.Look(ref targetIndices, "pendingUnloadTargetIndices", LookMode.Value);
+        }
+        else if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            List<int> targetIndices = null;
+            Scribe_Collections.Look(ref targetIndices, "pendingUnloadTargetIndices", LookMode.Value);
+            pendingUnloadTargets = new List<CagedChickenRecord>();
+            if (targetIndices != null)
+            {
+                foreach (int index in targetIndices)
+                {
+                    pendingUnloadTargets.Add(
+                        index >= 0 && index < chickens.Count ? chickens[index] : null);
+                }
+            }
+        }
+
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
             if (chickens == null)
@@ -577,6 +700,23 @@ public class Building_ChickenBatteryCage : Building
             if (pendingUnloads == null)
             {
                 pendingUnloads = new List<ChickenReleaseFilter>();
+            }
+
+            if (pendingUnloadTargets == null)
+            {
+                pendingUnloadTargets = new List<CagedChickenRecord>();
+            }
+
+            // The two lists are drawn in lockstep; a save that lost one still
+            // must not leave a specific mark without its target.
+            while (pendingUnloadTargets.Count < pendingUnloads.Count)
+            {
+                pendingUnloadTargets.Add(null);
+            }
+
+            while (pendingUnloadTargets.Count > pendingUnloads.Count)
+            {
+                pendingUnloadTargets.RemoveAt(pendingUnloadTargets.Count - 1);
             }
 
             SanitizeLoadedState();
@@ -730,7 +870,6 @@ public class Building_ChickenBatteryCage : Building
 
         int chickenCount = CageNetwork.ChickenCount(cluster);
         int totalCapacity = CageNetwork.TotalCapacity(cluster);
-        int pendingUnloadCount = CageNetwork.PendingUnloadCount(cluster);
         bool penSystemEnabled = CageNetwork.PenSystemEnabled(cluster);
 
         Command_Action capacityGizmo = new Command_Action
@@ -740,18 +879,26 @@ public class Building_ChickenBatteryCage : Building
                 chickenCount,
                 totalCapacity),
             icon = def.uiIcon,
-            action = delegate { },
+            action = delegate
+            {
+                Find.WindowStack.Add(new Window_CageChickens(this));
+            },
         };
-        capacityGizmo.Disable("ChickenBatteryCage.Gizmo.CapacityDisabled".Translate());
+        if (chickenCount == 0)
+        {
+            capacityGizmo.Disable("ChickenBatteryCage.Gizmo.UnloadEmpty".Translate());
+        }
         yield return capacityGizmo;
 
+        // Styled after the vanilla item allow toggle: same label, same F
+        // hotkey, same Forbid icons. "Allowed" means handlers may rope hens
+        // into the network's cages.
         Command_Toggle penSystemGizmo = new Command_Toggle
         {
-            defaultLabel = (penSystemEnabled
-                ? "ChickenBatteryCage.Gizmo.PenSystemOn"
-                : "ChickenBatteryCage.Gizmo.PenSystemOff").Translate(),
-            defaultDesc = "ChickenBatteryCage.Gizmo.PenSystemDesc".Translate(),
-            icon = def.uiIcon,
+            defaultLabel = "CommandAllow".Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.AllowDesc".Translate(),
+            icon = penSystemEnabled ? TexCommand.ForbidOff : TexCommand.ForbidOn,
+            hotKey = KeyBindingDefOf.Command_ItemForbid,
             isActive = () => CageNetwork.PenSystemEnabled(CageNetwork.Cluster(this)),
             toggleAction = delegate
             {
@@ -760,26 +907,6 @@ public class Building_ChickenBatteryCage : Building
             },
         };
         yield return penSystemGizmo;
-
-        Command_Action unloadGizmo = new Command_Action
-        {
-            defaultLabel = (pendingUnloadCount > 0
-                ? "ChickenBatteryCage.Gizmo.UnloadPending"
-                : "ChickenBatteryCage.Gizmo.Unload").Translate(pendingUnloadCount),
-            defaultDesc = "ChickenBatteryCage.Gizmo.UnloadDesc".Translate(),
-            icon = def.uiIcon,
-            action = delegate
-            {
-                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(CageNetwork.Cluster(this)));
-                menu.vanishIfMouseDistant = false;
-                Find.WindowStack.Add(menu);
-            },
-        };
-        if (chickenCount == 0)
-        {
-            unloadGizmo.Disable("ChickenBatteryCage.Gizmo.UnloadEmpty".Translate());
-        }
-        yield return unloadGizmo;
 
         if (Prefs.DevMode)
         {
@@ -941,6 +1068,15 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
+            // Skip cages whose single handler slot is already reserved (e.g.
+            // another handler is currently roping a hen into it). Without this,
+            // two handlers can be assigned the same cage and the loser fails
+            // its pre-toil reservation with a "Could not reserve" error.
+            if (!handler.CanReserve(cage, 1, -1))
+            {
+                continue;
+            }
+
             // Also check that the handler can reserve a stand cell in this cage.
             // Without this, a nearest cage may have all stand cells reserved,
             // causing the job to fail even when another cage has availability.
@@ -1031,16 +1167,39 @@ public class Building_ChickenBatteryCage : Building
         chickens.Add(record);
     }
 
-    /// Marks one chicken of the chosen kind to be unloaded by an animal
-    /// handler. The mark is resolved when a handler reaches the cage.
-    /// Returns false when the cage has no space left in its mark queue; the
-    /// network only calls this after confirming a matching bird is housed here.
-    public bool RequestUnload(ChickenReleaseFilter filter)
+    /**
+     * Marks one exact bird for unloading, identified by its record rather than
+     * by a kind. The picker window uses this after the player ticks specific
+     * rows; the target survives the list shifting under it because the record
+     * object itself is held, not an index.
+     */
+    public bool RequestUnloadSpecific(CagedChickenRecord record)
     {
-        if (pendingUnloads.Count < chickens.Count)
+        if (record == null || !chickens.Contains(record) || pendingUnloads.Count >= chickens.Count)
         {
-            pendingUnloads.Add(filter);
-            return true;
+            return false;
+        }
+
+        pendingUnloads.Add(ChickenReleaseFilter.Specific);
+        pendingUnloadTargets.Add(record);
+        return true;
+    }
+
+    /// True while this exact record is already queued for unloading, so the
+    /// picker can show a bird as already marked.
+    public bool IsMarkedForUnload(CagedChickenRecord record)
+    {
+        if (record == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < pendingUnloadTargets.Count && i < pendingUnloads.Count; i++)
+        {
+            if (pendingUnloads[i] == ChickenReleaseFilter.Specific && pendingUnloadTargets[i] == record)
+            {
+                return true;
+            }
         }
 
         return false;
@@ -1054,6 +1213,7 @@ public class Building_ChickenBatteryCage : Building
     public void ClearPendingUnloads()
     {
         pendingUnloads.Clear();
+        pendingUnloadTargets.Clear();
     }
 
     /// Resolves the front of the unload queue. Discards marks whose kind of
@@ -1064,20 +1224,44 @@ public class Building_ChickenBatteryCage : Building
         while (pendingUnloads.Count > 0)
         {
             ChickenReleaseFilter filter = pendingUnloads[0];
-            int index = FindRecordIndex(filter);
+            int index;
+            if (filter == ChickenReleaseFilter.Specific)
+            {
+                // A specific mark holds the record itself, so it survives the
+                // flock list shifting. A record that is no longer housed (e.g.
+                // it died of starvation) drops its mark rather than stalling.
+                CagedChickenRecord target = PendingTargetAt(0);
+                index = target == null ? -1 : chickens.IndexOf(target);
+            }
+            else
+            {
+                index = FindRecordIndex(filter);
+            }
+
             if (index < 0)
             {
                 pendingUnloads.RemoveAt(0);
+                if (pendingUnloadTargets.Count > 0)
+                {
+                    pendingUnloadTargets.RemoveAt(0);
+                }
                 continue;
             }
 
             // Remove this request before settlement reconciles the remaining
             // queue. A death during settlement can satisfy this request too.
+            CagedChickenRecord pendingTarget = PendingTargetAt(0);
             pendingUnloads.RemoveAt(0);
+            if (pendingUnloadTargets.Count > 0)
+            {
+                pendingUnloadTargets.RemoveAt(0);
+            }
+
             if (!ReleaseRecordAt(index))
             {
                 // Generation failed; keep both the record and the mark.
                 pendingUnloads.Insert(0, filter);
+                pendingUnloadTargets.Insert(0, pendingTarget);
                 ReconcilePendingUnloads();
                 return false;
             }
@@ -1086,6 +1270,15 @@ public class Building_ChickenBatteryCage : Building
         }
 
         return false;
+    }
+
+    /// The target aligned with the pending mark at the given index, or null
+    /// when that mark resolves by kind.
+    CagedChickenRecord PendingTargetAt(int index)
+    {
+        return index >= 0 && index < pendingUnloadTargets.Count
+            ? pendingUnloadTargets[index]
+            : null;
     }
 
     /// Materializes and releases the record at the given index.
@@ -1122,7 +1315,7 @@ public class Building_ChickenBatteryCage : Building
 
         // Turn the cluster's intake off: the bird just set down must not be
         // roped straight back into a cage. The player turns it back on with
-        // the "Pen system" gizmo once the released flock has cleared.
+        // the "Allow" gizmo once the released flock has cleared.
         CageNetwork.DisableIntakeOnRelease(CageNetwork.Cluster(this));
 
         ReconcilePendingUnloads();
@@ -1134,8 +1327,9 @@ public class Building_ChickenBatteryCage : Building
         return true;
     }
 
-    /// The whole network scans this when routing unload marks, e.g. to find
-    /// the true youngest hen across every cage on the map.
+    /// Resolves a queued unload mark of the given kind to the index of a bird
+    /// that satisfies it, or -1 when none is housed. Specific marks are
+    /// resolved from their held record in TryUnloadNext, never by scanning.
     public int FindRecordIndex(ChickenReleaseFilter filter)
     {
         if (chickens.Count == 0)
@@ -1165,6 +1359,11 @@ public class Building_ChickenBatteryCage : Building
 
             case ChickenReleaseFilter.Juvenile:
                 return FirstMatching(now, adult: false);
+
+            // A specific mark is resolved from its held record in
+            // TryUnloadNext, never by scanning; there is no filter to match.
+            case ChickenReleaseFilter.Specific:
+                return -1;
 
             default:
                 return -1;
@@ -1260,6 +1459,42 @@ public class Building_ChickenBatteryCage : Building
         adultMinAgeTicks = adult;
         adultMinAgeTicksResolved = true;
         return true;
+    }
+
+    /// Resolves the juvenile stage's lower age from the chicken def, the
+    /// threshold between a chick and a juvenile. Shares the def-unavailable
+    /// fallback with the adult resolver: while unresolved the sentinel keeps
+    /// every bird out of the Juvenile band until the def loads.
+    static void EnsureJuvenileStageTicks()
+    {
+        if (juvenileMinAgeTicksResolved)
+        {
+            return;
+        }
+
+        ThingDef chickenDef = ChickenBatteryCageDefOf.Chicken?.race;
+        List<LifeStageAge> stages = chickenDef?.race?.lifeStageAges;
+        if (stages == null)
+        {
+            return;
+        }
+
+        long juvenile = 0;
+        foreach (LifeStageAge stage in stages)
+        {
+            if (stage.def != null && stage.def.defName == "AnimalJuvenile")
+            {
+                juvenile = (long)(stage.minAge * GenDate.TicksPerYear);
+            }
+        }
+
+        if (juvenile <= 0)
+        {
+            return;
+        }
+
+        juvenileMinAgeTicks = juvenile;
+        juvenileMinAgeTicksResolved = true;
     }
 
     /// The chicken's nominal life expectancy, used as the hinge of the natural
@@ -1791,9 +2026,13 @@ public class Building_ChickenBatteryCage : Building
 
     /**
      * Reconciles the unload queue with the surviving flock after one or more
-     * deaths or releases. Marks are kind selectors, not per-bird handles.
-     * Keep the earliest jointly satisfiable requests, allowing unrestricted
-     * selectors to use whichever birds the restricted requests do not need.
+     * deaths or releases. Kind marks are selectors, while a specific mark
+     * holds its record directly; both are pruned together so the queue and
+     * its aligned target list never drift apart. A specific mark whose bird
+     * is no longer housed is dropped before the capacity test, so a dead bird
+     * cannot crowd out a living one's mark. The earliest jointly satisfiable
+     * requests are kept, allowing unrestricted selectors to use whichever
+     * birds the restricted requests do not need.
      */
     void ReconcilePendingUnloads()
     {
@@ -1812,6 +2051,7 @@ public class Building_ChickenBatteryCage : Building
             }
         }
 
-        CageUnloadMath.Reconcile(pendingUnloads, chickens.Count, adultHens, juveniles);
+        CageUnloadMath.Reconcile(
+            pendingUnloads, chickens.Count, adultHens, juveniles, pendingUnloadTargets, chickens);
     }
 }

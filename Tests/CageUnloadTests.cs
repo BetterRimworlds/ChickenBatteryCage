@@ -111,4 +111,43 @@ public class CageUnloadTests
         CageUnloadMath.Reconcile(requests, 1, 1, 0);
         CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.All }, requests);
     }
+
+    [Test]
+    public void DeadSpecificTargetDoesNotHoldASlotFromALivingOne()
+    {
+        object dead = new object();
+        object alive = new object();
+        var requests = new List<ChickenReleaseFilter>
+        {
+            ChickenReleaseFilter.Specific, ChickenReleaseFilter.Specific,
+        };
+        var targets = new List<object> { dead, alive };
+        var surviving = new List<object> { alive };
+
+        // The first specific bird died, leaving a single living bird. Without
+        // validating the dead target the stale mark would consume the only
+        // slot and drop the living bird's mark.
+        CageUnloadMath.Reconcile(requests, 1, 1, 0, targets, surviving);
+
+        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.Specific }, requests);
+        CollectionAssert.AreEqual(new[] { alive }, targets);
+    }
+
+    [Test]
+    public void LivingSpecificTargetsKeepTheirSlots()
+    {
+        object first = new object();
+        object second = new object();
+        var requests = new List<ChickenReleaseFilter>
+        {
+            ChickenReleaseFilter.Specific, ChickenReleaseFilter.Specific,
+        };
+        var targets = new List<object> { first, second };
+        var surviving = new List<object> { first, second };
+
+        CageUnloadMath.Reconcile(requests, 2, 2, 0, targets, surviving);
+
+        Assert.AreEqual(2, requests.Count);
+        CollectionAssert.AreEqual(new[] { first, second }, targets);
+    }
 }
