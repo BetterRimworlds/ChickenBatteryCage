@@ -5,7 +5,7 @@
 	<ChickenBatteryCage.Inspect.PenSystemOff>Pen system: off — handlers will not load hens.</ChickenBatteryCage.Inspect.PenSystemOff>
 	<ChickenBatteryCage.Inspect.PendingUnload>To unload:      {0}</ChickenBatteryCage.Inspect.PendingUnload>
 	<ChickenBatteryCage.Inspect.Chickens>Hens:           {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
-	<ChickenBatteryCage.Inspect.Network>All cages:      {0} / {1} ({2} cages)</ChickenBatteryCage.Inspect.Network>
+	<ChickenBatteryCage.Inspect.Network>Linked cages:   {0} / {1} ({2} cages)</ChickenBatteryCage.Inspect.Network>
 	<ChickenBatteryCage.Inspect.AdultHens>Adult hens:     {0}</ChickenBatteryCage.Inspect.AdultHens>
 	<ChickenBatteryCage.Inspect.Juveniles>Juveniles:      {0}</ChickenBatteryCage.Inspect.Juveniles>
 	<ChickenBatteryCage.Inspect.Feed>Feed:           {0}</ChickenBatteryCage.Inspect.Feed>
@@ -15,9 +15,9 @@
 	<ChickenBatteryCage.Feed.StateFed>sufficient</ChickenBatteryCage.Feed.StateFed>
 	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>
 	<ChickenBatteryCage.Feed.StateStarving>starving</ChickenBatteryCage.Feed.StateStarving>
-	<ChickenBatteryCage.Inspect.NoHopper>No hopper attached — the flock cannot be fed until one is built against this cage.</ChickenBatteryCage.Inspect.NoHopper>
+	<ChickenBatteryCage.Inspect.NoHopper>No hopper attached — the flock cannot be fed until one is built against a cage in this cluster.</ChickenBatteryCage.Inspect.NoHopper>
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
-	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed in this battery cage.\n\nHens: {0} / {1}\nAdult hens: {2}\nJuveniles: {3}</ChickenBatteryCage.Gizmo.CapacityDesc>
+	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed across this cluster of touching battery cages.\n\nHens: {0} / {1}\nAdult hens: {2}\nJuveniles: {3}</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many hens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
 	<ChickenBatteryCage.Gizmo.PenSystemOn>Pen system: on</ChickenBatteryCage.Gizmo.PenSystemOn>
 	<ChickenBatteryCage.Gizmo.PenSystemOff>Pen system: off</ChickenBatteryCage.Gizmo.PenSystemOff>

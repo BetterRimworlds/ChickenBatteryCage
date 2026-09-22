@@ -67,41 +67,15 @@ public class Building_ChickenBatteryCage : Building
     public bool IsOperational => roofedOverOccupiedCells;
 
     /**
-     * Drains the collective store for the time that has passed since the last
-     * settlement. Aging-style: no per-chicken food tick exists, the flock's
+     * Drains the shared store for the time that has passed since the cluster
+     * last settled. Aging-style: no per-chicken food tick exists, the cluster's
      * summed demand is applied in one calculation whenever a value is needed.
+     * Touching cages are one giant cage, so whichever member settles bills the
+     * whole pool exactly once.
      */
     public void SettleNutrition()
     {
-        int now = GenTicks.TicksAbs;
-
-        // A fresh or pre-fix save has no stored clock; start it now instead of
-        // charging the whole game's elapsed time against an empty store.
-        if (nutritionSettledAtTick <= 0 || nutritionSettledAtTick > now)
-        {
-            nutritionSettledAtTick = now;
-            return;
-        }
-
-        int elapsed = now - nutritionSettledAtTick;
-        if (elapsed <= 0 || chickens == null)
-        {
-            return;
-        }
-
-        starvingTicks = CageNutritionMath.StarvingTicksAfter(
-            starvingTicks,
-            nutritionStored,
-            chickens.Count,
-            CageNutritionMath.DefaultNutritionPerChickenPerDay,
-            elapsed);
-
-        nutritionStored = CageNutritionMath.RemainingAfter(
-            nutritionStored,
-            chickens.Count,
-            CageNutritionMath.DefaultNutritionPerChickenPerDay,
-            elapsed);
-        nutritionSettledAtTick = now;
+        CageNetwork.SettleCluster(CageNetwork.Cluster(this), GenTicks.TicksAbs);
     }
 
     /// Controls whether handlers may rope hens into this cage automatically.
@@ -136,6 +110,40 @@ public class Building_ChickenBatteryCage : Building
     public float NutritionSpace =>
         nutritionStored >= NutritionCapacity ? 0f : NutritionCapacity - nutritionStored;
 
+    /// Feed held across this cage's whole cluster — the shared pool.
+    public float ClusterStoredNutrition => CageNetwork.StoredNutrition(CageNetwork.Cluster(this));
+
+    /// Combined storage of every cage in the cluster.
+    public float ClusterNutritionCapacity => CageNetwork.NutritionCapacity(CageNetwork.Cluster(this));
+
+    /// Free room left in the cluster's shared pool.
+    public float ClusterNutritionSpace => CageNetwork.NutritionSpace(CageNetwork.Cluster(this));
+
+    /// Fed, hungry, or starving, derived from the cluster's shared pool.
+    public CageNutritionState ClusterNutritionState => CageNetwork.NutritionState(CageNetwork.Cluster(this));
+
+    /**
+     * Internal hooks the cluster settlement uses to write its single result
+     * back into each member's own persisted store. A cage's store therefore
+     * stays per-cage on disk even though the pool is shared at runtime.
+     */
+    internal int NutritionSettledAtTick
+    {
+        get => nutritionSettledAtTick;
+        set => nutritionSettledAtTick = value;
+    }
+
+    internal int StarvingTicks
+    {
+        get => starvingTicks;
+        set => starvingTicks = value;
+    }
+
+    internal void SetStoredNutrition(float value)
+    {
+        nutritionStored = value;
+    }
+
     /// Summed daily demand of every bird currently housed.
     public float NutritionDemandPerDay => CageNutritionMath.DemandPerDay(
         chickens.Count,
@@ -144,32 +152,21 @@ public class Building_ChickenBatteryCage : Building
     /// Days the flock has spent with an empty store.
     public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
 
-    /// Fed, hungry, or starving, derived from the collective store alone.
-    public CageNutritionState NutritionState => CageNutritionMath.Classify(
-        nutritionStored,
-        chickens.Count,
-        CageNutritionMath.DefaultNutritionPerChickenPerDay,
-        StarvingDays);
+    /// Fed, hungry, or starving, derived from the cluster's shared pool alone.
+    public CageNutritionState NutritionState => ClusterNutritionState;
 
-    /// Adds feed to the collective store and returns how much was accepted.
-    /// Anything above capacity is refused rather than silently wasted. Only
-    /// <see cref="DrawFromHoppers"/> may call this: hoppers are the sole way
-    /// food enters a cage.
+    /// Adds feed to the cluster's shared pool and returns how much was
+    /// accepted. Anything above the cluster's combined capacity is refused
+    /// rather than silently wasted. Only <see cref="DrawFromHoppers"/> may call
+    /// this: hoppers are the sole way food enters a cage.
     public float AddNutrition(float amount)
     {
-        if (amount <= 0f)
-        {
-            return 0f;
-        }
-
-        float accepted = amount < NutritionSpace ? amount : NutritionSpace;
-        nutritionStored += accepted;
-        return accepted;
+        return CageNetwork.AddNutrition(CageNetwork.Cluster(this), amount);
     }
 
     protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Status".Translate(
-        nutritionStored.ToString("0.#"),
-        NutritionCapacity.ToString("0.#"),
+        ClusterStoredNutrition.ToString("0.#"),
+        ClusterNutritionCapacity.ToString("0.#"),
         NutritionStateLabel);
 
     string NutritionStateLabel
@@ -218,6 +215,10 @@ public class Building_ChickenBatteryCage : Building
         map.events.RoofChanged -= OnRoofChanged;
         map.events.RoofChanged += OnRoofChanged;
         RecheckRoofing();
+
+        // A new cage changes which cages touch; rebuild the clusters now so the
+        // just-built cage immediately joins its neighbours.
+        CageNetwork.Invalidate(map);
     }
 
     public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
@@ -226,6 +227,8 @@ public class Building_ChickenBatteryCage : Building
         if (map != null)
         {
             map.events.RoofChanged -= OnRoofChanged;
+            // Removing a cage can split or shrink a cluster; rebuild at once.
+            CageNetwork.Invalidate(map);
         }
 
         base.DeSpawn(mode);
@@ -379,6 +382,8 @@ public class Building_ChickenBatteryCage : Building
     {
         SettleNutrition();
 
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+
         var sb = new StringBuilder();
         string baseString = base.GetInspectString();
         if (!baseString.NullOrEmpty())
@@ -401,30 +406,37 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
         }
 
-        sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(ChickenCount, ChickenCapacity));
-        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(AdultHenCount));
-        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(JuvenileCount));
+        int clusterChickens = CageNetwork.ChickenCount(cluster);
+        sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(
+            clusterChickens,
+            CageNetwork.TotalCapacity(cluster)));
+        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(CageNetwork.AdultHenCount(cluster)));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(CageNetwork.JuvenileCount(cluster)));
 
         int cageCount = 0;
-        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(Map))
+        foreach (Building_ChickenBatteryCage cage in cluster)
         {
-            cageCount++;
+            if (cage != null && !cage.Destroyed)
+            {
+                cageCount++;
+            }
         }
 
         if (cageCount > 1)
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.Network".Translate(
-                CageNetwork.ChickenCount(Map),
-                CageNetwork.TotalCapacity(Map),
+                clusterChickens,
+                CageNetwork.TotalCapacity(cluster),
                 cageCount));
         }
 
-        if (HasPendingUnload)
+        if (CageNetwork.HasPendingUnload(cluster))
         {
-            sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(PendingUnloadCount));
+            sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(
+                CageNetwork.PendingUnloadCount(cluster)));
         }
 
-        if (chickens.Count > 0 && !HasAdjacentHopper())
+        if (clusterChickens > 0 && !HasClusterHopper(cluster))
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.NoHopper".Translate());
         }
@@ -435,6 +447,16 @@ public class Building_ChickenBatteryCage : Building
         return sb.ToString().TrimEnd();
     }
 
+    /// True while any hopper bolted to any cage in the cluster can feed it.
+    bool HasClusterHopper(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        foreach (Building_Storage _ in CageNetwork.ClusterHoppers(cluster))
+        {
+            return true;
+        }
+        return false;
+    }
+
     public override IEnumerable<Gizmo> GetGizmos()
     {
         foreach (Gizmo gizmo in base.GetGizmos())
@@ -442,31 +464,17 @@ public class Building_ChickenBatteryCage : Building
             yield return gizmo;
         }
 
-        // Every gizmo below reads from the map-wide cage network, so all cages
-        // present identical labels and merge into one control on multi-select.
-        Map map = Map;
+        // Every gizmo below reads from this cage's cluster, so all cages that
+        // touch present identical labels and merge into one control on
+        // multi-select. Separate clusters stay independent.
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
 
-        // The CageNetwork aggregates each rescan the map's colonist buildings,
-        // so gather everything this method displays in a single pass instead of
-        // calling ChickenCount/TotalCapacity/... repeatedly for one frame.
-        int chickenCount = 0;
-        int totalCapacity = 0;
-        int adultHenCount = 0;
-        int juvenileCount = 0;
-        int pendingUnloadCount = 0;
-        bool penSystemEnabled = true;
-        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(map))
-        {
-            chickenCount += cage.ChickenCount;
-            totalCapacity += ChickenCapacity;
-            adultHenCount += cage.AdultHenCount;
-            juvenileCount += cage.JuvenileCount;
-            pendingUnloadCount += cage.PendingUnloadCount;
-            if (!cage.PenSystemEnabled)
-            {
-                penSystemEnabled = false;
-            }
-        }
+        int chickenCount = CageNetwork.ChickenCount(cluster);
+        int totalCapacity = CageNetwork.TotalCapacity(cluster);
+        int adultHenCount = CageNetwork.AdultHenCount(cluster);
+        int juvenileCount = CageNetwork.JuvenileCount(cluster);
+        int pendingUnloadCount = CageNetwork.PendingUnloadCount(cluster);
+        bool penSystemEnabled = CageNetwork.PenSystemEnabled(cluster);
 
         Command_Action capacityGizmo = new Command_Action
         {
@@ -489,10 +497,11 @@ public class Building_ChickenBatteryCage : Building
                 : "ChickenBatteryCage.Gizmo.PenSystemOff").Translate(),
             defaultDesc = "ChickenBatteryCage.Gizmo.PenSystemDesc".Translate(),
             icon = def.uiIcon,
-            isActive = () => CageNetwork.PenSystemEnabled(Map),
+            isActive = () => CageNetwork.PenSystemEnabled(CageNetwork.Cluster(this)),
             toggleAction = delegate
             {
-                CageNetwork.SetPenSystemEnabled(map, !CageNetwork.PenSystemEnabled(map));
+                IReadOnlyList<Building_ChickenBatteryCage> current = CageNetwork.Cluster(this);
+                CageNetwork.SetPenSystemEnabled(current, !CageNetwork.PenSystemEnabled(current));
             },
         };
         yield return penSystemGizmo;
@@ -506,7 +515,7 @@ public class Building_ChickenBatteryCage : Building
             icon = def.uiIcon,
             action = delegate
             {
-                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(map));
+                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(CageNetwork.Cluster(this)));
                 menu.vanishIfMouseDistant = false;
                 Find.WindowStack.Add(menu);
             },
@@ -974,9 +983,9 @@ public class Building_ChickenBatteryCage : Building
         DrawFromHoppers();
     }
 
-    /// Every vanilla feed hopper touching this cage's edge. The cage network
-    /// shares them in the sense that whichever cage a hopper touches, that
-    /// hopper feeds the network's flock through the cage it is bolted to.
+    /// Every vanilla feed hopper touching this cage's edge. A hopper bolted to
+    /// any member of a cluster feeds the whole cluster's flock through the
+    /// shared store; see <see cref="CageNetwork.ClusterHoppers"/>.
     public IEnumerable<Building_Storage> AdjacentHoppers()
     {
         if (!Spawned || Map == null)
@@ -1004,20 +1013,21 @@ public class Building_ChickenBatteryCage : Building
     }
 
     /**
-     * Siphons feed out of the attached hoppers into the collective store.
-     * This is the only path by which food ever enters a cage: colonists fill
-     * the vanilla hoppers with the ordinary hauling pipeline, and the machine
-     * does the rest.
+     * Siphons feed out of every hopper touching any cage in the cluster into
+     * the shared store. This is the only path by which food ever enters a
+     * cage: colonists fill the vanilla hoppers with the ordinary hauling
+     * pipeline, and the machine does the rest.
      */
     void DrawFromHoppers()
     {
-        float space = NutritionSpace;
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+        float space = CageNetwork.NutritionSpace(cluster);
         if (space <= 0f)
         {
             return;
         }
 
-        foreach (Building_Storage hopper in AdjacentHoppers())
+        foreach (Building_Storage hopper in CageNetwork.ClusterHoppers(cluster))
         {
             if (space <= 0f)
             {
@@ -1030,8 +1040,8 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            AddNutrition(delivered);
-            space = NutritionSpace;
+            CageNetwork.AddNutrition(cluster, delivered);
+            space = CageNetwork.NutritionSpace(cluster);
         }
     }
 
