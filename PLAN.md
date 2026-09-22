@@ -20,9 +20,10 @@ The original Pawn identity does not need to survive.
 
 ## Peer Review — Pull Request Titles
 
-Every pull request below is stacked on the one before it, so the review diff
-for a given PR is simply `<base>..<branch>`. PRs 1–3 are merged into `trunk`;
-PRs 4–10 are open and local.
+Each pull request below is stacked on the branch in its Base column, so the
+review diff for a PR that lists a Base is `<base>..<branch>`; PR 1 is the root
+of the stack and is reviewed on its own. PRs 1–3 are merged into `trunk`; PRs
+4–11 are open and local.
 
 | PR | Title | Branch | Base | Commits | Status |
 |---:|-------|--------|------|--------:|--------|
@@ -36,6 +37,7 @@ PRs 4–10 are open and local.
 | 8 | Profiled large industrial poultry colonies | `pr8-profiling` | `pr7-savegame-hardening` | 4 | Open |
 | 9 | Finished the RimWorld 1.6 battery-poultry release | `pr9-release` | `pr8-profiling` | 5 | Open |
 | 10 | Added a per-chicken picker window for unloading battery cages | `pr10-chicken-picker` | `pr9-release` | 5 | Open |
+| 11 | Forbade dairy in the battery-cage feed hopper system | `pr11-feed-hopper-dairy` | `pr10-chicken-picker` | 4 | Open |
 
 ---
 

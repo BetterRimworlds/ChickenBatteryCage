@@ -1,9 +1,9 @@
-# QA checklist — PR 4 → PR 10
+# QA checklist — PR 4 → PR 11
 
 Test on RimWorld 1.6 with only Harmony + BetterRimworlds.ChickenBatteryCage
 enabled. PRs 1–3 are merged into `trunk`; the open chain is stacked, so test
 each PR on a save made from the previous PR's build (or test the full
-`pr10-chicken-picker` stack and tick items in order). After every PR step,
+`pr11-feed-hopper-dairy` stack and tick items in order). After every PR step,
 watch the player log for red errors, failed Harmony patch lines, and XML parse
 warnings.
 
@@ -116,12 +116,25 @@ warnings.
 - [ ] Save + reload preserves pending unload marks, then completes the release.
 - [ ] The picker does not materialize the rest of the flock — caged birds stay serialized while the window is open.
 
+## PR 11 — Forbade dairy in the battery-cage feed hopper system (`pr11-feed-hopper-dairy`, 2 commits)
+
+*Pure dairy classifier, hopper feed exclusion, mod setting.*
+
+- [ ] With a hopper feeding a cage, haul **milk** into the hopper: the cage's feed figure does **not** rise and the milk is not consumed; other feed in the same hopper is still eaten.
+- [ ] Milk left in a hopper is never counted toward stored nutrition and never triggers a feed haul-away by the cage.
+- [ ] Non-dairy raw food (hay, kibble, plants, raw meat, eggs) still feeds the cage normally.
+- [ ] Fluids that are not animal products (beer, psychite tea) are **not** treated as dairy.
+- [ ] The mod setting **"Forbid dairy in battery-cage feed hoppers?"** is on by default; turning it off allows milk to feed the cage again.
+- [ ] Extra def names typed into the settings list (comma/space separated) are refused; blanks and unknown names are ignored.
+- [ ] The dairy rule classifies by food type, so a modded animal-product/fluid milk is refused without being listed.
+- [ ] Save + reload preserves the dairy toggle and the extra-name list.
+
 ---
 
-## Cross-cutting regression sweep (final build, `pr10-chicken-picker`)
+## Cross-cutting regression sweep (final build, `pr11-feed-hopper-dairy`)
 
-- [ ] Full PR 4→10 flow in one continuous colony: research → build → fill → feed → starve → recover → lay → upgrade → pick birds → 5-year run.
+- [ ] Full PR 4→11 flow in one continuous colony: research → build → fill → feed → starve → recover → lay → upgrade → pick birds → refuse dairy → 5-year run.
 - [ ] Combined save/load at every stage; one save carried through the entire session.
 - [ ] Load order / mod-compat smoke test with Harmony only, then with two or three common animal mods (no duplicate defNames, no patches double-applying).
-- [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`) across the `pr4` → `pr10` stack ahead of `trunk`.
+- [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`) across the `pr4` → `pr11` stack ahead of `trunk`.
 - [ ] No `obj/`, `bin/`, `*.dll`, or `*.zip` staged for merge.
