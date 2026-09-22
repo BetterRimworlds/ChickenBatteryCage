@@ -59,8 +59,30 @@ public static class CageNutritionMath
     /// A flock with less than this many days of feed reads as hungry.
     public const float HungryThresholdDays = 1f;
 
+    /// In-game hours in a day, used to express the starvation clock the way a
+    /// player observes it.
+    public const float HoursPerDay = 24f;
+
+    /// Hours an empty store may last before the flock begins to starve.
+    /// Measured in vanilla RimWorld: a chicken's Food need runs out about 27
+    /// hours after its last meal, and that is when Malnutrition appears.
+    public const float StarvationOnsetHours = 27f;
+
+    /// Severity gained per hour once starving. Measured in vanilla RimWorld:
+    /// malnutrition climbs about 5% every two hours.
+    public const float StarvationSeverityPerHour = 0.05f / 2f;
+
+    /// Severity at which vanilla malnutrition is lethal.
+    public const float LethalStarvationSeverity = 1f;
+
     /// A flock that has been empty of feed this many days reads as starving.
-    public const float StarvingAfterDays = 0.5f;
+    public const float StarvingAfterDays = StarvationOnsetHours / HoursPerDay;
+
+    /// Hours from the onset of starvation to a lethal severity. With the
+    /// measured 5% every two hours this is forty hours, so a flock left with
+    /// no feed at all dies about 67 hours after its last meal.
+    public const float HoursFromOnsetToLethal =
+        LethalStarvationSeverity / StarvationSeverityPerHour;
 
     public static float MaxNutrition(int chickenCapacity)
     {

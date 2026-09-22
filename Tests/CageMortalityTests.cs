@@ -148,8 +148,11 @@ public class CageMortalityTests
     [Test]
     public void StarvationHazardGrowsWithTimeWithoutFeed()
     {
-        float oneDay = CageMortalityMath.StarvationDailyChance(1f);
-        float threeDays = CageMortalityMath.StarvationDailyChance(3f);
+        // The hazard only turns on after the measured starvation onset (27 h),
+        // so probe past it rather than at one day, which is still below it.
+        float onset = CageNutritionMath.StarvingAfterDays;
+        float oneDay = CageMortalityMath.StarvationDailyChance(onset + 1f);
+        float threeDays = CageMortalityMath.StarvationDailyChance(onset + 3f);
 
         Assert.Greater(oneDay, 0f);
         Assert.Greater(threeDays, oneDay);
@@ -178,15 +181,20 @@ public class CageMortalityTests
     [Test]
     public void CrossingStarvationThresholdOnlyChargesTimeAfterTheThreshold()
     {
+        // The onset is the measured 27-hour threshold, so approach it from just
+        // below: 0.01 day is exactly the 600 ticks the split waits before the
+        // second segment starts.
+        float onset = CageNutritionMath.StarvingAfterDays;
+        float justBelow = onset - 0.01f;
         long age = CagedChickenMath.TicksPerYear;
-        double whole = CageMortalityMath.CombinedExposureOverTicks(age, 6f, 0.49, 2500);
+        double whole = CageMortalityMath.CombinedExposureOverTicks(age, 6f, justBelow, 2500);
         double split = CageMortalityMath.NaturalExposureOverTicks(age, 6f, 600)
-            + CageMortalityMath.CombinedExposureOverTicks(age + 600, 6f, 0.5, 1900);
+            + CageMortalityMath.CombinedExposureOverTicks(age + 600, 6f, onset, 1900);
         Assert.AreEqual(split, whole, 0.00000001);
         Assert.Less(whole, CageMortalityMath.ExposureOverTicks(
             CageMortalityMath.CombinedDailyChance(
                 CageMortalityMath.NaturalDailyChance(1f, 6f),
-                CageMortalityMath.StarvationDailyChance(0.49f + 2500f / Day)), 2500));
+                CageMortalityMath.StarvationDailyChance(justBelow + 2500f / Day)), 2500));
     }
 
     [Test]
