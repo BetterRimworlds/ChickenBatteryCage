@@ -17,6 +17,9 @@
 	<ChickenBatteryCage.Feed.None>No suitable animal feed is available.</ChickenBatteryCage.Feed.None>
 	<ChickenBatteryCage.Settings.AgeDecline>Hens lay fewer eggs as they age</ChickenBatteryCage.Settings.AgeDecline>
 	<ChickenBatteryCage.Settings.AgeDeclineTip>When on, a caged hen's output declines gradually after she turns two years old, without ever quite stopping. Turn this off to have every adult hen lay one egg a day for the rest of her life, as in vanilla RimWorld. Default: on.</ChickenBatteryCage.Settings.AgeDeclineTip>
+	<ChickenBatteryCage.Settings.ForbidDairyInFeed>Forbid dairy in battery-cage feed?</ChickenBatteryCage.Settings.ForbidDairyInFeed>
+	<ChickenBatteryCage.Settings.ForbidDairyInFeedTip>Chickens cannot digest lactose, so cages never accept milk or other dairy as feed. Default: on.</ChickenBatteryCage.Settings.ForbidDairyInFeedTip>
+	<ChickenBatteryCage.Settings.ExtraForbiddenFeedDefNames>Extra dairy defNames (comma or space separated):</ChickenBatteryCage.Settings.ExtraForbiddenFeedDefNames>
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
 	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed across this cluster of touching battery cages.\n\nHens: {0} / {1}\n\nOpen the chicken list to see each bird by life stage and age, and mark which ones to unload.</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.AllowDesc>Allow handlers to rope hens into this cluster of touching battery cages. Toggling this applies to every cage in the cluster at once. Unloading marks are still worked and the hens already housed are unaffected.</ChickenBatteryCage.Gizmo.AllowDesc>

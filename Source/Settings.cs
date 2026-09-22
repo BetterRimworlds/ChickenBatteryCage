@@ -9,6 +9,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -23,10 +24,45 @@ public class Settings : ModSettings
 
     public bool debugMode = false;
 
+    /**
+     * When set, battery cages never accept dairy as feed. Chickens are not
+     * mammals and cannot digest lactose, so milk is not feed. The player may
+     * lift the ban, but it is on by default.
+     */
+    public bool forbidDairyInFeed = true;
+
+    /// Extra def names treated as dairy, for modded solid dairy (cheese,
+    /// butter, yogurt) that carries no fluid food type. Free text, parsed by
+    /// <see cref="DairyFeedRules.ParseDefNames"/>.
+    public string extraForbiddenFeedDefNames = "";
+
+    List<string> parsedExtraForbiddenFeedDefNames;
+    string parsedExtraForbiddenFeedDefNamesSource;
+
+    /// The parsed form of <see cref="extraForbiddenFeedDefNames"/>, cached
+    /// because the feeder asks for it for every stack it considers.
+    public List<string> ExtraForbiddenFeedDefNames
+    {
+        get
+        {
+            if (parsedExtraForbiddenFeedDefNames == null
+                || parsedExtraForbiddenFeedDefNamesSource != extraForbiddenFeedDefNames)
+            {
+                parsedExtraForbiddenFeedDefNames =
+                    DairyFeedRules.ParseDefNames(extraForbiddenFeedDefNames);
+                parsedExtraForbiddenFeedDefNamesSource = extraForbiddenFeedDefNames;
+            }
+
+            return parsedExtraForbiddenFeedDefNames;
+        }
+    }
+
     public override void ExposeData()
     {
         Scribe_Values.Look(ref ageDeclineEnabled, "brw.BetterRimworlds.ChickenBatteryCage.ageDeclineEnabled", true);
         Scribe_Values.Look(ref debugMode, "brw.BetterRimworlds.ChickenBatteryCage.debugMode", false);
+        Scribe_Values.Look(ref forbidDairyInFeed, "brw.BetterRimworlds.ChickenBatteryCage.forbidDairyInFeed", true);
+        Scribe_Values.Look(ref extraForbiddenFeedDefNames, "brw.BetterRimworlds.ChickenBatteryCage.extraForbiddenFeedDefNames", "");
     }
 
     public void DoSettingsWindowContents(Rect inRect)
@@ -39,11 +75,23 @@ public class Settings : ModSettings
             ref ageDeclineEnabled,
             "ChickenBatteryCage.Settings.AgeDeclineTip".Translate());
 
+        listing_Standard.Gap();
+        listing_Standard.CheckboxLabeled(
+            "ChickenBatteryCage.Settings.ForbidDairyInFeed".Translate(), ref forbidDairyInFeed,
+            "ChickenBatteryCage.Settings.ForbidDairyInFeedTip".Translate());
+
+        listing_Standard.Gap();
+        listing_Standard.Label("ChickenBatteryCage.Settings.ExtraForbiddenFeedDefNames".Translate());
+        extraForbiddenFeedDefNames = listing_Standard.TextEntry(extraForbiddenFeedDefNames);
+
+        listing_Standard.GapLine();
         listing_Standard.CheckboxLabeled("Print debug messages?", ref debugMode);
 
         listing_Standard.End();
 
         ChickenBatteryCage.Settings.ageDeclineEnabled = ageDeclineEnabled;
         ChickenBatteryCage.Settings.debugMode = debugMode;
+        ChickenBatteryCage.Settings.forbidDairyInFeed = forbidDairyInFeed;
+        ChickenBatteryCage.Settings.extraForbiddenFeedDefNames = extraForbiddenFeedDefNames;
     }
 }
