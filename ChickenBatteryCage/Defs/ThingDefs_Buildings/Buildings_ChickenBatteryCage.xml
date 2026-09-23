@@ -3,7 +3,7 @@
 	<ThingDef ParentName="BuildingBase">
 		<defName>ChickenBatteryCage</defName>
 		<label>battery chicken cage</label>
-		<description>A four-tier battery cage for a flock of ten hens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Must be built under a roof covering every cell of the cage.</description>
+		<description>A four-tier battery cage for a flock of ten hens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Must be built under a roof covering every cell of the cage. Feed it with a hopper built against its side, like a nutrient paste dispenser.</description>
 		<thingClass>BetterRimworlds.ChickenBatteryCage.Building_ChickenBatteryCage</thingClass>
 		<graphicData>
 			<texPath>Things/Building/ChickenBatteryCage/ChickenBatteryCage</texPath>
@@ -41,9 +41,10 @@
 		<size>(2,3)</size>
 		<designationCategory>Production</designationCategory>
 		<uiOrder>2070</uiOrder>
-		<hasInteractionCell>true</hasInteractionCell>
-		<interactionCellOffset>(0,0,-2)</interactionCellOffset>
-		<defaultPlacingRot>South</defaultPlacingRot>
+		<!-- Defaults to the wide (long-edge-south) landscape orientation but
+		     stays rotatable, so the long edge can be turned to face any
+		     approach. Handlers work from any adjacent standable cell. -->
+		<defaultPlacingRot>East</defaultPlacingRot>
 		<rotatable>true</rotatable>
 		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
 		<tickerType>Rare</tickerType>
@@ -58,6 +59,10 @@
 		<costStuffCount>80</costStuffCount>
 		<building>
 			<ai_chillDestination>false</ai_chillDestination>
+			<!-- Like the nutrient paste dispenser: lets the vanilla hopper be
+			     placed against the cage and routes "filling hopper" haul
+			     jobs to any hopper touching it. -->
+			<wantsHopperAdjacent>true</wantsHopperAdjacent>
 		</building>
 		<terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
 		<staticSunShadowHeight>0.6</staticSunShadowHeight>

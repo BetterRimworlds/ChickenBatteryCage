@@ -46,7 +46,7 @@ public class JobDriver_UnloadBatteryCage : JobDriver
         this.FailOnDespawnedNullOrForbidden(CageInd);
         this.FailOn(() => Cage == null || !Cage.HasPendingUnload);
 
-        yield return Toils_Goto.GotoThing(CageInd, PathEndMode.InteractionCell);
+        yield return Toils_Goto.GotoThing(CageInd, PathEndMode.Touch);
         yield return Toils_General.Wait(180);
 
         Toil unload = ToilMaker.MakeToil("UnloadChickenFromBatteryCage");

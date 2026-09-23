@@ -36,6 +36,21 @@ public class Building_ChickenBatteryCage : Building
     /// spawned Pawn is kept here.
     protected List<CagedChickenRecord> chickens = new List<CagedChickenRecord>();
 
+    /// Collective nutrition held for the whole flock and drained by the summed
+    /// demand of its members. No caged bird owns a personal food need, so feed
+    /// is stored, consumed, and displayed at the cage level only.
+    protected float nutritionStored;
+
+    /// Absolute tick at which <see cref="nutritionStored"/> was last settled
+    /// against elapsed time, so consumption is computed lazily instead of on
+    /// a per-chicken schedule.
+    protected int nutritionSettledAtTick;
+
+    /// Accumulated ticks the flock has spent with an empty store. Only used to
+    /// describe and (later) to roll starvation mortality; it never spawns a
+    /// starving Pawn or applies a malnutrition Hediff.
+    protected int starvingTicks;
+
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -50,6 +65,18 @@ public class Building_ChickenBatteryCage : Building
     static bool warnedMissingChickenDef;
 
     public bool IsOperational => roofedOverOccupiedCells;
+
+    /**
+     * Drains the shared store for the time that has passed since the cluster
+     * last settled. Aging-style: no per-chicken food tick exists, the cluster's
+     * summed demand is applied in one calculation whenever a value is needed.
+     * Touching cages are one giant cage, so whichever member settles bills the
+     * whole pool exactly once.
+     */
+    public void SettleNutrition()
+    {
+        CageNetwork.SettleCluster(CageNetwork.Cluster(this), GenTicks.TicksAbs);
+    }
 
     /// Controls whether handlers may rope hens into this cage automatically.
     /// Defaults to true and persists across saves. Manual release is unaffected.
@@ -73,7 +100,90 @@ public class Building_ChickenBatteryCage : Building
         return (index >= 0 && index < chickens.Count) ? chickens[index] : null;
     }
 
-    protected virtual string FeedInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
+    /// Collective nutrition currently held for the flock.
+    public float StoredNutrition => nutritionStored;
+
+    /// Largest collective store the cage can hold, scaled by bird capacity.
+    public float NutritionCapacity => CageNutritionMath.MaxNutrition(ChickenCapacity);
+
+    /// Free room left in the collective store.
+    public float NutritionSpace =>
+        nutritionStored >= NutritionCapacity ? 0f : NutritionCapacity - nutritionStored;
+
+    /// Feed held across this cage's whole cluster — the shared pool.
+    public float ClusterStoredNutrition => CageNetwork.StoredNutrition(CageNetwork.Cluster(this));
+
+    /// Combined storage of every cage in the cluster.
+    public float ClusterNutritionCapacity => CageNetwork.NutritionCapacity(CageNetwork.Cluster(this));
+
+    /// Free room left in the cluster's shared pool.
+    public float ClusterNutritionSpace => CageNetwork.NutritionSpace(CageNetwork.Cluster(this));
+
+    /// Fed, hungry, or starving, derived from the cluster's shared pool.
+    public CageNutritionState ClusterNutritionState => CageNetwork.NutritionState(CageNetwork.Cluster(this));
+
+    /**
+     * Internal hooks the cluster settlement uses to write its single result
+     * back into each member's own persisted store. A cage's store therefore
+     * stays per-cage on disk even though the pool is shared at runtime.
+     */
+    internal int NutritionSettledAtTick
+    {
+        get => nutritionSettledAtTick;
+        set => nutritionSettledAtTick = value;
+    }
+
+    internal int StarvingTicks
+    {
+        get => starvingTicks;
+        set => starvingTicks = value;
+    }
+
+    internal void SetStoredNutrition(float value)
+    {
+        nutritionStored = value;
+    }
+
+    /// Summed daily demand of every bird currently housed.
+    public float NutritionDemandPerDay => CageNutritionMath.DemandPerDay(
+        chickens.Count,
+        CageNutritionMath.DefaultNutritionPerChickenPerDay);
+
+    /// Days the flock has spent with an empty store.
+    public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
+
+    /// Fed, hungry, or starving, derived from the cluster's shared pool alone.
+    public CageNutritionState NutritionState => ClusterNutritionState;
+
+    /// Adds feed to the cluster's shared pool and returns how much was
+    /// accepted. Anything above the cluster's combined capacity is refused
+    /// rather than silently wasted. Only <see cref="DrawFromHoppers"/> may call
+    /// this: hoppers are the sole way food enters a cage.
+    public float AddNutrition(float amount)
+    {
+        return CageNetwork.AddNutrition(CageNetwork.Cluster(this), amount);
+    }
+
+    protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Status".Translate(
+        ClusterStoredNutrition.ToString("0.#"),
+        ClusterNutritionCapacity.ToString("0.#"),
+        NutritionStateLabel);
+
+    string NutritionStateLabel
+    {
+        get
+        {
+            switch (NutritionState)
+            {
+                case CageNutritionState.Starving:
+                    return "ChickenBatteryCage.Feed.StateStarving".Translate();
+                case CageNutritionState.Hungry:
+                    return "ChickenBatteryCage.Feed.StateHungry".Translate();
+                default:
+                    return "ChickenBatteryCage.Feed.StateFed".Translate();
+            }
+        }
+    }
 
     protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
 
@@ -105,6 +215,10 @@ public class Building_ChickenBatteryCage : Building
         map.events.RoofChanged -= OnRoofChanged;
         map.events.RoofChanged += OnRoofChanged;
         RecheckRoofing();
+
+        // A new cage changes which cages touch; rebuild the clusters now so the
+        // just-built cage immediately joins its neighbours.
+        CageNetwork.Invalidate(map);
     }
 
     public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
@@ -113,6 +227,8 @@ public class Building_ChickenBatteryCage : Building
         if (map != null)
         {
             map.events.RoofChanged -= OnRoofChanged;
+            // Removing a cage can split or shrink a cluster; rebuild at once.
+            CageNetwork.Invalidate(map);
         }
 
         base.DeSpawn(mode);
@@ -148,6 +264,8 @@ public class Building_ChickenBatteryCage : Building
         {
             return;
         }
+
+        SettleNutrition();
 
         Map map = Map;
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
@@ -232,6 +350,9 @@ public class Building_ChickenBatteryCage : Building
     {
         base.ExposeData();
         Scribe_Values.Look(ref penSystemEnabled, "penSystemEnabled", true);
+        Scribe_Values.Look(ref nutritionStored, "nutritionStored", 0f);
+        Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
+        Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
@@ -259,6 +380,10 @@ public class Building_ChickenBatteryCage : Building
 
     public override string GetInspectString()
     {
+        SettleNutrition();
+
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+
         var sb = new StringBuilder();
         string baseString = base.GetInspectString();
         if (!baseString.NullOrEmpty())
@@ -281,32 +406,55 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
         }
 
-        sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(ChickenCount, ChickenCapacity));
-        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(AdultHenCount));
-        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(JuvenileCount));
+        int clusterChickens = CageNetwork.ChickenCount(cluster);
+        sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(
+            clusterChickens,
+            CageNetwork.TotalCapacity(cluster)));
+        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(CageNetwork.AdultHenCount(cluster)));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(CageNetwork.JuvenileCount(cluster)));
 
         int cageCount = 0;
-        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(Map))
+        foreach (Building_ChickenBatteryCage cage in cluster)
         {
-            cageCount++;
+            if (cage != null && !cage.Destroyed)
+            {
+                cageCount++;
+            }
         }
 
         if (cageCount > 1)
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.Network".Translate(
-                CageNetwork.ChickenCount(Map),
-                CageNetwork.TotalCapacity(Map),
+                clusterChickens,
+                CageNetwork.TotalCapacity(cluster),
                 cageCount));
         }
 
-        if (HasPendingUnload)
+        if (CageNetwork.HasPendingUnload(cluster))
         {
-            sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(PendingUnloadCount));
+            sb.AppendLine("ChickenBatteryCage.Inspect.PendingUnload".Translate(
+                CageNetwork.PendingUnloadCount(cluster)));
         }
+
+        if (clusterChickens > 0 && !HasClusterHopper(cluster))
+        {
+            sb.AppendLine("ChickenBatteryCage.Inspect.NoHopper".Translate());
+        }
+
         sb.AppendLine("ChickenBatteryCage.Inspect.Feed".Translate(FeedInspectValue));
         sb.Append("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
 
         return sb.ToString().TrimEnd();
+    }
+
+    /// True while any hopper bolted to any cage in the cluster can feed it.
+    bool HasClusterHopper(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        foreach (Building_Storage _ in CageNetwork.ClusterHoppers(cluster))
+        {
+            return true;
+        }
+        return false;
     }
 
     public override IEnumerable<Gizmo> GetGizmos()
@@ -316,31 +464,17 @@ public class Building_ChickenBatteryCage : Building
             yield return gizmo;
         }
 
-        // Every gizmo below reads from the map-wide cage network, so all cages
-        // present identical labels and merge into one control on multi-select.
-        Map map = Map;
+        // Every gizmo below reads from this cage's cluster, so all cages that
+        // touch present identical labels and merge into one control on
+        // multi-select. Separate clusters stay independent.
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
 
-        // The CageNetwork aggregates each rescan the map's colonist buildings,
-        // so gather everything this method displays in a single pass instead of
-        // calling ChickenCount/TotalCapacity/... repeatedly for one frame.
-        int chickenCount = 0;
-        int totalCapacity = 0;
-        int adultHenCount = 0;
-        int juvenileCount = 0;
-        int pendingUnloadCount = 0;
-        bool penSystemEnabled = true;
-        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cages(map))
-        {
-            chickenCount += cage.ChickenCount;
-            totalCapacity += ChickenCapacity;
-            adultHenCount += cage.AdultHenCount;
-            juvenileCount += cage.JuvenileCount;
-            pendingUnloadCount += cage.PendingUnloadCount;
-            if (!cage.PenSystemEnabled)
-            {
-                penSystemEnabled = false;
-            }
-        }
+        int chickenCount = CageNetwork.ChickenCount(cluster);
+        int totalCapacity = CageNetwork.TotalCapacity(cluster);
+        int adultHenCount = CageNetwork.AdultHenCount(cluster);
+        int juvenileCount = CageNetwork.JuvenileCount(cluster);
+        int pendingUnloadCount = CageNetwork.PendingUnloadCount(cluster);
+        bool penSystemEnabled = CageNetwork.PenSystemEnabled(cluster);
 
         Command_Action capacityGizmo = new Command_Action
         {
@@ -363,10 +497,11 @@ public class Building_ChickenBatteryCage : Building
                 : "ChickenBatteryCage.Gizmo.PenSystemOff").Translate(),
             defaultDesc = "ChickenBatteryCage.Gizmo.PenSystemDesc".Translate(),
             icon = def.uiIcon,
-            isActive = () => CageNetwork.PenSystemEnabled(Map),
+            isActive = () => CageNetwork.PenSystemEnabled(CageNetwork.Cluster(this)),
             toggleAction = delegate
             {
-                CageNetwork.SetPenSystemEnabled(map, !CageNetwork.PenSystemEnabled(map));
+                IReadOnlyList<Building_ChickenBatteryCage> current = CageNetwork.Cluster(this);
+                CageNetwork.SetPenSystemEnabled(current, !CageNetwork.PenSystemEnabled(current));
             },
         };
         yield return penSystemGizmo;
@@ -380,7 +515,7 @@ public class Building_ChickenBatteryCage : Building
             icon = def.uiIcon,
             action = delegate
             {
-                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(map));
+                FloatMenu menu = new FloatMenu(CageNetwork.BuildUnloadMenu(CageNetwork.Cluster(this)));
                 menu.vanishIfMouseDistant = false;
                 Find.WindowStack.Add(menu);
             },
@@ -497,7 +632,7 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            if (!handler.CanReach(cage, PathEndMode.InteractionCell, Danger.Deadly))
+            if (!handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
             {
                 continue;
             }
@@ -523,13 +658,6 @@ public class Building_ChickenBatteryCage : Building
 
     private static bool HasAvailableStandCell(Building_ChickenBatteryCage cage, Pawn handler)
     {
-        // Check the primary interaction cell
-        if (cage.InteractionCell.IsValid && cage.IsGoodStandCell(cage.InteractionCell, handler))
-        {
-            return true;
-        }
-
-        // Check adjacent cells
         foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(cage))
         {
             if (cage.IsGoodStandCell(cell, handler))
@@ -546,11 +674,6 @@ public class Building_ChickenBatteryCage : Building
         if (!Spawned || handler == null || Map == null)
         {
             return IntVec3.Invalid;
-        }
-
-        if (IsGoodStandCell(InteractionCell, handler))
-        {
-            return InteractionCell;
         }
 
         foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(this))
@@ -594,6 +717,8 @@ public class Building_ChickenBatteryCage : Building
     /// biology has been captured; appends the record to the housed flock.
     public void AddRecord(CagedChickenRecord record)
     {
+        // Bill the outgoing population before the newcomer joins.
+        SettleNutrition();
         chickens.Add(record);
     }
 
@@ -657,6 +782,9 @@ public class Building_ChickenBatteryCage : Building
         {
             return false;
         }
+
+        // Settle before the bird leaves so her share of the store is billed.
+        SettleNutrition();
 
         CagedChickenRecord record = chickens[index];
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
@@ -845,6 +973,75 @@ public class Building_ChickenBatteryCage : Building
         if (unroofedCellsScratch.Count > 0)
         {
             GenDraw.DrawFieldEdges(unroofedCellsScratch, Color.red);
+        }
+    }
+
+    public override void TickRare()
+    {
+        base.TickRare();
+        SettleNutrition();
+        DrawFromHoppers();
+    }
+
+    /// Every vanilla feed hopper touching this cage's edge. A hopper bolted to
+    /// any member of a cluster feeds the whole cluster's flock through the
+    /// shared store; see <see cref="CageNetwork.ClusterHoppers"/>.
+    public IEnumerable<Building_Storage> AdjacentHoppers()
+    {
+        if (!Spawned || Map == null)
+        {
+            yield break;
+        }
+
+        foreach (IntVec3 cell in GenAdj.CellsAdjacentCardinal(this))
+        {
+            if (HopperFeeding.IsHopper(Map.edificeGrid[cell])
+                && Map.edificeGrid[cell] is Building_Storage hopper)
+            {
+                yield return hopper;
+            }
+        }
+    }
+
+    public bool HasAdjacentHopper()
+    {
+        foreach (Building_Storage _ in AdjacentHoppers())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Siphons feed out of every hopper touching any cage in the cluster into
+     * the shared store. This is the only path by which food ever enters a
+     * cage: colonists fill the vanilla hoppers with the ordinary hauling
+     * pipeline, and the machine does the rest.
+     */
+    void DrawFromHoppers()
+    {
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+        float space = CageNetwork.NutritionSpace(cluster);
+        if (space <= 0f)
+        {
+            return;
+        }
+
+        foreach (Building_Storage hopper in CageNetwork.ClusterHoppers(cluster))
+        {
+            if (space <= 0f)
+            {
+                break;
+            }
+
+            float delivered = HopperFeeding.TryConsume(hopper, space);
+            if (delivered <= 0f)
+            {
+                continue;
+            }
+
+            CageNetwork.AddNutrition(cluster, delivered);
+            space = CageNetwork.NutritionSpace(cluster);
         }
     }
 

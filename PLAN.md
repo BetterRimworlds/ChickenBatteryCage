@@ -18,6 +18,28 @@ The original Pawn identity does not need to survive.
 
 ---
 
+## Peer Review — Pull Request Titles
+
+Every pull request below is stacked on the one before it, so the review diff
+for a given PR is simply `<base>..<branch>`. PRs 1–3 are merged into `trunk`;
+PRs 4–12 are open and local.
+
+| PR | Title | Branch | Base | Commits | Status |
+|---:|-------|--------|------|--------:|--------|
+| 1 | Established the RimWorld 1.6 poultry-cage foundation | `battery-cage-foundation` | — | 9 | Merged |
+| 2 | Virtualized chickens inside battery cages | `loading-and-unloading` | `battery-cage-foundation` | 5 | Merged |
+| 3 | Deconstructed and destroyed battery cages safely | `deconstructing-and-destroying` | `loading-and-unloading` | 3 | Merged |
+| 4 | Created the battery cage nutrition system | `pr4-cage-nutrition` | `trunk` | 5 | Open |
+| 5 | Added statistical mortality for caged chickens | `pr5-statistical-mortality` | `pr4-cage-nutrition` | 4 | Open |
+| 6 | Virtualized egg production inside battery cages | `pr6-virtualized-eggs` | `pr5-statistical-mortality` | 6 | Open |
+| 7 | Added cage-only poultry modules | `pr7-cage-modules` | `pr6-virtualized-eggs` | 5 | Open |
+| 9 | Hardened savegames and chicken-history cleanup | `pr9-savegame-hardening` | `pr7-cage-modules` | 4 | Open |
+| 10 | Profiled large industrial poultry colonies | `pr10-profiling` | `pr9-savegame-hardening` | 4 | Open |
+| 11 | Finished the RimWorld 1.6 battery-poultry release | `pr11-release` | `pr10-profiling` | 5 | Open |
+| 12 | Added a per-chicken picker window for unloading battery cages | `pr12-chicken-picker` | `pr11-release` | 5 | Open |
+
+---
+
 # Non-Negotiable Architecture
 
 ## Target Version
@@ -43,9 +65,9 @@ virtual chicken starved
 and:
 
 ```text
-hen produced 12 eggs
-→ instantiate 12 vanilla Egg Things
-→ merge them into an egg carton
+hen produced 10 eggs
+→ instantiate 10 vanilla Egg Things
+→ merge them into a custom item
 ```
 
 Instead:
@@ -61,7 +83,7 @@ and:
 ```text
 egg-production calculation
 → increment abstract egg count
-→ materialize carton only when needed
+→ materialize a stack only once the box fills
 ```
 
 ---
@@ -83,11 +105,10 @@ egg-production calculation
 | Growth/development | Preserved or exactly reconstructable |
 | Feeding | Collective cage-level feeding |
 | Eggs | Unfertilized |
-| Egg packaging | Cartons of 12 |
+| Egg packaging | Egg box, released as stacks of ten |
 | Mortality | Statistical and age/starvation dependent |
 | Modules | Visible only from selected cage |
 | Module Architect visibility | Hidden from normal Build menu |
-| Advanced cages | May replace basic cages in Build menu after research |
 
 ---
 
@@ -394,7 +415,26 @@ Verified:
 
 ---
 
-# Pull Request 3 — Replaced individual feeding with cage-level nutrition
+# Pull Request 3 — Deconstructed and destroyed battery cages safely
+
+## Goal
+
+Guaranteed that a caged flock survived the loss of its cage: birds were released
+unharmed on deconstruction, wounded when the cage was destroyed by force, and any
+record that could not be released immediately was preserved and retried rather
+than silently deleted.
+
+## Commits
+
+### Commit 1 — `Released caged chickens unharmed when a battery cage was deconstructed`
+
+### Commit 2 — `Injured caged chickens when a battery cage is destroyed by force`
+
+### Commit 3 — `Preserved caged chickens that cannot be released when a cage is destroyed`
+
+---
+
+# Pull Request 4 — Created the battery cage nutrition system
 
 ## Goal
 
@@ -402,7 +442,15 @@ Removed food searching, reservation, and pathfinding from serialized chickens.
 
 ## Commits
 
-### Commit 1 — `Added collective nutrition tracking to battery cages`
+### Commit 1 — `Documented the peer-review plan and QA checklist`
+
+Added the peer-review table of every pull request — number, title, branch,
+base, commit count, and status — renumbered the sections to match the actual
+sequence, and rewrote `QA_CHECKLIST.md` for the same PR numbers and branches.
+
+---
+
+### Commit 2 — `Added collective nutrition tracking to battery cages`
 
 Implemented collective nutrition demand.
 
@@ -412,23 +460,6 @@ Acceptance criteria:
 - Contained chickens never reserved food.
 - Contained chickens never generated ingestion jobs.
 - Contained chickens never performed food-related pathfinding.
-
----
-
-### Commit 2 — `Added manual cage feeding jobs`
-
-Colonists could deliver approved feed to cages.
-
-Initial supported feeds should include sensible vanilla choices such as:
-
-- hay
-- kibble
-- appropriate plant/raw crop foods if supported cleanly
-
-Acceptance criteria:
-
-- Feeding used normal colony hauling/job mechanics.
-- Chickens remained virtual throughout feeding.
 
 ---
 
@@ -469,7 +500,22 @@ Acceptance criteria:
 
 ---
 
-# Pull Request 4 — Added statistical mortality for caged chickens
+### Commit 5 — `Fed battery cages from adjacent vanilla hoppers`
+
+Colonists filled ordinary vanilla hoppers through the normal hauling pipeline,
+and each cage siphoned nutrition from every hopper touching its edge on its rare
+tick. The cage def declared `wantsHopperAdjacent` and a patch unlocked the
+hopper with the cage research. This replaced the mod's own hopper building and
+its direct feed-hauling job.
+
+Acceptance criteria:
+
+- Feeding used normal colony hauling into vanilla hoppers.
+- Chickens remained virtual throughout feeding.
+
+---
+
+# Pull Request 5 — Added statistical mortality for caged chickens
 
 ## Goal
 
@@ -546,7 +592,7 @@ Acceptance criteria:
 
 ---
 
-# Pull Request 5 — Virtualized egg production inside battery cages
+# Pull Request 6 — Virtualized egg production inside battery cages
 
 ## Goal
 
@@ -597,42 +643,41 @@ Acceptance criteria:
 
 ---
 
-### Commit 4 — `Added twelve-egg cartons as the cage output unit`
+### Commit 4 — `Added ten-egg boxes as the cage egg output unit`
 
-Implemented an egg-carton Thing representing twelve unfertilized eggs.
-
-Critical requirement:
-
-> The carton was one Thing representing twelve eggs. It was not a container holding twelve vanilla Egg Things.
-
----
-
-### Commit 5 — `Added partial egg-carton consumption`
-
-Allowed cooking recipes to consume eggs from cartons without exploding cartons into individual eggs.
-
-Conceptual state:
-
-```text
-12 / 12 eggs
-9 / 12 eggs
-4 / 12 eggs
-```
-
-Alternative implementations were acceptable if they preserved equivalent behavior and avoided individual egg Things.
-
----
-
-### Commit 6 — `Prevented cartonized eggs from running fertilization logic`
+The cage collected laying progress internally and, each time ten eggs had
+accrued, released one haulable stack of ten ordinary vanilla chicken eggs.
+Haulers carried the stacks away like any other egg while the box kept filling,
+and inspection reported both the eggs in the box and the percentage progress
+toward the next egg.
 
 Acceptance criteria:
 
-- Egg cartons never received hatching/fertilization comps.
-- Cartons did not perform individual egg deterioration/fertilization ticks.
+- The box was one stack representing up to ten eggs, not ten vanilla `Thing`s.
+- Hauling and cooking used ordinary vanilla egg stacks.
 
 ---
 
-# Pull Request 6 — Added cage-only poultry modules
+### Commit 5 — `Replaced the per-hen release memory with a manual network intake cutoff`
+
+Releasing a bird no longer recorded it individually to keep it from being roped
+straight back in. Releasing a hen turned the whole network's intake off until
+the player turned it back on, keeping no per-bird state.
+
+---
+
+### Commit 6 — `Fixed the newborn-and-other-stages error when unloading a chicken`
+
+The release path asked `PawnGenerationRequest` for Newborn, Baby, Child, and
+Adult at once, so RimWorld logged a "newborn and other developmental stages
+simultaneously" error and distrusted the requested age. A chicken grows straight
+from chick to adult, so the request now carries whichever single stage the
+recorded age falls in, erring toward Adult when the threshold is not yet
+resolved, and pins the exact age right after generation.
+
+---
+
+# Pull Request 7 — Added cage-only poultry modules
 
 ## Goal
 
@@ -699,73 +744,7 @@ Climate control: Not installed
 
 ---
 
-# Pull Request 7 — Added upgraded poultry-housing progression
-
-## Goal
-
-Added later cage technology without making capacity scaling absurdly overpowered.
-
-All primary cage variants should remain conceptually four-tier systems.
-
-## Commits
-
-### Commit 1 — `Added the advanced battery-cage research project`
-
-Added later poultry-housing research.
-
-Potential improvements:
-
-- less feeding labor
-- cleaner handling
-- reduced mortality
-- better climate management
-- automated egg handling
-- modest capacity increase
-
-Avoid enormous geometric capacity multipliers.
-
----
-
-### Commit 2 — `Added the advanced battery cage`
-
-Maintained four vertical tiers.
-
-Suggested initial balance:
-
-```text
-Basic cage:     10 chickens
-Advanced cage:  12 chickens
-```
-
-Final values should be determined through playtesting.
-
----
-
-### Commit 3 — `Hid obsolete battery cages after advanced research was completed`
-
-Once advanced research was completed:
-
-- basic cage disappeared from the normal Architect build menu;
-- existing basic cages remained fully functional;
-- saves remained valid;
-- dev/God mode behavior could remain consistent with RimWorld conventions.
-
-Use build-designator visibility logic rather than mutating or destroying existing defs.
-
----
-
-### Commit 4 — `Added upgrade commands for existing battery cages`
-
-Allowed an existing basic cage to upgrade without requiring its chickens to be manually released first.
-
-Acceptance criteria:
-
-- Serialized chicken records survived the upgrade intact.
-- Nutrition and egg state migrated safely.
-
----
-
-# Pull Request 8 — Hardened savegames and chicken-history cleanup
+# Pull Request 9 — Hardened savegames and chicken-history cleanup
 
 ## Goal
 
@@ -828,7 +807,7 @@ A single malformed chicken record must not brick the save.
 
 ---
 
-# Pull Request 9 — Profiled large industrial poultry colonies
+# Pull Request 10 — Profiled large industrial poultry colonies
 
 ## Goal
 
@@ -914,7 +893,7 @@ Acceptance criterion:
 
 ---
 
-# Pull Request 10 — Finished the RimWorld 1.6 battery-poultry release
+# Pull Request 11 — Finished the RimWorld 1.6 battery-poultry release
 
 ## Goal
 
@@ -973,7 +952,6 @@ Documentation covered:
 - mortality
 - egg cartons
 - modules
-- advanced cages
 - release behavior
 - performance architecture
 
@@ -990,6 +968,33 @@ Acceptance criteria:
 - No major debug-log spam.
 - Stress tests passed.
 - User-facing documentation completed.
+
+---
+
+# Pull Request 12 — Added a per-chicken picker window for unloading battery cages
+
+## Goal
+
+Let the player pick exactly which caged birds leave a cage, by life stage, and
+unload several at once, without ever materializing the rest of the flock.
+
+## Commits
+
+### Commit 1 — `Added a per-chicken picker window for unloading battery cages`
+
+The cage's unload controls opened a window that listed its serialized flock as
+chicks, juveniles, and adults, each row markable for unloading, with actions to
+unload one bird, one life stage, or the whole cage. The picks were held as a
+per-record mark list so the release job could honor them, and the displayed
+stage came from the same exact biological age used by the rest of the mod.
+
+### Commit 2 — `Numbered picker rows within each life-stage group instead of across the whole flock`
+
+### Commit 3 — `Skipped already-reserved cages when selecting a destination for hen roping, preventing two handlers from being assigned the same cage`
+
+### Commit 4 — `Renamed the pen system gizmo to a vanilla-style Allow toggle and bound it to the F hotkey`
+
+### Commit 5 — `Fixed caging a spawned hen logging that she was already spawned`
 
 ---
 
