@@ -18,17 +18,17 @@ warnings.
 
 ## PR 4 — Created the battery cage nutrition system (`pr4-cage-nutrition`, 5 commits)
 
-*Collective feed store, elapsed-time consumption, starvation state, vanilla-hopper feeding.*
+*Collective feed store, elapsed-time consumption, starvation state, direct hauling of feed.*
 
 - [ ] Cage inspection shows a **nutrition/feed** figure that drains over in-game time.
 - [ ] Drain scales with flock size (more hens = faster drain) and pauses while the game is paused.
-- [ ] **Feeding is via an adjacent vanilla hopper:** colonists haul hay, kibble, or plants into a hopper touching the cage with the ordinary hauling pipeline, and the cage siphons nutrition from every hopper on its rare tick.
-- [ ] The hopper is unlocked by the battery-cage research (`Patches/Research_VanillaHopper.xml` adds `ChickenBatteryCage` to the Hopper's `researchPrerequisites`).
-- [ ] A cage with **no adjacent hopper** never gains feed and eventually starves; inspection explains the feed state.
-- [ ] Feed stacks stay in the hopper and are not duplicated into the cage; the cage stores only abstract nutrition.
-- [ ] The store caps at six days of feed per bird; extra feed stays in the hopper rather than being wasted.
+- [ ] **Feeding is by direct hauling:** colonists carry raw plant food, hay, or kibble straight to a cage with the ordinary hauling pipeline, and the cage converts it immediately into the shared feed store. No hopper or nutrient paste is required.
+- [ ] Haulers only start when the cluster's pool falls below half its capacity, then keep topping up until full, so flocks are fed in infrequent bursts rather than a continuous trickle.
+- [ ] A cage with no reachable food stockpile never gains feed and eventually starves; inspection explains the feed state.
+- [ ] Food is destroyed on delivery and is never left lying on the cage; the cage stores only abstract nutrition.
+- [ ] The store caps at six days of feed per bird; surplus food stays in the stockpile rather than being wasted.
 - [ ] When nutrition hits zero, hens pass through **hungry** and **starving** states — no starving pawns are spawned.
-- [ ] Starving birds recover once feed is added.
+- [ ] Starving birds recover once feed is hauled in.
 - [ ] Unroofed/inoperable cage: laying and the other simulation steps stop, and the panel explains the roof requirement.
 - [ ] Save + reload preserves the cage's nutrition value exactly.
 

@@ -14,6 +14,7 @@
     <Compile Include="..\Source\CagedChickenMath.cs" Link="CagedChickenMath.cs" />
     <Compile Include="..\Source\CageNutrition.cs" Link="CageNutrition.cs" />
     <Compile Include="..\Source\CageClusterMath.cs" Link="CageClusterMath.cs" />
+    <Compile Include="..\Source\CageFeedMath.cs" Link="CageFeedMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

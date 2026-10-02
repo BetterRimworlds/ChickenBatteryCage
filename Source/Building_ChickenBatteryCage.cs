@@ -51,6 +51,14 @@ public class Building_ChickenBatteryCage : Building
     /// starving Pawn or applies a malnutrition Hediff.
     protected int starvingTicks;
 
+    /// Refill hysteresis. Set while the cluster's pool is below the low-water
+    /// mark and cleared only once the pool is full, so one feeding burst tops
+    /// the flock up instead of sipping at it every time a unit is eaten.
+    protected bool feedTopUpRequested;
+
+    /// Fraction of capacity below which a cluster asks to be refilled.
+    public const float FeedLowWaterFraction = 0.5f;
+
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -65,6 +73,21 @@ public class Building_ChickenBatteryCage : Building
     static bool warnedMissingChickenDef;
 
     public bool IsOperational => roofedOverOccupiedCells;
+
+    /// True while this cage should be offered to haulers as a feeding target.
+    /// The decision is shared across the cluster's pool: a member is only a
+    /// target while the flock needs feed and the pool is still filling.
+    public bool NeedsFeeding => IsOperational
+        && chickens.Count > 0
+        && feedTopUpRequested;
+
+    /// The persisted per-member copy of the cluster's refill request. The
+    /// cluster settle keeps every member's copy in step.
+    internal bool FeedTopUpRequested
+    {
+        get => feedTopUpRequested;
+        set => feedTopUpRequested = value;
+    }
 
     /**
      * Drains the shared store for the time that has passed since the cluster
@@ -157,10 +180,19 @@ public class Building_ChickenBatteryCage : Building
 
     /// Adds feed to the cluster's shared pool and returns how much was
     /// accepted. Anything above the cluster's combined capacity is refused
-    /// rather than silently wasted.
+    /// rather than silently wasted. Only <see cref="CageFeed.Feed"/> may call
+    /// this: hauling food straight to a cage is the sole way feed enters it.
     public float AddNutrition(float amount)
     {
         return CageNetwork.AddNutrition(CageNetwork.Cluster(this), amount);
+    }
+
+    /// Stops the cluster asking for feed once no further whole unit fits, so a
+    /// sub-unit gap cannot leave the feeding work running indefinitely. The
+    /// low-water mark re-arms the request on the next dip.
+    public void ClearFeedRequest()
+    {
+        CageNetwork.ClearFeedRequest(CageNetwork.Cluster(this));
     }
 
     protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Status".Translate(
@@ -352,6 +384,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionStored, "nutritionStored", 0f);
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
+        Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
@@ -530,6 +563,27 @@ public class Building_ChickenBatteryCage : Building
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
             if (cage.HasPendingUnload)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// True while any cage on the map is below its cluster's low-water mark and
+    /// should be offered to haulers, so the feeding work giver can skip the map
+    /// entirely when every flock is settled.
+    public static bool AnyCageNeedingFeed(Map map)
+    {
+        if (map == null)
+        {
+            return false;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
+        {
+            if (cage.NeedsFeeding)
             {
                 return true;
             }

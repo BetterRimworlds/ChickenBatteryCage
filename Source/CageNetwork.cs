@@ -27,7 +27,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *
  * Each cage still owns its own persisted records and feed store; this class
  * discovers the clusters, aggregates them on read, and routes the writes that
- * have to be shared (settling feed, toggles, unload marks)
+ * have to be shared (settling feed, refill requests, toggles, unload marks)
  * back across the members.
  */
 public static class CageNetwork
@@ -434,6 +434,19 @@ public static class CageNetwork
         return accepted;
     }
 
+    /// Clears the cluster's refill request so haulers stop topping up a pool
+    /// that is effectively full. The low-water mark re-arms it on the next dip.
+    public static void ClearFeedRequest(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.FeedTopUpRequested = false;
+            }
+        }
+    }
+
     /// Feed has arrived, so the flock is no longer starving. Restart the shared
     /// clock instead of carrying the old deficit into the next settlement.
     static void ClearStarving(IReadOnlyList<Building_ChickenBatteryCage> cluster)
@@ -480,13 +493,43 @@ public static class CageNetwork
     {
         WriteStored(cluster, totalStored);
 
+        // Refill hysteresis: once the pool dips below the low-water mark the
+        // cluster keeps asking for feed until it is full, so haulers make one
+        // burst of deliveries instead of trickling in every time a unit is
+        // eaten. The request is written to every member so each can answer the
+        // feeding work giver from its own cheap persisted flag.
+        float capacity = NutritionCapacity(cluster);
+        bool requested = FeedTopUpRequested(cluster);
+        if (capacity <= 0f || totalStored >= capacity)
+        {
+            requested = false;
+        }
+        else if (totalStored < capacity * Building_ChickenBatteryCage.FeedLowWaterFraction)
+        {
+            requested = true;
+        }
+
         foreach (Building_ChickenBatteryCage cage in cluster)
         {
             if (Alive(cage))
             {
                 cage.StarvingTicks = starvingTicks;
+                cage.FeedTopUpRequested = requested;
             }
         }
+    }
+
+    /// True while any member still carries an outstanding refill request.
+    static bool FeedTopUpRequested(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage) && cage.FeedTopUpRequested)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---- Toggles, marks, and routing -------------------------------------
