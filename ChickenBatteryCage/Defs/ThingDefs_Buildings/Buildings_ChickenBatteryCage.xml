@@ -42,8 +42,14 @@
 		<designationCategory>Production</designationCategory>
 		<uiOrder>2070</uiOrder>
 		<!-- Defaults to the wide (long-edge-south) landscape orientation but
-		     stays rotatable, so the long edge can be turned to face any
-		     approach. Handlers work from any adjacent standable cell. -->
+		     stays rotatable, so the wide face can be turned to face any
+		     approach. The interaction spot sits in the middle of whichever
+		     long edge the cage is turned to: rotating 180 degrees swings it
+		     from the south face to the north face, and from the east face to
+		     the west face when the cage is stood on end. The graphics are
+		     independent of this and are unchanged by it. -->
+		<hasInteractionCell>true</hasInteractionCell>
+		<interactionCellOffset>(2,0,0)</interactionCellOffset>
 		<defaultPlacingRot>East</defaultPlacingRot>
 		<rotatable>true</rotatable>
 		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
