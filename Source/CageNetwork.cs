@@ -342,6 +342,9 @@ public static class CageNetwork
      * elapsed time is measured from the most recent settle by any member, so
      * the first member to tick does the work and the rest see no time pass.
      * Only the pool-level starving clock and per-member stores are written.
+     * Feed demand is drawn only from the live, roofed members: an inoperable
+     * member's birds are paused and not billed, while every member's settle
+     * clock still advances together.
      */
     public static void SettleCluster(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
     {
@@ -368,7 +371,7 @@ public static class CageNetwork
         }
 
         float stored = StoredNutrition(cluster);
-        int birds = ChickenCount(cluster);
+        int birds = OperationalBirdCount(cluster);
 
         int starving = CageNutritionMath.StarvingTicksAfter(
             WorstStarvingTicks(cluster),
@@ -384,6 +387,54 @@ public static class CageNetwork
             elapsed);
 
         WriteNutrition(cluster, remaining, starving);
+    }
+
+    /// Birds housed in live, roofed members. An inoperable member's simulation
+    /// is paused, so its birds draw no feed from the shared pool while the
+    /// operational members keep eating from it.
+    static int OperationalBirdCount(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        int total = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage) && cage.IsOperational)
+            {
+                total += cage.ChickenCount;
+            }
+        }
+        return total;
+    }
+
+    /// True while at least one live member is roofed and running its
+    /// simulation.
+    static bool HasOperationalMember(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage) && cage.IsOperational)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pauses a cluster only while no member can run its simulation. In a
+     * partially roofed cluster the operational members keep settling — billed
+     * to their own birds alone — so a member losing its roof can no longer
+     * hold the whole flock's feeding hostage to which cage happened to tick
+     * first.
+     */
+    public static void PauseCluster(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
+    {
+        if (HasOperationalMember(cluster))
+        {
+            SettleCluster(cluster, now);
+            return;
+        }
+
+        SetSettledAt(cluster, now);
     }
 
     static int WorstStarvingTicks(IReadOnlyList<Building_ChickenBatteryCage> cluster)

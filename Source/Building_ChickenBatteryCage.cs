@@ -98,7 +98,19 @@ public class Building_ChickenBatteryCage : Building
      */
     public void SettleNutrition()
     {
-        CageNetwork.SettleCluster(CageNetwork.Cluster(this), GenTicks.TicksAbs);
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+        int now = GenTicks.TicksAbs;
+
+        // An unroofed cage is inoperable, so its simulation pauses: the settle
+        // clock advances without eating, and time passed that way is not
+        // billed to the flock once the roof is restored.
+        if (!IsOperational)
+        {
+            CageNetwork.PauseCluster(cluster, now);
+            return;
+        }
+
+        CageNetwork.SettleCluster(cluster, now);
     }
 
     /// Controls whether handlers may rope hens into this cage automatically.
@@ -404,10 +416,22 @@ public class Building_ChickenBatteryCage : Building
 
     void OnRoofChanged(IntVec3 cell)
     {
-        if (this.OccupiedRect().Contains(cell))
+        if (!this.OccupiedRect().Contains(cell))
         {
-            RecheckRoofing();
+            return;
         }
+
+        // Settle the previous state before applying the new one. Settling
+        // after the recheck would pause the cluster and silently reset the
+        // settle clock, erasing the elapsed roofed time instead of billing the
+        // flock for it. Restoring a roof owes nothing: pausing kept the clock
+        // current, so only a loss of operability needs a final bill.
+        if (IsOperational)
+        {
+            SettleNutrition();
+        }
+
+        RecheckRoofing();
     }
 
     public override string GetInspectString()
