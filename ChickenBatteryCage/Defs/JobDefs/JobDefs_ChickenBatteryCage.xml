@@ -13,4 +13,10 @@
 		<reportString>unloading a battery cage.</reportString>
 		<casualInterruptible>false</casualInterruptible>
 	</JobDef>
+	<JobDef>
+		<defName>CBC_FeedBatteryCage</defName>
+		<driverClass>BetterRimworlds.ChickenBatteryCage.JobDriver_FeedBatteryCage</driverClass>
+		<reportString>hauling feed to a battery cage.</reportString>
+		<casualInterruptible>false</casualInterruptible>
+	</JobDef>
 </Defs>

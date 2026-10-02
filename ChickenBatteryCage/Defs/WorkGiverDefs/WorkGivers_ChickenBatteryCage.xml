@@ -15,6 +15,20 @@
 		<prioritizeSustains>true</prioritizeSustains>
 	</WorkGiverDef>
 	<WorkGiverDef>
+		<defName>CBC_FeedBatteryCages</defName>
+		<label>feed battery cages</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_FeedBatteryCages</giverClass>
+		<workType>Hauling</workType>
+		<verb>feed</verb>
+		<gerund>feeding</gerund>
+		<!-- Above generic hauling and above filling nutrient-paste hoppers, so a
+		     low cage pool is refilled before ordinary stockpile tidying. -->
+		<priorityInType>55</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
+	<WorkGiverDef>
 		<defName>CBC_UnloadBatteryCages</defName>
 		<label>unload battery cages</label>
 		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_UnloadBatteryCages</giverClass>
