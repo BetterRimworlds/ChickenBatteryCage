@@ -61,6 +61,27 @@ public class CageEggTests
     }
 
     [Test]
+    public void DisablingAgeDeclineGivesAdultsAFullEggADayForLife()
+    {
+        Assert.AreEqual(
+            CageEggMath.EggsPerHenPerDayAtPrime,
+            CageEggMath.EggsPerHenPerDay(6f, Adult, declineEnabled: false),
+            0.0001f);
+        Assert.AreEqual(
+            CageEggMath.EggsPerHenPerDayAtPrime,
+            CageEggMath.EggsPerHenPerDay(20f, Adult, declineEnabled: false),
+            0.0001f);
+    }
+
+    [Test]
+    public void DisablingAgeDeclineStillExcludesJuveniles()
+    {
+        Assert.AreEqual(
+            0f,
+            CageEggMath.EggsPerHenPerDay(0.1f, Adult, declineEnabled: false));
+    }
+
+    [Test]
     public void OutputScalesWithElapsedTime()
     {
         Assert.AreEqual(1f, CageEggMath.EggsOverTicks(1f, Day), 0.0001f);

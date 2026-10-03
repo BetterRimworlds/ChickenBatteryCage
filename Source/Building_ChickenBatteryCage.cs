@@ -218,8 +218,10 @@ public class Building_ChickenBatteryCage : Building
         chickens.Count,
         CageNutritionMath.DefaultNutritionPerChickenPerDay);
 
-    /// Summed daily laying rate of the housed hens, derived purely from their
-    /// exact biological age. No hen owns a ticking egg-production component.
+    /// Summed daily laying rate of the housed hens, derived from their exact
+    /// biological age. The age decline is dropped when the player turns it off
+    /// in the mod settings, leaving every adult hen at one egg a day. No hen
+    /// owns a ticking egg-production component either way.
     public float EggLayingRatePerDay
     {
         get
@@ -239,7 +241,10 @@ public class Building_ChickenBatteryCage : Building
                     continue;
                 }
 
-                rate += CageEggMath.EggsPerHenPerDay(record.BiologicalAgeYearsAt(now), adultYears);
+                rate += CageEggMath.EggsPerHenPerDay(
+                    record.BiologicalAgeYearsAt(now),
+                    adultYears,
+                    ChickenBatteryCage.Settings?.ageDeclineEnabled ?? true);
             }
 
             return rate;

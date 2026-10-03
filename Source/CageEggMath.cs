@@ -47,14 +47,23 @@ public static class CageEggMath
     public static float MinSoftenedLayingFraction =>
         1f - (1f - MinLayingFraction) * ReductionSeverity;
 
-    public static float EggsPerHenPerDay(float ageYears, float adultMinAgeYears)
+    /**
+     * The daily laying rate of one hen. <paramref name="declineEnabled"/> keeps
+     * the age-related decline as the default, but callers can turn it off so an
+     * adult hen lays at the prime rate for the rest of her life, matching
+     * vanilla RimWorld. Juveniles lay nothing either way.
+     */
+    public static float EggsPerHenPerDay(
+        float ageYears,
+        float adultMinAgeYears,
+        bool declineEnabled = true)
     {
         if (ageYears < adultMinAgeYears)
         {
             return 0f;
         }
 
-        if (ageYears <= DeclineStartYears)
+        if (!declineEnabled || ageYears <= DeclineStartYears)
         {
             return EggsPerHenPerDayAtPrime;
         }

@@ -15,6 +15,8 @@
 	<ChickenBatteryCage.Feed.StateHungry>hungry</ChickenBatteryCage.Feed.StateHungry>
 	<ChickenBatteryCage.Feed.StateStarving>starving</ChickenBatteryCage.Feed.StateStarving>
 	<ChickenBatteryCage.Feed.None>No suitable animal feed is available.</ChickenBatteryCage.Feed.None>
+	<ChickenBatteryCage.Settings.AgeDecline>Hens lay fewer eggs as they age</ChickenBatteryCage.Settings.AgeDecline>
+	<ChickenBatteryCage.Settings.AgeDeclineTip>When on, a caged hen's output declines gradually after she turns two years old, without ever quite stopping. Turn this off to have every adult hen lay one egg a day for the rest of her life, as in vanilla RimWorld. Default: on.</ChickenBatteryCage.Settings.AgeDeclineTip>
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
 	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed across this cluster of touching battery cages.\n\nHens: {0} / {1}</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.CapacityDisabled>Shows how many hens this cage can hold.</ChickenBatteryCage.Gizmo.CapacityDisabled>
