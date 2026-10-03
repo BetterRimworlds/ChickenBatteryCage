@@ -23,14 +23,10 @@ public class Building_ChickenBatteryCage : Building
 {
     public const int ChickenCapacity = 10;
 
-    bool roofedOverOccupiedCells = true;
-
     /// When false the cage's pen system is inactive. Handlers stop roping hens
     /// in, but the player can still release hens by hand and the hens already
     /// housed stay exactly as they are.
     protected bool penSystemEnabled = true;
-
-    readonly List<IntVec3> unroofedCellsScratch = new List<IntVec3>();
 
     /// The entire confined flock, stored as compact biological records. No
     /// spawned Pawn is kept here.
@@ -47,8 +43,8 @@ public class Building_ChickenBatteryCage : Building
     protected int nutritionSettledAtTick;
 
     /// Accumulated ticks the flock has spent with an empty store. Only used to
-    /// describe and (later) to roll starvation mortality; it never spawns a
-    /// starving Pawn or applies a malnutrition Hediff.
+    /// describe and to roll starvation mortality; it never spawns a starving
+    /// Pawn or applies a malnutrition Hediff.
     protected int starvingTicks;
 
     /// Refill hysteresis. Set while the cluster's pool is below the low-water
@@ -58,6 +54,13 @@ public class Building_ChickenBatteryCage : Building
 
     /// Fraction of capacity below which a cluster asks to be refilled.
     public const float FeedLowWaterFraction = 0.5f;
+
+    /// How often the flock is rolled for mortality. Coarse on purpose: a caged
+    /// flock never pays a per-bird death check on every tick.
+    protected const int MortalityEvaluationIntervalTicks = 2500;
+
+    /// Absolute tick at which mortality was last rolled.
+    protected int mortalityCheckedAtTick;
 
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
@@ -72,13 +75,14 @@ public class Building_ChickenBatteryCage : Building
     static bool adultMinAgeTicksResolved;
     static bool warnedMissingChickenDef;
 
-    public bool IsOperational => roofedOverOccupiedCells;
+    /// Species life expectancy, resolved from the chicken def once available.
+    static float lifeExpectancyYears = CageMortalityMath.DefaultLifeExpectancyYears;
+    static bool lifeExpectancyResolved;
 
     /// True while this cage should be offered to haulers as a feeding target.
     /// The decision is shared across the cluster's pool: a member is only a
     /// target while the flock needs feed and the pool is still filling.
-    public bool NeedsFeeding => IsOperational
-        && chickens.Count > 0
+    public bool NeedsFeeding => chickens.Count > 0
         && feedTopUpRequested;
 
     /// The persisted per-member copy of the cluster's refill request. The
@@ -101,15 +105,8 @@ public class Building_ChickenBatteryCage : Building
         IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
         int now = GenTicks.TicksAbs;
 
-        // An unroofed cage is inoperable, so its simulation pauses: the settle
-        // clock advances without eating, and time passed that way is not
-        // billed to the flock once the roof is restored.
-        if (!IsOperational)
-        {
-            CageNetwork.PauseCluster(cluster, now);
-            return;
-        }
-
+        // The cage runs whether or not it is roofed: an unroofed cage still
+        // eats, ages, and dies exactly as a roofed one does.
         CageNetwork.SettleCluster(cluster, now);
     }
 
@@ -125,10 +122,6 @@ public class Building_ChickenBatteryCage : Building
     public bool IsFull => chickens.Count >= ChickenCapacity;
 
     public virtual int ChickenCount => chickens.Count;
-
-    public virtual int AdultHenCount => CountMatching(Gender.Female, adult: true);
-
-    public virtual int JuvenileCount => CountMatching(Gender.None, adult: false, anyGender: true);
 
     public CagedChickenRecord RecordAt(int index)
     {
@@ -253,12 +246,6 @@ public class Building_ChickenBatteryCage : Building
             chickens = new List<CagedChickenRecord>();
         }
 
-        // RoofGrid.SetRoof notifies MapEvents.RoofChanged, so react to roof changes
-        // immediately instead of polling on TickRare and leaving IsOperational stale.
-        map.events.RoofChanged -= OnRoofChanged;
-        map.events.RoofChanged += OnRoofChanged;
-        RecheckRoofing();
-
         // A new cage changes which cages touch; rebuild the clusters now so the
         // just-built cage immediately joins its neighbours.
         CageNetwork.Invalidate(map);
@@ -269,7 +256,6 @@ public class Building_ChickenBatteryCage : Building
         Map map = Map;
         if (map != null)
         {
-            map.events.RoofChanged -= OnRoofChanged;
             // Removing a cage can split or shrink a cluster; rebuild at once.
             CageNetwork.Invalidate(map);
         }
@@ -311,6 +297,7 @@ public class Building_ChickenBatteryCage : Building
         SettleNutrition();
 
         Map map = Map;
+        EvaluateMortality(force: true);
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
         int released = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
@@ -397,6 +384,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
 
@@ -412,26 +400,6 @@ public class Building_ChickenBatteryCage : Building
                 pendingUnloads = new List<ChickenReleaseFilter>();
             }
         }
-    }
-
-    void OnRoofChanged(IntVec3 cell)
-    {
-        if (!this.OccupiedRect().Contains(cell))
-        {
-            return;
-        }
-
-        // Settle the previous state before applying the new one. Settling
-        // after the recheck would pause the cluster and silently reset the
-        // settle clock, erasing the elapsed roofed time instead of billing the
-        // flock for it. Restoring a roof owes nothing: pausing kept the clock
-        // current, so only a loss of operability needs a final bill.
-        if (IsOperational)
-        {
-            SettleNutrition();
-        }
-
-        RecheckRoofing();
     }
 
     public override string GetInspectString()
@@ -452,11 +420,6 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine();
         }
 
-        if (!IsOperational)
-        {
-            sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate());
-        }
-
         if (!penSystemEnabled)
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
@@ -466,8 +429,6 @@ public class Building_ChickenBatteryCage : Building
         sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(
             clusterChickens,
             CageNetwork.TotalCapacity(cluster)));
-        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(CageNetwork.AdultHenCount(cluster)));
-        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(CageNetwork.JuvenileCount(cluster)));
 
         int cageCount = 0;
         foreach (Building_ChickenBatteryCage cage in cluster)
@@ -512,8 +473,6 @@ public class Building_ChickenBatteryCage : Building
 
         int chickenCount = CageNetwork.ChickenCount(cluster);
         int totalCapacity = CageNetwork.TotalCapacity(cluster);
-        int adultHenCount = CageNetwork.AdultHenCount(cluster);
-        int juvenileCount = CageNetwork.JuvenileCount(cluster);
         int pendingUnloadCount = CageNetwork.PendingUnloadCount(cluster);
         bool penSystemEnabled = CageNetwork.PenSystemEnabled(cluster);
 
@@ -522,9 +481,7 @@ public class Building_ChickenBatteryCage : Building
             defaultLabel = "ChickenBatteryCage.Gizmo.Capacity".Translate(chickenCount, totalCapacity),
             defaultDesc = "ChickenBatteryCage.Gizmo.CapacityDesc".Translate(
                 chickenCount,
-                totalCapacity,
-                adultHenCount,
-                juvenileCount),
+                totalCapacity),
             icon = def.uiIcon,
             action = delegate { },
         };
@@ -571,7 +528,6 @@ public class Building_ChickenBatteryCage : Building
     public bool CanAcceptChicken(Pawn chicken)
     {
         return IsHen(chicken)
-            && IsOperational
             && penSystemEnabled
             && !IsFull
             && !CageHenReleaseMemory.IsRecentlyReleased(chicken);
@@ -625,7 +581,7 @@ public class Building_ChickenBatteryCage : Building
 
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (cage.IsOperational && cage.penSystemEnabled && !cage.IsFull)
+            if (cage.penSystemEnabled && !cage.IsFull)
             {
                 return true;
             }
@@ -637,17 +593,10 @@ public class Building_ChickenBatteryCage : Building
     public static string NoAcceptingCageReason(Map map)
     {
         bool any = false;
-        bool anyOperational = false;
         bool anyEnabled = false;
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
             any = true;
-            if (!cage.IsOperational)
-            {
-                continue;
-            }
-
-            anyOperational = true;
             if (!cage.penSystemEnabled)
             {
                 continue;
@@ -663,11 +612,6 @@ public class Building_ChickenBatteryCage : Building
         if (!any)
         {
             return "ChickenBatteryCage.Job.NoCage".Translate();
-        }
-
-        if (!anyOperational)
-        {
-            return "ChickenBatteryCage.FloatMenu.Unroofed".Translate();
         }
 
         if (!anyEnabled)
@@ -824,13 +768,17 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
+            // Remove this request before settlement reconciles the remaining
+            // queue. A death during settlement can satisfy this request too.
+            pendingUnloads.RemoveAt(0);
             if (!ReleaseRecordAt(index))
             {
                 // Generation failed; keep both the record and the mark.
+                pendingUnloads.Insert(0, filter);
+                ReconcilePendingUnloads();
                 return false;
             }
 
-            pendingUnloads.RemoveAt(0);
             return true;
         }
 
@@ -846,7 +794,15 @@ public class Building_ChickenBatteryCage : Building
         }
 
         // Settle before the bird leaves so her share of the store is billed.
+        CagedChickenRecord selected = chickens[index];
         SettleNutrition();
+        EvaluateMortality(force: true);
+        index = chickens.IndexOf(selected);
+        if (index < 0)
+        {
+            // The selected bird died while settling her accrued exposure.
+            return true;
+        }
 
         CagedChickenRecord record = chickens[index];
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
@@ -859,6 +815,7 @@ public class Building_ChickenBatteryCage : Building
 
         chickens.RemoveAt(index);
         CageHenReleaseMemory.Mark(released);
+        ReconcilePendingUnloads();
         Messages.Message(
             "ChickenBatteryCage.Message.Released".Translate(released.LabelShortCap),
             released,
@@ -934,25 +891,6 @@ public class Building_ChickenBatteryCage : Building
         return -1;
     }
 
-    int CountMatching(Gender gender, bool adult, bool anyGender = false)
-    {
-        int now = GenTicks.TicksAbs;
-        int count = 0;
-        foreach (CagedChickenRecord record in chickens)
-        {
-            if (IsAdult(record, now) != adult)
-            {
-                continue;
-            }
-            if (!anyGender && record.gender != gender)
-            {
-                continue;
-            }
-            count++;
-        }
-        return count;
-    }
-
     static bool IsAdult(CagedChickenRecord record, int now)
     {
         if (!EnsureLifeStageTicks())
@@ -990,7 +928,7 @@ public class Building_ChickenBatteryCage : Building
             {
                 warnedMissingChickenDef = true;
                 Log.WarningOnce(
-                    "[ChickenBatteryCage] Chicken pawn kind is unavailable; caged-bird adult/juvenile counts fall back to treating every bird as a juvenile until the def resolves.",
+                    "[ChickenBatteryCage] Chicken pawn kind is unavailable; caged-bird adult/juvenile filters treat every bird as a juvenile until the def resolves.",
                     74129301);
             }
             return false;
@@ -1015,50 +953,168 @@ public class Building_ChickenBatteryCage : Building
         return true;
     }
 
-    public override void DrawExtraSelectionOverlays()
+    /// The chicken's nominal life expectancy, used as the hinge of the natural
+    /// mortality curve. Falls back to a sane default until defs are loaded.
+    static float ResolveLifeExpectancyYears()
     {
-        base.DrawExtraSelectionOverlays();
-        if (!Spawned || IsOperational)
+        if (lifeExpectancyResolved)
         {
-            return;
+            return lifeExpectancyYears;
         }
 
-        unroofedCellsScratch.Clear();
-        foreach (IntVec3 cell in this.OccupiedRect())
+        // The two "race" links are different members on different types:
+        // PawnKindDef.race is the species ThingDef, and ThingDef.race is the
+        // RaceProperties that actually carries lifeExpectancy. Null-check every
+        // link: the DefOf stays unbound until defs finish loading.
+        PawnKindDef chickenKind = ChickenBatteryCageDefOf.Chicken;
+        ThingDef chickenDef = chickenKind?.race;
+        RaceProperties chickenRace = chickenDef?.race;
+
+        if (chickenRace == null || chickenRace.lifeExpectancy <= 0f)
         {
-            if (!Map.roofGrid.Roofed(cell))
-            {
-                unroofedCellsScratch.Add(cell);
-            }
+            // Defs are not loaded yet, or the species omits a value; retry on
+            // the next evaluation rather than caching a degenerate value. Warn
+            // once so the fallback is visible while debugging.
+            Log.WarningOnce(
+                "[ChickenBatteryCage] Chicken race life expectancy is unavailable; caged-bird mortality falls back to "
+                    + CageMortalityMath.DefaultLifeExpectancyYears
+                    + " years until the def resolves.",
+                74129302);
+            return CageMortalityMath.DefaultLifeExpectancyYears;
         }
 
-        if (unroofedCellsScratch.Count > 0)
-        {
-            GenDraw.DrawFieldEdges(unroofedCellsScratch, Color.red);
-        }
+        lifeExpectancyYears = chickenRace.lifeExpectancy;
+        lifeExpectancyResolved = true;
+        return lifeExpectancyYears;
     }
 
     public override void TickRare()
     {
         base.TickRare();
         SettleNutrition();
+        EvaluateMortality();
     }
 
-    void RecheckRoofing()
+    /// Accrues exposure before nutrition settlement or population changes.
+    internal void AccumulateMortality(int fromTick, int now, double starvingDaysAtStart)
     {
-        if (!Spawned)
+        float lifeExpectancy = ResolveLifeExpectancyYears();
+        foreach (CagedChickenRecord record in chickens)
+        {
+            int start = CageMortalityMath.ExposureStartTick(fromTick, record.enteredAtGameTick);
+            record.mortalityExposure += CageMortalityMath.CombinedExposureOverTicks(
+                record.BiologicalAgeTicksAt(start), lifeExpectancy,
+                starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
+                now - start);
+        }
+    }
+
+    /// Rolls accumulated exposure coarsely, or before birds leave the cage.
+    void EvaluateMortality(bool force = false)
+    {
+        int now = GenTicks.TicksAbs;
+        if (mortalityCheckedAtTick <= 0 || mortalityCheckedAtTick > now)
+        {
+            mortalityCheckedAtTick = now;
+            if (!force)
+            {
+                return;
+            }
+        }
+
+        int elapsed = now - mortalityCheckedAtTick;
+        if (!force && elapsed < MortalityEvaluationIntervalTicks)
         {
             return;
         }
 
-        roofedOverOccupiedCells = true;
-        foreach (IntVec3 cell in this.OccupiedRect())
+        mortalityCheckedAtTick = now;
+        if (chickens == null || chickens.Count == 0)
         {
-            if (!Map.roofGrid.Roofed(cell))
+            return;
+        }
+
+        int died = 0;
+        for (int i = chickens.Count - 1; i >= 0; i--)
+        {
+            CagedChickenRecord record = chickens[i];
+            float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
+            record.mortalityExposure = 0.0;
+            if (!Rand.Chance(chance))
             {
-                roofedOverOccupiedCells = false;
-                break;
+                continue;
+            }
+
+            chickens.RemoveAt(i);
+            DropCorpse(record);
+            died++;
+        }
+
+        if (died == 0)
+        {
+            return;
+        }
+
+        // A death can leave an unload mark with no bird left to satisfy it.
+        // Prune those here so a stale mark cannot keep reporting an
+        // unavailable bird, send a handler to an emptied cage, or hold a
+        // request slot the survivors could still use.
+        ReconcilePendingUnloads();
+
+        // One aggregated notice per evaluation, however many birds were lost,
+        // so a bad die-off never floods the message log.
+        Messages.Message(
+            "ChickenBatteryCage.Message.Mortality".Translate(died),
+            MessageTypeDefOf.NegativeEvent,
+            historical: false);
+    }
+
+    /// Materializes a freshly dead chicken from her record and drops the body
+    /// on the ground outside the cage, so a virtual flock still leaves real
+    /// corpses behind. Failed generation or placement is handed to the map's
+    /// recovery component, which retries without reviving the dead bird.
+    void DropCorpse(CagedChickenRecord record)
+    {
+        if (!Spawned || Map == null)
+        {
+            return;
+        }
+
+        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        int diedAtTick = GenTicks.TicksAbs;
+        Corpse corpse = CageChickenFactory.GenerateCorpse(record, Map, diedAtTick);
+        if (corpse != null && GenPlace.TryPlaceThing(corpse, near, Map, ThingPlaceMode.Near))
+        {
+            return;
+        }
+
+        Map.GetComponent<MapComponent_CagedChickenRescue>().PreserveCorpse(
+            record, corpse, near, diedAtTick);
+    }
+
+    /**
+     * Reconciles the unload queue with the surviving flock after one or more
+     * deaths or releases. Marks are kind selectors, not per-bird handles.
+     * Keep the earliest jointly satisfiable requests, allowing unrestricted
+     * selectors to use whichever birds the restricted requests do not need.
+     */
+    void ReconcilePendingUnloads()
+    {
+        int now = GenTicks.TicksAbs;
+        int adultHens = 0;
+        int juveniles = 0;
+        foreach (CagedChickenRecord record in chickens)
+        {
+            if (!IsAdult(record, now))
+            {
+                juveniles++;
+            }
+            else if (record.gender == Gender.Female)
+            {
+                adultHens++;
             }
         }
+
+        CageUnloadMath.Reconcile(pendingUnloads, chickens.Count, adultHens, juveniles);
     }
 }

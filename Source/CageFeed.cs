@@ -112,6 +112,7 @@ public static class CageFeed
             return;
         }
 
+        cage.SettleNutrition();
         float space = cage.ClusterNutritionSpace;
         int take = CageFeedMath.ConsumeUnits(space, perUnit, stack.stackCount);
         if (take > 0)
