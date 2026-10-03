@@ -231,32 +231,6 @@ public static class CageNetwork
         return total;
     }
 
-    public static int AdultHenCount(IReadOnlyList<Building_ChickenBatteryCage> cluster)
-    {
-        int total = 0;
-        foreach (Building_ChickenBatteryCage cage in cluster)
-        {
-            if (Alive(cage))
-            {
-                total += cage.AdultHenCount;
-            }
-        }
-        return total;
-    }
-
-    public static int JuvenileCount(IReadOnlyList<Building_ChickenBatteryCage> cluster)
-    {
-        int total = 0;
-        foreach (Building_ChickenBatteryCage cage in cluster)
-        {
-            if (Alive(cage))
-            {
-                total += cage.JuvenileCount;
-            }
-        }
-        return total;
-    }
-
     public static int PendingUnloadCount(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         int total = 0;

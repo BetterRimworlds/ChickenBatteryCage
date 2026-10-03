@@ -137,10 +137,6 @@ public class Building_ChickenBatteryCage : Building
 
     public virtual int ChickenCount => chickens.Count;
 
-    public virtual int AdultHenCount => CountMatching(Gender.Female, adult: true);
-
-    public virtual int JuvenileCount => CountMatching(Gender.None, adult: false, anyGender: true);
-
     public CagedChickenRecord RecordAt(int index)
     {
         return (index >= 0 && index < chickens.Count) ? chickens[index] : null;
@@ -479,8 +475,6 @@ public class Building_ChickenBatteryCage : Building
         sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(
             clusterChickens,
             CageNetwork.TotalCapacity(cluster)));
-        sb.AppendLine("ChickenBatteryCage.Inspect.AdultHens".Translate(CageNetwork.AdultHenCount(cluster)));
-        sb.AppendLine("ChickenBatteryCage.Inspect.Juveniles".Translate(CageNetwork.JuvenileCount(cluster)));
 
         int cageCount = 0;
         foreach (Building_ChickenBatteryCage cage in cluster)
@@ -525,8 +519,6 @@ public class Building_ChickenBatteryCage : Building
 
         int chickenCount = CageNetwork.ChickenCount(cluster);
         int totalCapacity = CageNetwork.TotalCapacity(cluster);
-        int adultHenCount = CageNetwork.AdultHenCount(cluster);
-        int juvenileCount = CageNetwork.JuvenileCount(cluster);
         int pendingUnloadCount = CageNetwork.PendingUnloadCount(cluster);
         bool penSystemEnabled = CageNetwork.PenSystemEnabled(cluster);
 
@@ -535,9 +527,7 @@ public class Building_ChickenBatteryCage : Building
             defaultLabel = "ChickenBatteryCage.Gizmo.Capacity".Translate(chickenCount, totalCapacity),
             defaultDesc = "ChickenBatteryCage.Gizmo.CapacityDesc".Translate(
                 chickenCount,
-                totalCapacity,
-                adultHenCount,
-                juvenileCount),
+                totalCapacity),
             icon = def.uiIcon,
             action = delegate { },
         };
@@ -960,25 +950,6 @@ public class Building_ChickenBatteryCage : Building
         return -1;
     }
 
-    int CountMatching(Gender gender, bool adult, bool anyGender = false)
-    {
-        int now = GenTicks.TicksAbs;
-        int count = 0;
-        foreach (CagedChickenRecord record in chickens)
-        {
-            if (IsAdult(record, now) != adult)
-            {
-                continue;
-            }
-            if (!anyGender && record.gender != gender)
-            {
-                continue;
-            }
-            count++;
-        }
-        return count;
-    }
-
     static bool IsAdult(CagedChickenRecord record, int now)
     {
         if (!EnsureLifeStageTicks())
@@ -1016,7 +987,7 @@ public class Building_ChickenBatteryCage : Building
             {
                 warnedMissingChickenDef = true;
                 Log.WarningOnce(
-                    "[ChickenBatteryCage] Chicken pawn kind is unavailable; caged-bird adult/juvenile counts fall back to treating every bird as a juvenile until the def resolves.",
+                    "[ChickenBatteryCage] Chicken pawn kind is unavailable; caged-bird adult/juvenile filters treat every bird as a juvenile until the def resolves.",
                     74129301);
             }
             return false;
