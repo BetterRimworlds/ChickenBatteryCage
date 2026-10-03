@@ -21,8 +21,9 @@ implementation this skeleton came from.
 
 ### Rewriting history (squash and rebase)
 
-- **Back up first.** `git branch <branch>-backup <branch>` before any history
-  rewrite, so the original graph is always recoverable.
+- **Back up first.** `git branch backup/<branch> <branch>` before any history
+  rewrite, so the original graph is always recoverable. (The maintainer's
+  prefix is `backup/`.)
 - **A squash must not change content.** Prove it after rewriting:
   `git diff --stat <branch>-backup <branch>` must be empty. Only the graph
   changes; the final tree is identical.
@@ -55,6 +56,36 @@ implementation this skeleton came from.
   original author; a rewrite must not change who authored the work.
 - **Keep scratch work off the branch.** Use a worktree under `/tmp/opencode` and
   `git worktree remove --force` it when finished.
+
+### Keeping the PR stack rebased (never merged)
+
+- **The PR branches are a linear stack:** `pr6-*` → `pr7-*` → … → `pr11-*`,
+  with `pr6` sitting on `trunk`. Update it by **rebasing, never merging**:
+  replay each branch's own commits onto the branch beneath it (or onto `trunk`
+  for the bottom one). Do not add merge commits to the stack. When the
+  maintainer says "merge trunk into pr6–pr11", they mean this rebase.
+- **Watch for content-identical but commit-disjoint histories.** `trunk`
+  carries the *rebased* copy of the old `pr5-statistical-mortality` chain,
+  while an un-rebased PR branch still carries the original commits. Their trees
+  can be identical (same `^{tree}`) even though neither contains the other, so
+  a plain `git merge trunk` reports conflicts that are not real. Confirm before
+  resolving: `git rev-parse trunk^{tree} <branch-base>^{tree}` and
+  `git diff --stat <a> <b>`.
+- **Never force a "no-op" merge through with `-X ours` / `-s ours`.** On
+  2026-10-03 this injected a duplicate `CageUnloadMath.Reconcile(...)` call,
+  because git auto-merged a hunk the branch had relocated. If the trees are
+  identical, the content is already present — rebase, don't merge.
+- **Rebase a stack bottom-up, replaying only each branch's own commits:**
+  `git rebase --onto <new-parent> <old-parent-tip> <branch>`, where
+  `<new-parent>` is the just-rebased branch beneath it (or `trunk`) and
+  `<old-parent-tip>` is that branch's pre-rebase tip (kept in `backup/`).
+  This drops the branch's stale copies of already-rebased ancestors.
+- **Prove each step.** After every rebase: (1) content is unchanged —
+  `git diff --stat backup/<branch> <branch>` must be empty; (2) the link is
+  right — `git merge-base <parent> <branch>` must equal `<parent>`'s tip.
+- **Local names do not match `PLAN.md` PR numbers.** The branches are
+  sequential (`pr6`…`pr11`) while the plan's numbering skips 8. Do not invent a
+  `pr12` branch; there is none — ask instead.
 
 ## Project
 
