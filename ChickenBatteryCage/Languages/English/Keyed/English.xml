@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
 	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
-	<ChickenBatteryCage.Inspect.Unroofed>Inoperable: requires a roof over every occupied cell.</ChickenBatteryCage.Inspect.Unroofed>
 	<ChickenBatteryCage.Inspect.PenSystemOff>Pen system: off — handlers will not load hens.</ChickenBatteryCage.Inspect.PenSystemOff>
 	<ChickenBatteryCage.Inspect.PendingUnload>To unload:      {0}</ChickenBatteryCage.Inspect.PendingUnload>
 	<ChickenBatteryCage.Inspect.Chickens>Hens:           {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
@@ -26,7 +25,6 @@
 	<ChickenBatteryCage.Gizmo.UnloadEmpty>This cage is empty.</ChickenBatteryCage.Gizmo.UnloadEmpty>
 	<ChickenBatteryCage.Gizmo.CancelUnload>Cancel all unloading marks</ChickenBatteryCage.Gizmo.CancelUnload>
 	<ChickenBatteryCage.FloatMenu.Full>This battery cage is full.</ChickenBatteryCage.FloatMenu.Full>
-	<ChickenBatteryCage.FloatMenu.Unroofed>This battery cage must be fully roofed before it can hold chickens.</ChickenBatteryCage.FloatMenu.Unroofed>
 	<ChickenBatteryCage.FloatMenu.Disabled>No reachable battery cage has its pen system turned on.</ChickenBatteryCage.FloatMenu.Disabled>
 	<ChickenBatteryCage.Job.NoCage>There is no battery cage.</ChickenBatteryCage.Job.NoCage>
 	<ChickenBatteryCage.Job.NoReachableCage>No reachable battery cage has space.</ChickenBatteryCage.Job.NoReachableCage>

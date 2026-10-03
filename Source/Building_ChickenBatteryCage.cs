@@ -23,14 +23,10 @@ public class Building_ChickenBatteryCage : Building
 {
     public const int ChickenCapacity = 10;
 
-    bool roofedOverOccupiedCells = true;
-
     /// When false the cage's pen system is inactive. Handlers stop roping hens
     /// in, but the player can still release hens by hand and the hens already
     /// housed stay exactly as they are.
     protected bool penSystemEnabled = true;
-
-    readonly List<IntVec3> unroofedCellsScratch = new List<IntVec3>();
 
     /// The entire confined flock, stored as compact biological records. No
     /// spawned Pawn is kept here.
@@ -83,13 +79,10 @@ public class Building_ChickenBatteryCage : Building
     static float lifeExpectancyYears = CageMortalityMath.DefaultLifeExpectancyYears;
     static bool lifeExpectancyResolved;
 
-    public bool IsOperational => roofedOverOccupiedCells;
-
     /// True while this cage should be offered to haulers as a feeding target.
     /// The decision is shared across the cluster's pool: a member is only a
     /// target while the flock needs feed and the pool is still filling.
-    public bool NeedsFeeding => IsOperational
-        && chickens.Count > 0
+    public bool NeedsFeeding => chickens.Count > 0
         && feedTopUpRequested;
 
     /// The persisted per-member copy of the cluster's refill request. The
@@ -112,15 +105,8 @@ public class Building_ChickenBatteryCage : Building
         IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
         int now = GenTicks.TicksAbs;
 
-        // An unroofed cage is inoperable, so its simulation pauses: the settle
-        // clock advances without eating, and time passed that way is not
-        // billed to the flock once the roof is restored.
-        if (!IsOperational)
-        {
-            CageNetwork.PauseCluster(cluster, now);
-            return;
-        }
-
+        // The cage runs whether or not it is roofed: an unroofed cage still
+        // eats, ages, and dies exactly as a roofed one does.
         CageNetwork.SettleCluster(cluster, now);
     }
 
@@ -260,12 +246,6 @@ public class Building_ChickenBatteryCage : Building
             chickens = new List<CagedChickenRecord>();
         }
 
-        // RoofGrid.SetRoof notifies MapEvents.RoofChanged, so react to roof changes
-        // immediately instead of polling on TickRare and leaving IsOperational stale.
-        map.events.RoofChanged -= OnRoofChanged;
-        map.events.RoofChanged += OnRoofChanged;
-        RecheckRoofing();
-
         // A new cage changes which cages touch; rebuild the clusters now so the
         // just-built cage immediately joins its neighbours.
         CageNetwork.Invalidate(map);
@@ -276,7 +256,6 @@ public class Building_ChickenBatteryCage : Building
         Map map = Map;
         if (map != null)
         {
-            map.events.RoofChanged -= OnRoofChanged;
             // Removing a cage can split or shrink a cluster; rebuild at once.
             CageNetwork.Invalidate(map);
         }
@@ -423,26 +402,6 @@ public class Building_ChickenBatteryCage : Building
         }
     }
 
-    void OnRoofChanged(IntVec3 cell)
-    {
-        if (!this.OccupiedRect().Contains(cell))
-        {
-            return;
-        }
-
-        // Settle the previous state before applying the new one. Settling
-        // after the recheck would pause the cluster and silently reset the
-        // settle clock, erasing the elapsed roofed time instead of billing the
-        // flock for it. Restoring a roof owes nothing: pausing kept the clock
-        // current, so only a loss of operability needs a final bill.
-        if (IsOperational)
-        {
-            SettleNutrition();
-        }
-
-        RecheckRoofing();
-    }
-
     public override string GetInspectString()
     {
         SettleNutrition();
@@ -459,11 +418,6 @@ public class Building_ChickenBatteryCage : Building
         if (sb.Length > 0)
         {
             sb.AppendLine();
-        }
-
-        if (!IsOperational)
-        {
-            sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate());
         }
 
         if (!penSystemEnabled)
@@ -574,7 +528,6 @@ public class Building_ChickenBatteryCage : Building
     public bool CanAcceptChicken(Pawn chicken)
     {
         return IsHen(chicken)
-            && IsOperational
             && penSystemEnabled
             && !IsFull
             && !CageHenReleaseMemory.IsRecentlyReleased(chicken);
@@ -628,7 +581,7 @@ public class Building_ChickenBatteryCage : Building
 
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (cage.IsOperational && cage.penSystemEnabled && !cage.IsFull)
+            if (cage.penSystemEnabled && !cage.IsFull)
             {
                 return true;
             }
@@ -640,17 +593,10 @@ public class Building_ChickenBatteryCage : Building
     public static string NoAcceptingCageReason(Map map)
     {
         bool any = false;
-        bool anyOperational = false;
         bool anyEnabled = false;
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
             any = true;
-            if (!cage.IsOperational)
-            {
-                continue;
-            }
-
-            anyOperational = true;
             if (!cage.penSystemEnabled)
             {
                 continue;
@@ -666,11 +612,6 @@ public class Building_ChickenBatteryCage : Building
         if (!any)
         {
             return "ChickenBatteryCage.Job.NoCage".Translate();
-        }
-
-        if (!anyOperational)
-        {
-            return "ChickenBatteryCage.FloatMenu.Unroofed".Translate();
         }
 
         if (!anyEnabled)
@@ -1047,29 +988,6 @@ public class Building_ChickenBatteryCage : Building
         return lifeExpectancyYears;
     }
 
-    public override void DrawExtraSelectionOverlays()
-    {
-        base.DrawExtraSelectionOverlays();
-        if (!Spawned || IsOperational)
-        {
-            return;
-        }
-
-        unroofedCellsScratch.Clear();
-        foreach (IntVec3 cell in this.OccupiedRect())
-        {
-            if (!Map.roofGrid.Roofed(cell))
-            {
-                unroofedCellsScratch.Add(cell);
-            }
-        }
-
-        if (unroofedCellsScratch.Count > 0)
-        {
-            GenDraw.DrawFieldEdges(unroofedCellsScratch, Color.red);
-        }
-    }
-
     public override void TickRare()
     {
         base.TickRare();
@@ -1198,23 +1116,5 @@ public class Building_ChickenBatteryCage : Building
         }
 
         CageUnloadMath.Reconcile(pendingUnloads, chickens.Count, adultHens, juveniles);
-    }
-
-    void RecheckRoofing()
-    {
-        if (!Spawned)
-        {
-            return;
-        }
-
-        roofedOverOccupiedCells = true;
-        foreach (IntVec3 cell in this.OccupiedRect())
-        {
-            if (!Map.roofGrid.Roofed(cell))
-            {
-                roofedOverOccupiedCells = false;
-                break;
-            }
-        }
     }
 }

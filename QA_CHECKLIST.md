@@ -29,10 +29,10 @@ warnings.
 - [ ] The store caps at six days of feed per bird; surplus food stays in the stockpile rather than being wasted.
 - [ ] When nutrition hits zero, hens pass through **hungry** and **starving** states — no starving pawns are spawned.
 - [ ] Starving birds recover once feed is hauled in.
-- [ ] Unroofed/inoperable cage: laying and the other simulation steps stop, and the panel explains the roof requirement.
+- [ ] **Unroofed cages keep running.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving; the inspection panel no longer marks the cage inoperable or mentions the roof.
 - [ ] Save + reload preserves the cage's nutrition value exactly.
 
-## PR 5 — Added statistical mortality for caged chickens (`pr5-statistical-mortality`, 4 commits)
+## PR 5 — Added statistical mortality for caged chickens (`pr5-statistical-mortality`, 6 commits)
 
 *Periodic death rolls, age curves, starvation deaths, corpses dropped outside the cage.*
 
@@ -43,6 +43,7 @@ warnings.
 - [ ] Flock count declines slowly over in-game years even when well fed (natural mortality).
 - [ ] Mortality rate rises sharply for elderly birds (age curve visible over a long run).
 - [ ] Starving cages lose birds much faster than fed cages.
+- [ ] Mortality rolls whether or not the cage is roofed; a roof change neither pauses nor advances the mortality clock.
 - [ ] Cage inspection shows no deaths-by-cause summary.
 - [ ] Long-session check: the log shows one aggregated notice per evaluation, not one per death.
 
