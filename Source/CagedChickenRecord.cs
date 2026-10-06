@@ -92,8 +92,11 @@ public class CagedChickenRecord : IExposable
 
     public void ExposeData()
     {
-        Scribe_Values.Look(ref biologicalAgeTicksAtEntry, "biologicalAgeTicksAtEntry", 0L);
-        Scribe_Values.Look(ref enteredAtGameTick, "enteredAtGameTick", 0);
-        Scribe_Values.Look(ref mortalityExposure, "mortalityExposure", 0.0);
+        Scribe_Values.Look(
+            ref biologicalAgeTicksAtEntry, CagedChickenFields.BiologicalAgeTicksAtEntry, 0L);
+        Scribe_Values.Look(
+            ref enteredAtGameTick, CagedChickenFields.EnteredAtGameTick, 0);
+        Scribe_Values.Look(
+            ref mortalityExposure, CagedChickenFields.MortalityExposure, 0.0);
     }
 }
