@@ -12,7 +12,7 @@ warnings.
 - [ ] Mod loads on RimWorld 1.6 with zero red errors.
 - [ ] Log contains no "patch failed" lines from `BetterRimworlds.ChickenBatteryCage`.
 - [ ] All mod XML files load without parse warnings (Defs, Jobs, Research, WorkGivers, Patches).
-- [ ] `dotnet test` passes 70/70; `bash build.sh 1` runs green.
+- [ ] `dotnet test` passes 119/119; `bash build.sh 1` runs green.
 
 ---
 
@@ -122,5 +122,5 @@ warnings.
 - [ ] Full PR 4→10 flow in one continuous colony: research → build → fill → feed → starve → recover → lay → upgrade → pick birds → 5-year run.
 - [ ] Combined save/load at every stage; one save carried through the entire session.
 - [ ] Load order / mod-compat smoke test with Harmony only, then with two or three common animal mods (no duplicate defNames, no patches double-applying).
-- [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`), 42 commits ahead of `trunk`.
+- [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`) across the `pr4` → `pr10` stack ahead of `trunk`.
 - [ ] No `obj/`, `bin/`, `*.dll`, or `*.zip` staged for merge.

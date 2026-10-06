@@ -30,7 +30,7 @@ PRs 4–10 are open and local.
 | 2 | Virtualized chickens inside battery cages | `loading-and-unloading` | `battery-cage-foundation` | 5 | Merged |
 | 3 | Deconstructed and destroyed battery cages safely | `deconstructing-and-destroying` | `loading-and-unloading` | 3 | Merged |
 | 4 | Created the battery cage nutrition system | `pr4-cage-nutrition` | `trunk` | 5 | Open |
-| 5 | Added statistical mortality for caged chickens | `pr5-statistical-mortality` | `pr4-cage-nutrition` | 4 | Open |
+| 5 | Added statistical mortality for caged chickens | `pr5-statistical-mortality` | `pr4-cage-nutrition` | 6 | Open |
 | 6 | Virtualized egg production inside battery cages | `pr6-virtualized-eggs` | `pr5-statistical-mortality` | 6 | Open |
 | 7 | Hardened savegames and chicken-history cleanup | `pr7-savegame-hardening` | `pr6-virtualized-eggs` | 4 | Open |
 | 8 | Profiled large industrial poultry colonies | `pr8-profiling` | `pr7-savegame-hardening` | 4 | Open |
