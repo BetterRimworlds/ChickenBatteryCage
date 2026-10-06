@@ -616,33 +616,36 @@ public class Building_ChickenBatteryCage : Building
      */
     void SanitizeLoadedState()
     {
-        if (nutritionStored < 0f)
-        {
-            nutritionStored = 0f;
-        }
+        int now = GenTicks.TicksAbs;
 
-        float capacity = NutritionCapacity;
-        if (nutritionStored > capacity)
-        {
-            nutritionStored = capacity;
-        }
-
-        if (eggProgress < 0f)
-        {
-            eggProgress = 0f;
-        }
+        // Plain range checks let NaN and infinities through, so repair the
+        // floating-point totals explicitly rather than with bare comparisons.
+        nutritionStored = CagedChickenValidation.RepairStored(nutritionStored, NutritionCapacity);
+        eggProgress = CagedChickenValidation.RepairEggProgress(eggProgress);
 
         if (starvingTicks < 0)
         {
             starvingTicks = 0;
         }
 
-        if (chickens.Count == 0)
+        // A tick marker that is future-dated or a corrupt negative loses no
+        // real elapsed time by starting over from now; the wrapping test keeps
+        // a legitimate pre-wrap marker valid after the counter wraps.
+        if (CagedChickenMath.IsImpossibleTick(nutritionSettledAtTick, now))
         {
-            return;
+            nutritionSettledAtTick = now;
         }
 
-        int now = GenTicks.TicksAbs;
+        if (CagedChickenMath.IsImpossibleTick(eggCheckedAtTick, now))
+        {
+            eggCheckedAtTick = now;
+        }
+
+        if (CagedChickenMath.IsImpossibleTick(mortalityCheckedAtTick, now))
+        {
+            mortalityCheckedAtTick = now;
+        }
+
         int dropped = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
@@ -654,12 +657,32 @@ public class Building_ChickenBatteryCage : Building
             }
         }
 
+        // A dropped bird can leave an unload mark with nothing left to satisfy
+        // it. Prune the queue exactly as a death does, so a stale mark cannot
+        // keep reporting an unavailable bird or hold a request slot.
+        ReconcilePendingUnloads();
+
         if (dropped > 0)
         {
             Log.Warning(
                 "[ChickenBatteryCage] Dropped " + dropped + " malformed caged " +
-                "chicken record(s) while loading; the rest of the cage was kept.");
+                "chicken record(s) from " + DescribeCageForLog() +
+                " while loading; the rest of the cage was kept.");
         }
+    }
+
+    /// Identifies this cage for load-repair log messages: its ThingID, cell
+    /// and map when available, so a bad save can be tracked down in the wild.
+    string DescribeCageForLog()
+    {
+        if (ThingID.NullOrEmpty())
+        {
+            return "(unknown cage)";
+        }
+
+        return Map != null
+            ? ThingID + " at " + Position + " on map " + Map.uniqueID
+            : ThingID;
     }
 
     public override string GetInspectString()

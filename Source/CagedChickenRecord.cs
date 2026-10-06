@@ -79,6 +79,7 @@ public class CagedChickenRecord : IExposable
 
         biologicalAgeTicksAtEntry = age;
         enteredAtGameTick = enteredAt;
+        mortalityExposure = CagedChickenValidation.RepairExposure(mortalityExposure);
         return true;
     }
 

@@ -77,4 +77,24 @@ public class CagedChickenMigrationTests
 
         Assert.IsTrue(valid);
     }
+
+    [Test]
+    public void InfiniteMortalityExposureIsReset()
+    {
+        Assert.AreEqual(0.0, CagedChickenValidation.RepairExposure(double.PositiveInfinity));
+        Assert.AreEqual(0.0, CagedChickenValidation.RepairExposure(double.NegativeInfinity));
+        Assert.AreEqual(0.0, CagedChickenValidation.RepairExposure(double.NaN));
+    }
+
+    [Test]
+    public void NegativeMortalityExposureIsReset()
+    {
+        Assert.AreEqual(0.0, CagedChickenValidation.RepairExposure(-0.25));
+    }
+
+    [Test]
+    public void ValidMortalityExposureIsKept()
+    {
+        Assert.AreEqual(0.37, CagedChickenValidation.RepairExposure(0.37));
+    }
 }

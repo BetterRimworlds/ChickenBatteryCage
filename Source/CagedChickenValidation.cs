@@ -25,6 +25,50 @@ public static class CagedChickenValidation
     /// far past any plausible RimWorld colony, so no real bird is ever lost.
     public const long MaxPlausibleAgeTicks = 200L * CagedChickenMath.TicksPerYear;
 
+    /// True when a persisted floating-point value is finite: neither NaN nor
+    /// an infinity. Both survive ordinary range comparisons and would poison
+    /// every calculation they feed, so they are treated as corrupt.
+    public static bool IsFinite(float value)
+    {
+        return !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
+    public static bool IsFinite(double value)
+    {
+        return !double.IsNaN(value) && !double.IsInfinity(value);
+    }
+
+    /// Repairs a persisted nonnegative total such as the cage's feed store. A
+    /// NaN or infinite total becomes zero; a negative value becomes zero; a
+    /// value over capacity clamps to capacity. Plain comparisons would let a
+    /// NaN through, because NaN is neither below zero nor above capacity.
+    public static float RepairStored(float value, float capacity)
+    {
+        if (!IsFinite(value) || value < 0f)
+        {
+            return 0f;
+        }
+
+        return value > capacity ? capacity : value;
+    }
+
+    /// Repairs the persisted fractional egg box. A NaN or infinite box would
+    /// never report or release eggs, so it is reset to empty.
+    public static float RepairEggProgress(float value)
+    {
+        return IsFinite(value) && value >= 0f ? value : 0f;
+    }
+
+    /// Repairs a bird's accumulated mortality exposure. A non-finite value is
+    /// corrupt: +infinity would make the next survival roll fail with
+    /// certainty and kill the bird outright, and NaN would propagate through
+    /// the mortality math. A negative value is likewise impossible. Valid
+    /// accumulated exposure is kept so feeding and save/load do not erase it.
+    public static double RepairExposure(double exposure)
+    {
+        return IsFinite(exposure) && exposure >= 0.0 ? exposure : 0.0;
+    }
+
     /**
      * Repairs what can be repaired and reports whether the record survives.
      *
