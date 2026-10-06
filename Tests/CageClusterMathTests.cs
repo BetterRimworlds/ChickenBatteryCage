@@ -114,4 +114,40 @@ public class CageClusterMathTests
 
         Assert.AreEqual(100f, Sum(result), 0.0001f);
     }
+
+    [Test]
+    public void ScalingToTotalKeepsEachMemberShare()
+    {
+        // The cluster box held 40 eggs across two cages; after withdrawing 30
+        // the 10 that remain keep the same 3:1 split.
+        var result = new float[2];
+
+        CageClusterMath.ScaleToTotal(10f, new[] { 30f, 10f }, result);
+
+        Assert.AreEqual(7.5f, result[0], 0.0001f);
+        Assert.AreEqual(2.5f, result[1], 0.0001f);
+        Assert.AreEqual(10f, Sum(result), 0.0001f);
+    }
+
+    [Test]
+    public void ScalingToZeroEmptiesTheBox()
+    {
+        var result = new float[2];
+
+        CageClusterMath.ScaleToTotal(0f, new[] { 5f, 3f }, result);
+
+        Assert.AreEqual(0f, result[0], 0.0001f);
+        Assert.AreEqual(0f, result[1], 0.0001f);
+    }
+
+    [Test]
+    public void ScalingAnEmptyBoxStaysEmpty()
+    {
+        var result = new float[2];
+
+        CageClusterMath.ScaleToTotal(10f, new[] { 0f, 0f }, result);
+
+        Assert.AreEqual(0f, result[0], 0.0001f);
+        Assert.AreEqual(0f, result[1], 0.0001f);
+    }
 }

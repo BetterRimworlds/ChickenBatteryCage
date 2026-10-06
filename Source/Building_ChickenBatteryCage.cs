@@ -62,6 +62,40 @@ public class Building_ChickenBatteryCage : Building
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
 
+    /// Fractional eggs held inside the cage's egg box, on their way to the next
+    /// whole egg. Once the box holds a full batch it spits the eggs out as one
+    /// haulable stack and starts filling again.
+    protected float eggProgress;
+
+    /// Absolute tick at which egg output was last settled.
+    protected int eggCheckedAtTick;
+
+    /// The smallest egg stack a cage releases. A lone cage holds at most ten
+    /// hens, each laying no more than one egg a day at her prime, so this floor
+    /// keeps a single cage's box at its familiar size. Cages that touch pool
+    /// their output and release a full day of the whole network instead.
+    public const int MinEggsPerStack = 10;
+
+    /**
+     * The size of the next egg stack this cage releases: one whole day of the
+     * whole network's laying, floored to whole eggs and never below
+     * <see cref="MinEggsPerStack"/>. The network box is shared, so this is the
+     * same figure on every member. Feeding penalties slow how quickly the box
+     * fills, not how large one day's stack is.
+     */
+    public int EggStackSize => CageNetwork.EggStackSize(
+        CageNetwork.Cluster(this),
+        MinEggsPerStack);
+
+    /// Whole eggs currently waiting in the box for the next release.
+    public int EggsHeld => CageEggMath.WholeEggsInBox(eggProgress);
+
+    /// The raw fractional egg count, including the partial egg on the way.
+    public float EggProgress => eggProgress;
+
+    /// Fractional progress toward the next whole egg, in [0, 1). Drives the
+    /// inspection readout so a player can see an egg coming.
+    public float ProgressToNextEgg => CageEggMath.ProgressToNextEgg(eggProgress);
     /// Chickens the player has marked for unloading, one filter per bird. An
     /// animal handler resolves the front of the queue when the unload job
     /// reaches the cage. Persisted so marks survive save/load.
@@ -172,10 +206,118 @@ public class Building_ChickenBatteryCage : Building
         nutritionStored = value;
     }
 
+    /// Internal hook the network uses to rebalance the shared egg box back over
+    /// the members after a stack has been released.
+    internal void SetEggProgress(float value)
+    {
+        eggProgress = value;
+    }
+
     /// Summed daily demand of every bird currently housed.
     public float NutritionDemandPerDay => CageNutritionMath.DemandPerDay(
         chickens.Count,
         CageNutritionMath.DefaultNutritionPerChickenPerDay);
+
+    /// Summed daily laying rate of the housed hens, derived from their exact
+    /// biological age. The age decline is dropped when the player turns it off
+    /// in the mod settings, leaving every adult hen at one egg a day. No hen
+    /// owns a ticking egg-production component either way.
+    public float EggLayingRatePerDay
+    {
+        get
+        {
+            if (chickens.Count == 0)
+            {
+                return 0f;
+            }
+
+            float adultYears = AdultMinAgeYears;
+            int now = GenTicks.TicksAbs;
+            float rate = 0f;
+            foreach (CagedChickenRecord record in chickens)
+            {
+                if (record.gender != Gender.Female)
+                {
+                    continue;
+                }
+
+                rate += CageEggMath.EggsPerHenPerDay(
+                    record.BiologicalAgeYearsAt(now),
+                    adultYears,
+                    ChickenBatteryCage.Settings?.ageDeclineEnabled ?? true);
+            }
+
+            return rate;
+        }
+    }
+
+    static float AdultMinAgeYears => EnsureLifeStageTicks()
+        ? adultMinAgeTicks / (float)GenDate.TicksPerYear
+        : 0.2f;
+
+    /**
+     * How many ticks of an elapsed interval the flock was actually fed.
+     *
+     * Laying is gated by access to feed, and the store is shared across the
+     * cluster, so an interval only earns eggs up to the point the pooled store
+     * covers the whole flock's demand. A store that runs dry partway through
+     * the interval stops earning there, instead of paying for the whole span.
+     * Returns the whole interval when feed is ample (or the flock has no
+     * demand).
+     */
+    int FedTicksWithin(int elapsed)
+    {
+        float demandPerDay = ClusterDemandPerDay;
+        if (demandPerDay <= 0f)
+        {
+            return elapsed;
+        }
+
+        float stored = ClusterStoredNutrition;
+        if (stored <= 0f)
+        {
+            return 0;
+        }
+
+        double fedDays = stored / demandPerDay;
+        long covered = (long)(fedDays * CagedChickenMath.TicksPerDay);
+        if (covered >= elapsed)
+        {
+            return elapsed;
+        }
+
+        return (int)covered;
+    }
+
+    /// Summed daily demand of every live member of this cage's cluster, since
+    /// the feed store — and therefore the fed interval — is shared.
+    float ClusterDemandPerDay
+    {
+        get
+        {
+            float total = 0f;
+            foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(this))
+            {
+                if (cage != null && !cage.Destroyed)
+                {
+                    total += cage.NutritionDemandPerDay;
+                }
+            }
+
+            return total;
+        }
+    }
+
+    /**
+     * Settles accrued laying into this cage's own box at a state transition.
+     * Exposed so a feed delivery can bound an interval at the moment the store
+     * changes, instead of letting the next rare tick judge the whole span
+     * against the refilled store.
+     */
+    internal void SettleEggProduction()
+    {
+        AccrueEggProduction();
+    }
 
     /// Days the flock has spent with an empty store.
     public float StarvingDays => starvingTicks / (float)CagedChickenMath.TicksPerDay;
@@ -221,7 +363,24 @@ public class Building_ChickenBatteryCage : Building
         }
     }
 
-    protected virtual string EggsInspectValue => "ChickenBatteryCage.Inspect.Empty".Translate();
+    protected virtual string EggsInspectValue
+    {
+        get
+        {
+            // Pooled on purpose. The network box is shared, so the whole-egg
+            // count is the floor of the pooled progress — not the sum of each
+            // cage's floored share — because that is exactly what
+            // ReleaseEggBatches releases. Keep the two in step.
+            float raw = CageNetwork.EggProgress(CageNetwork.Cluster(this));
+            int held = CageEggMath.WholeEggsInBox(raw);
+            string batch = "ChickenBatteryCage.Eggs.Held".Translate(
+                held,
+                EggStackSize);
+            string progress = "ChickenBatteryCage.Eggs.Progress".Translate(
+                (CageEggMath.ProgressToNextEgg(raw) * 100f).ToString("0"));
+            return batch + " " + progress;
+        }
+    }
 
     public static bool IsChicken(Pawn pawn)
     {
@@ -273,21 +432,62 @@ public class Building_ChickenBatteryCage : Building
     /// holds it past the building's destruction and retries the release.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
+        // Capture the network's surviving cages while this cage is still a live
+        // member: after base.Destroy the building is gone and its cluster can no
+        // longer be discovered from here. Every bird released below must not be
+        // roped straight back in, so those survivors' intake is cut off in turn.
+        IReadOnlyList<Building_ChickenBatteryCage> origin = SurvivingNetwork();
+
+        // Credit laying accrued since the last rare tick before the flock can
+        // leave. This runs before ReleaseFlock's SettleNutrition so a fed
+        // interval is not evaluated against a pool that is already drained.
+        AccrueEggProduction();
+
+        // Spit out the box's eggs: whole batches, then any partial remainder,
+        // so a destroyed cage never swallows eggs it already laid.
+        ReleaseEggBatches();
+        ReleasePartialEggs();
+
         if (chickens.Count > 0)
         {
             bool injured = mode != DestroyMode.Deconstruct;
-            ReleaseFlock(injured);
-            PreserveUnreleasedFlock(injured);
+            ReleaseFlock(injured, origin);
+            PreserveUnreleasedFlock(injured, origin);
         }
 
         base.Destroy(mode);
+    }
+
+    /// The connected cages that will outlive this one, excluding the cage being
+    /// destroyed. Captured before base.Destroy so the cluster is still
+    /// discoverable; used to cut intake off after a release.
+    IReadOnlyList<Building_ChickenBatteryCage> SurvivingNetwork()
+    {
+        var survivors = new List<Building_ChickenBatteryCage>();
+        if (Map == null)
+        {
+            return survivors;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(this))
+        {
+            if (cage != null && cage != this && !cage.Destroyed)
+            {
+                survivors.Add(cage);
+            }
+        }
+
+        return survivors;
     }
 
     /// Materializes and releases every housed chicken when the cage itself is
     /// going away. A deconstructed cage is taken apart carefully, so its birds
     /// come out unharmed; a cage wrecked by force spits them out wounded.
     /// Flock-level, so it neither consults nor keeps the pending unload queue.
-    void ReleaseFlock(bool injured)
+    /// <paramref name="origin"/> is the releasing network, captured while this
+    /// cage was still spawned, and is cut off so the freed birds are not roped
+    /// straight back in.
+    void ReleaseFlock(bool injured, IReadOnlyList<Building_ChickenBatteryCage> origin)
     {
         if (!Spawned || Map == null || chickens.Count == 0)
         {
@@ -298,7 +498,7 @@ public class Building_ChickenBatteryCage : Building
 
         Map map = Map;
         EvaluateMortality(force: true);
-        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        IntVec3 near = FindDropCell();
         int released = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
@@ -309,7 +509,6 @@ public class Building_ChickenBatteryCage : Building
             }
 
             chickens.RemoveAt(i);
-            CageHenReleaseMemory.Mark(chicken);
             if (injured)
             {
                 CageChickenInjuries.Injure(chicken);
@@ -322,6 +521,10 @@ public class Building_ChickenBatteryCage : Building
 
         if (released > 0)
         {
+            // The flock just spilled onto the map; shut the network's intake so
+            // handlers cannot immediately rope it back into a cage.
+            CageNetwork.DisableIntakeOnRelease(origin);
+
             string message = injured
                 ? "ChickenBatteryCage.Message.ReleasedInjured"
                 : "ChickenBatteryCage.Message.ReleasedOnDeconstruct";
@@ -335,8 +538,10 @@ public class Building_ChickenBatteryCage : Building
     /// Handles the records that <see cref="ReleaseFlock"/> could not turn into
     /// pawns. They outlive the building by moving to a map component, which
     /// keeps them across save/load and retries the release. A record must never
-    /// be deleted just because the cage that held it is gone.
-    void PreserveUnreleasedFlock(bool injured)
+    /// be deleted just because the cage that held it is gone. The releasing
+    /// network is recorded alongside each record so the eventual rescue release
+    /// can cut its intake too.
+    void PreserveUnreleasedFlock(bool injured, IReadOnlyList<Building_ChickenBatteryCage> origin)
     {
         if (chickens.Count == 0)
         {
@@ -360,11 +565,11 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
-        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        IntVec3 near = FindDropCell();
         int preserved = chickens.Count;
         foreach (CagedChickenRecord record in chickens)
         {
-            rescue.Preserve(record, near, injured);
+            rescue.Preserve(record, near, injured, origin);
         }
 
         chickens.Clear();
@@ -384,6 +589,8 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
+        Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
         Scribe_Collections.Look(ref pendingUnloads, "pendingUnloads", LookMode.Value);
@@ -529,8 +736,7 @@ public class Building_ChickenBatteryCage : Building
     {
         return IsHen(chicken)
             && penSystemEnabled
-            && !IsFull
-            && !CageHenReleaseMemory.IsRecentlyReleased(chicken);
+            && !IsFull;
     }
 
     public static bool AnyCageWithPendingUnload(Map map)
@@ -723,6 +929,11 @@ public class Building_ChickenBatteryCage : Building
     /// biology has been captured; appends the record to the housed flock.
     public void AddRecord(CagedChickenRecord record)
     {
+        // Credit the current flock's laying before the newcomer joins, so she
+        // is not paid for time she spent outside the cage. Accrual runs before
+        // the feed is billed for the same reason as in TickRare.
+        AccrueEggProduction();
+
         // Bill the outgoing population before the newcomer joins.
         SettleNutrition();
         chickens.Add(record);
@@ -793,8 +1004,10 @@ public class Building_ChickenBatteryCage : Building
             return false;
         }
 
-        // Settle before the bird leaves so her share of the store is billed.
+        // Credit the departing bird's laying before she is removed, then settle
+        // so her share of the store is billed.
         CagedChickenRecord selected = chickens[index];
+        AccrueEggProduction();
         SettleNutrition();
         EvaluateMortality(force: true);
         index = chickens.IndexOf(selected);
@@ -805,7 +1018,7 @@ public class Building_ChickenBatteryCage : Building
         }
 
         CagedChickenRecord record = chickens[index];
-        IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
+        IntVec3 near = FindDropCell();
         Pawn released = CageChickenFactory.Generate(record, Map, near);
         if (released == null)
         {
@@ -814,7 +1027,12 @@ public class Building_ChickenBatteryCage : Building
         }
 
         chickens.RemoveAt(index);
-        CageHenReleaseMemory.Mark(released);
+
+        // Turn the cluster's intake off: the bird just set down must not be
+        // roped straight back into a cage. The player turns it back on with
+        // the "Pen system" gizmo once the released flock has cleared.
+        CageNetwork.DisableIntakeOnRelease(CageNetwork.Cluster(this));
+
         ReconcilePendingUnloads();
         Messages.Message(
             "ChickenBatteryCage.Message.Released".Translate(released.LabelShortCap),
@@ -837,6 +1055,9 @@ public class Building_ChickenBatteryCage : Building
 
         switch (filter)
         {
+            case ChickenReleaseFilter.All:
+                return 0;
+
             case ChickenReleaseFilter.Random:
                 return Rand.Range(0, chickens.Count);
 
@@ -991,6 +1212,12 @@ public class Building_ChickenBatteryCage : Building
     public override void TickRare()
     {
         base.TickRare();
+
+        // Accrue laying before nutrition settles: settlement can drain the
+        // shared store to zero, and evaluating production against that emptied
+        // pool would erase an interval the flock was really fed. Destroy uses
+        // the same ordering.
+        EvaluateEggProduction();
         SettleNutrition();
         EvaluateMortality();
     }
@@ -1007,6 +1234,194 @@ public class Building_ChickenBatteryCage : Building
                 starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
                 now - start);
         }
+    }
+
+    /**
+     * Adds the eggs laid since the last settlement. Output is a pure function
+     * of elapsed time, the age-derived laying rate, and how well fed the flock
+     * is, so no hen ever ticks an egg-production component of her own.
+     */
+    void EvaluateEggProduction()
+    {
+        AccrueEggProduction();
+
+        // The box is shared across the network, so any member — even one with
+        // no birds of its own — may be the one to notice a whole day's stack
+        // is ready. Release after every accrual, regardless of whether this
+        // tick credited new time: a batch retained by a failed placement must
+        // still be retried on the first settlement, a same-tick pass, or a
+        // rewound clock. New production stays gated inside accrual.
+        ReleaseEggBatches();
+    }
+
+    /**
+     * Credits the eggs laid since the last settlement into this cage's own box
+     * without placing a stack. Accrual is independent of stack release: the
+     * guards below only decide whether new output is credited, and a caller
+     * that also wants to release a ready stack does so separately, so a
+     * retained batch is never gated behind production guards. Separated from
+     * <see cref="EvaluateEggProduction"/> so a terminal change such as
+     * destruction can settle accrued output exactly once before spilling it.
+     */
+    void AccrueEggProduction()
+    {
+        int now = GenTicks.TicksAbs;
+        if (eggCheckedAtTick <= 0 || eggCheckedAtTick > now)
+        {
+            // First settlement, or a clock that moved backwards: seed the
+            // marker without crediting a bogus interval.
+            eggCheckedAtTick = now;
+            return;
+        }
+
+        int elapsed = now - eggCheckedAtTick;
+        if (elapsed <= 0)
+        {
+            return;
+        }
+
+        eggCheckedAtTick = now;
+        if (chickens != null && chickens.Count > 0)
+        {
+            int fedTicks = FedTicksWithin(elapsed);
+            if (fedTicks > 0)
+            {
+                eggProgress += CageEggMath.EggsOverTicks(EggLayingRatePerDay, fedTicks);
+            }
+        }
+    }
+
+    /**
+     * Spits out the eggs the network box has collected, one whole day's stack
+     * at a time. The stack is sized to the network's combined daily laying
+     * (see <see cref="EggStackSize"/>), so touching cages release a single
+     * haulable stack per day rather than one small stack each. Only whole
+     * stacks leave the box; the remainder stays and shows up as progress in
+     * the inspection readout. If a stack cannot be placed the eggs stay held,
+     * so no output is ever lost to a busy map.
+     */
+    void ReleaseEggBatches()
+    {
+        IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(this);
+        int stack = CageNetwork.EggStackSize(cluster, MinEggsPerStack);
+        int batches = CageEggMath.FullBatches(CageNetwork.EggProgress(cluster), stack);
+        int released = 0;
+        for (int i = 0; i < batches; i++)
+        {
+            int placed = TryReleaseEggBatch(stack);
+            released += placed;
+            if (placed < stack)
+            {
+                // Map was too crowded to place the rest of this batch; keep the
+                // eggs in the box and try again on the next settlement.
+                break;
+            }
+        }
+
+        if (released > 0)
+        {
+            CageNetwork.WithdrawEggs(cluster, released);
+        }
+    }
+
+    /// Releases one stack of the given size onto the map as a haulable stack.
+    /// Returns how many eggs actually landed; the map may take only part of a
+    /// split or merged stack. Once placed, any hauler can carry it to a
+    /// stockpile like any other egg.
+    int TryReleaseEggBatch(int eggs)
+    {
+        return TryPlaceEggStack(eggs);
+    }
+
+    /// Spills whatever whole eggs remain in the box as a smaller stack. Only
+    /// used when the cage is going away, so a partial box is not lost.
+    void ReleasePartialEggs()
+    {
+        int held = EggsHeld;
+        if (held <= 0)
+        {
+            return;
+        }
+
+        int placed = TryPlaceEggStack(held);
+        if (placed > 0)
+        {
+            eggProgress -= placed;
+        }
+    }
+
+    /**
+     * Where a released egg stack or bird lands. A standable cell the colony
+     * can actually reach, so haulers are never sent to an egg on a walled-off
+     * or occupied face. The eight neighbours are tried first, then a short
+     * radial search.
+     */
+    public IntVec3 FindDropCell()
+    {
+        if (!Spawned || Map == null)
+        {
+            return Position;
+        }
+
+        foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(this))
+        {
+            if (IsReachableDropCell(cell))
+            {
+                return cell;
+            }
+        }
+
+        if (CellFinder.TryFindRandomCellNear(
+                Position, Map, 8, IsReachableDropCell, out IntVec3 found))
+        {
+            return found;
+        }
+
+        return Position;
+    }
+
+    bool IsReachableDropCell(IntVec3 cell)
+    {
+        return cell.InBounds(Map)
+            && cell.Standable(Map)
+            && Map.reachability.CanReachColony(cell);
+    }
+
+    /**
+     * Places up to <paramref name="eggs"/> onto the map and returns how many
+     * actually landed. GenPlace can split an oversized stack or merge part of
+     * one into an existing pile and still report failure, so its return value
+     * alone cannot be trusted for accounting. The placedAction callback reports
+     * each amount that made it onto the map; the caller deducts exactly that
+     * many virtual eggs, and the rest stays in the box for the next settlement.
+     */
+    int TryPlaceEggStack(int eggs)
+    {
+        if (eggs <= 0 || !Spawned || Map == null || ChickenBatteryCageDefOf.EggChickenUnfertilized == null)
+        {
+            return 0;
+        }
+
+        Thing eggsThing = ThingMaker.MakeThing(ChickenBatteryCageDefOf.EggChickenUnfertilized);
+        eggsThing.stackCount = eggs;
+        IntVec3 cell = FindDropCell();
+
+        int placed = 0;
+        GenPlace.TryPlaceThing(
+            eggsThing,
+            cell,
+            Map,
+            ThingPlaceMode.Near,
+            (thing, count) => placed += count);
+
+        // Only the unplaced transient remainder lingers here; anything the map
+        // accepted is now spawned output and must not be destroyed.
+        if (!eggsThing.Destroyed && !eggsThing.Spawned)
+        {
+            eggsThing.Destroy();
+        }
+
+        return placed;
     }
 
     /// Rolls accumulated exposure coarsely, or before birds leave the cage.

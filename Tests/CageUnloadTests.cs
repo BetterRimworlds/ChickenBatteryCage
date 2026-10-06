@@ -62,4 +62,53 @@ public class CageUnloadTests
         CageUnloadMath.Reconcile(requests, 0, 0, 0);
         Assert.IsEmpty(requests);
     }
+
+    [Test]
+    public void AllRequestsSurviveReconciliationWhileBirdsRemain()
+    {
+        var requests = new List<ChickenReleaseFilter>
+        {
+            ChickenReleaseFilter.All, ChickenReleaseFilter.All,
+        };
+        CageUnloadMath.Reconcile(requests, 2, 2, 0);
+        CollectionAssert.AreEqual(
+            new[] { ChickenReleaseFilter.All, ChickenReleaseFilter.All }, requests);
+    }
+
+    [Test]
+    public void ExcessAllRequestsAreDroppedOnlyWhenTheFlockEmpties()
+    {
+        var requests = new List<ChickenReleaseFilter>
+        {
+            ChickenReleaseFilter.All, ChickenReleaseFilter.All, ChickenReleaseFilter.All,
+        };
+        // A bird died after two All marks were queued: keep both, drop one.
+        CageUnloadMath.Reconcile(requests, 2, 2, 0);
+        CollectionAssert.AreEqual(
+            new[] { ChickenReleaseFilter.All, ChickenReleaseFilter.All }, requests);
+
+        // One more release succeeds: the last mark still has a bird to free.
+        CageUnloadMath.Reconcile(requests, 1, 1, 0);
+        Assert.AreEqual(1, requests.Count);
+
+        // The flock is gone: nothing remains to release.
+        CageUnloadMath.Reconcile(requests, 0, 0, 0);
+        Assert.IsEmpty(requests);
+    }
+
+    [Test]
+    public void MixedSelectorsAndAllRequestsShareTheShrinkingFlock()
+    {
+        var requests = new List<ChickenReleaseFilter>
+        {
+            ChickenReleaseFilter.All, ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile,
+        };
+        CageUnloadMath.Reconcile(requests, 3, 2, 1);
+        Assert.AreEqual(3, requests.Count);
+
+        // One hen and one juvenile died; the All mark covers the survivor,
+        // leaving no bird for the AdultHen mark.
+        CageUnloadMath.Reconcile(requests, 1, 1, 0);
+        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.All }, requests);
+    }
 }

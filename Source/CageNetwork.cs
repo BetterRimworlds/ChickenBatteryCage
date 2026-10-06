@@ -249,6 +249,28 @@ public static class CageNetwork
         return PendingUnloadCount(cluster) > 0;
     }
 
+    public static float LayingRatePerDay(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggLayingRatePerDay;
+            }
+        }
+        return total;
+    }
+
+    /// The number of eggs in one released stack: a whole day of the network's
+    /// combined laying, floored to whole eggs and never below
+    /// <paramref name="minimum"/>. Every member of a cluster reports the same
+    /// size because the box they fill is shared.
+    public static int EggStackSize(IReadOnlyList<Building_ChickenBatteryCage> cluster, int minimum)
+    {
+        return CageEggMath.EggsPerStack(LayingRatePerDay(cluster), minimum);
+    }
+
     // ---- The shared feed pool --------------------------------------------
 
     /// Feed held across the whole cluster, treated as one pool.
@@ -309,6 +331,71 @@ public static class CageNetwork
             ChickenCount(cluster),
             CageNutritionMath.DefaultNutritionPerChickenPerDay,
             StarvingDays(cluster));
+    }
+
+    public static int EggsHeld(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        int total = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggsHeld;
+            }
+        }
+        return total;
+    }
+
+    public static float EggProgress(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.EggProgress;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Removes <paramref name="amount"/> of eggs from the cluster's shared box
+     * after a stack has been placed. Survivors scale their own fractional
+     * progress down in proportion, so the remainder is spread across the
+     * network rather than stranded on the cage that happened to place the
+     * stack. The amount is clamped so the box never goes negative.
+     */
+    public static void WithdrawEggs(IReadOnlyList<Building_ChickenBatteryCage> cluster, float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        int count = cluster.Count;
+        var stored = new float[count];
+        var result = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            stored[i] = Alive(cluster[i]) ? cluster[i].EggProgress : 0f;
+        }
+
+        float remaining = EggProgress(cluster) - amount;
+        if (remaining < 0f)
+        {
+            remaining = 0f;
+        }
+
+        CageClusterMath.ScaleToTotal(remaining, stored, result);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Alive(cluster[i]))
+            {
+                cluster[i].SetEggProgress(result[i]);
+            }
+        }
     }
 
     /**
@@ -559,6 +646,23 @@ public static class CageNetwork
         }
     }
 
+    /**
+     * Cuts off automatic intake for every live member of a cluster that just
+     * put live birds back on the map, so handlers do not rope the freed
+     * chickens straight back into a cage. The player turns intake back on with
+     * the "Pen system" gizmo. Every live-release path funnels through here:
+     * manual unloads, cage destruction, and the deferred rescue releases.
+     *
+     * Only the releasing cluster is affected. If that network is gone and an
+     * unrelated cage is still accepting, the freed bird can still be roped
+     * there; that is a deliberate limit of a cluster-level cutoff, kept instead
+     * of per-bird memory or disabling every cage on the map.
+     */
+    public static void DisableIntakeOnRelease(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        SetPenSystemEnabled(cluster, false);
+    }
+
     public static void ClearPendingUnloads(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         foreach (Building_ChickenBatteryCage cage in cluster)
@@ -579,8 +683,42 @@ public static class CageNetwork
      */
     public static bool RequestUnload(IReadOnlyList<Building_ChickenBatteryCage> cluster, ChickenReleaseFilter filter)
     {
+        if (filter == ChickenReleaseFilter.All)
+        {
+            return RequestUnloadAll(cluster);
+        }
+
         Building_ChickenBatteryCage target = FindCageWithRecord(cluster, filter);
         return target != null && target.RequestUnload(filter);
+    }
+
+    /**
+     * Queues a release mark for every housed bird in the cluster, not just one
+     * per cage. Each cage only takes as many extra marks as it has unmarked
+     * birds, so calling this never queues a mark that would be discarded.
+     */
+    public static bool RequestUnloadAll(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            int toMark = cage.ChickenCount - cage.PendingUnloadCount;
+            for (int i = 0; i < toMark; i++)
+            {
+                if (!cage.RequestUnload(ChickenReleaseFilter.All))
+                {
+                    break;
+                }
+                any = true;
+            }
+        }
+
+        return any;
     }
 
     /// A cage can only hold as many marks as it has birds; routing past a
@@ -716,6 +854,8 @@ public static class CageNetwork
     {
         switch (filter)
         {
+            case ChickenReleaseFilter.All:
+                return "ChickenBatteryCage.Release.All".Translate();
             case ChickenReleaseFilter.Youngest:
                 return "ChickenBatteryCage.Release.Youngest".Translate();
             case ChickenReleaseFilter.Oldest:

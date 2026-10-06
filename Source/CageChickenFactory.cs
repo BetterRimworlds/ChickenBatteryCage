@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using RimWorld;
 using Verse;
 
@@ -88,10 +89,7 @@ public static class CageChickenFactory
                 fixedChronologicalAge: biologicalAgeYears,
                 fixedGender: record.gender,
                 forceNoIdeo: true,
-                developmentalStages: DevelopmentalStage.Newborn
-                    | DevelopmentalStage.Baby
-                    | DevelopmentalStage.Child
-                    | DevelopmentalStage.Adult);
+                developmentalStages: DevelopmentalStageFor(biologicalAgeTicks));
 
             chicken = PawnGenerator.GeneratePawn(request);
         }
@@ -113,6 +111,38 @@ public static class CageChickenFactory
         chicken.ageTracker.BirthAbsTicks = now - biologicalAgeTicks;
 
         return chicken;
+    }
+
+    /**
+     * The single developmental stage a regenerated bird may carry. RimWorld's
+     * generator applies one stage at a time — asking for several at once makes
+     * it log "Trying to generate a newborn and other developmental stages
+     * simultaneously" and then distrust the requested age. A chicken only
+     * grows from chick straight to adult, so the stage is simply whichever
+     * side of that single threshold the recorded age sits on. The exact age is
+     * pinned afterwards, which also lands the bird in the matching life stage.
+     */
+    internal static DevelopmentalStage DevelopmentalStageFor(long biologicalAgeTicks)
+    {
+        return CagedChickenMath.IsNewbornStage(biologicalAgeTicks, AdultMinAgeTicks())
+            ? DevelopmentalStage.Newborn
+            : DevelopmentalStage.Adult;
+    }
+
+    /// The chicken's own adult threshold, taken from its life stages so this
+    /// stays correct if the bird's ages are ever rebalanced. Returns 0 while the
+    /// defs are unavailable.
+    static long AdultMinAgeTicks()
+    {
+        ThingDef chickenDef = ChickenBatteryCageDefOf.Chicken?.race;
+        List<LifeStageAge> stages = chickenDef?.race?.lifeStageAges;
+        if (stages == null || stages.Count == 0)
+        {
+            return 0;
+        }
+
+        // The final stage is the bird's adult form; its age is the threshold.
+        return (long)(stages[stages.Count - 1].minAge * GenDate.TicksPerYear);
     }
 
     static IntVec3 FindStandableCellNear(Map map, IntVec3 near)

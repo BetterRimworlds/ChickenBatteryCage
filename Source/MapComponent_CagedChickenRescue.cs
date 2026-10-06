@@ -46,15 +46,18 @@ public class MapComponent_CagedChickenRescue : MapComponent
     }
 
     /// Takes ownership of a record that could not be released, so it survives
-    /// the destruction of the building that held it.
-    public void Preserve(CagedChickenRecord record, IntVec3 near, bool injured)
+    /// the destruction of the building that held it. The releasing network is
+    /// recorded alongside the record so the eventual release can cut its
+    /// intake off and stop handlers from roping the freed bird back in.
+    public void Preserve(CagedChickenRecord record, IntVec3 near, bool injured,
+        IReadOnlyList<Building_ChickenBatteryCage> originNetwork)
     {
         if (record == null)
         {
             return;
         }
 
-        stranded.Add(new StrandedCagedChicken(record, near, injured));
+        stranded.Add(new StrandedCagedChicken(record, near, injured, originNetwork));
     }
 
     /// Owns either the existing body or the dead record until placement works.
@@ -129,7 +132,15 @@ public class MapComponent_CagedChickenRescue : MapComponent
             }
 
             stranded.RemoveAt(i);
-            CageHenReleaseMemory.Mark(chicken);
+
+            // Cut the releasing network's intake so the freed bird is not roped
+            // straight back in. The network may be partly or wholly gone by now,
+            // and a destroyed member is simply skipped.
+            if (entry.originNetwork != null && entry.originNetwork.Count > 0)
+            {
+                CageNetwork.DisableIntakeOnRelease(entry.originNetwork);
+            }
+
             if (entry.injured)
             {
                 CageChickenInjuries.Injure(chicken);

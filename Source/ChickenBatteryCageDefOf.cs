@@ -27,6 +27,11 @@ public static class ChickenBatteryCageDefOf
     /// regenerate them on release.
     public static PawnKindDef Chicken;
 
+    /// The vanilla unfertilized chicken egg, the cage's output unit. The cage
+    /// releases eggs in stacks of ten; this is the exact Thing a released
+    /// stack is made of.
+    public static ThingDef EggChickenUnfertilized;
+
     static ChickenBatteryCageDefOf()
     {
         DefOfHelper.EnsureInitializedInCtor(typeof(ChickenBatteryCageDefOf));

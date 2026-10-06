@@ -16,10 +16,16 @@ namespace BetterRimworlds.ChickenBatteryCage;
 
 public class Settings : ModSettings
 {
+    /// When on (the default) a housed hen's laying rate declines with age.
+    /// Turned off, every adult hen lays one egg a day for the rest of her life,
+    /// matching vanilla RimWorld.
+    public bool ageDeclineEnabled = true;
+
     public bool debugMode = false;
 
     public override void ExposeData()
     {
+        Scribe_Values.Look(ref ageDeclineEnabled, "brw.BetterRimworlds.ChickenBatteryCage.ageDeclineEnabled", true);
         Scribe_Values.Look(ref debugMode, "brw.BetterRimworlds.ChickenBatteryCage.debugMode", false);
     }
 
@@ -28,10 +34,16 @@ public class Settings : ModSettings
         Listing_Standard listing_Standard = new Listing_Standard();
         listing_Standard.Begin(inRect);
 
+        listing_Standard.CheckboxLabeled(
+            "ChickenBatteryCage.Settings.AgeDecline".Translate(),
+            ref ageDeclineEnabled,
+            "ChickenBatteryCage.Settings.AgeDeclineTip".Translate());
+
         listing_Standard.CheckboxLabeled("Print debug messages?", ref debugMode);
 
         listing_Standard.End();
 
+        ChickenBatteryCage.Settings.ageDeclineEnabled = ageDeclineEnabled;
         ChickenBatteryCage.Settings.debugMode = debugMode;
     }
 }
