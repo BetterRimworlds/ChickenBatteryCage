@@ -1315,10 +1315,11 @@ public class Building_ChickenBatteryCage : Building
     void AccrueEggProduction()
     {
         int now = GenTicks.TicksAbs;
-        if (eggCheckedAtTick <= 0 || eggCheckedAtTick > now)
+        if (eggCheckedAtTick == 0 || CagedChickenMath.IsImpossibleTick(eggCheckedAtTick, now))
         {
-            // First settlement, or a clock that moved backwards: seed the
-            // marker without crediting a bogus interval.
+            // First settlement, or a corrupt marker: seed the marker without
+            // crediting a bogus interval. The check is wrap-safe so a marker
+            // written before the counter wrapped is still a valid past tick.
             eggCheckedAtTick = now;
             return;
         }
@@ -1477,7 +1478,7 @@ public class Building_ChickenBatteryCage : Building
     void EvaluateMortality(bool force = false)
     {
         int now = GenTicks.TicksAbs;
-        if (mortalityCheckedAtTick <= 0 || mortalityCheckedAtTick > now)
+        if (mortalityCheckedAtTick == 0 || CagedChickenMath.IsImpossibleTick(mortalityCheckedAtTick, now))
         {
             mortalityCheckedAtTick = now;
             if (!force)

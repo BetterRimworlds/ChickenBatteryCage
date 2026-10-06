@@ -33,13 +33,17 @@ public static class CagedChickenValidation
      */
     public static bool TryRepair(ref long ageTicksAtEntry, ref int enteredAtGameTick, int now)
     {
-        if (enteredAtGameTick < 0)
+        if (enteredAtGameTick < 0 && now >= 0)
         {
+            // A negative tick before the counter has wrapped is corrupt.
             enteredAtGameTick = 0;
         }
-
-        if (enteredAtGameTick > now)
+        else if (CagedChickenMath.IsFutureTick(enteredAtGameTick, now))
         {
+            // A future tick is impossible; pull it back to now. The wrapping
+            // comparison keeps a legitimate pre-wrap tick from being reset
+            // once the counter has wrapped negative, which would erase the
+            // bird's elapsed caged aging.
             enteredAtGameTick = now;
         }
 

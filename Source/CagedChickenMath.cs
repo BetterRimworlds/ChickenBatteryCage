@@ -59,4 +59,48 @@ public static class CagedChickenMath
     {
         return adultMinAgeTicks > 0 && biologicalAgeTicks < adultMinAgeTicks;
     }
+
+    /**
+     * Wrapping game-tick arithmetic.
+     *
+     * GenTicks.TicksAbs is an int that wraps: after roughly 596 in-game years
+     * it passes int.MaxValue and continues from int.MinValue. Elapsed time is
+     * still exact when measured with a wrapping int subtraction, but a plain
+     * "tick > now" comparison mistakes a legitimate pre-wrap tick for a future
+     * one and resets it, silently discarding the elapsed time it encoded.
+     * These helpers compare and subtract ticks the same wrapping way the aging
+     * math already does.
+     */
+
+    /// Ticks elapsed from <paramref name="fromTick"/> to
+    /// <paramref name="now"/>, correct across one wrap of the counter.
+    public static int TicksSince(int fromTick, int now)
+    {
+        return now - fromTick;
+    }
+
+    /// True when <paramref name="later"/> names a tick after
+    /// <paramref name="earlier"/> in the wrapping game-tick order.
+    public static bool IsAfter(int later, int earlier)
+    {
+        return later - earlier > 0;
+    }
+
+    /// True when <paramref name="tick"/> lies after <paramref name="now"/>,
+    /// which can only be corrupt data: a real tick is never in the future.
+    public static bool IsFutureTick(int tick, int now)
+    {
+        return now - tick < 0;
+    }
+
+    /**
+     * True when a persisted tick cannot be a real point at or before now and
+     * must be reset: either a future tick, or a negative value while the
+     * counter has not yet wrapped. Ticks only go negative after a wrap, so a
+     * negative tick paired with a nonnegative now is corrupt.
+     */
+    public static bool IsImpossibleTick(int tick, int now)
+    {
+        return IsFutureTick(tick, now) || (tick < 0 && now >= 0);
+    }
 }

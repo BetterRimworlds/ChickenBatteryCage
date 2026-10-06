@@ -40,12 +40,20 @@ public class StrandedCagedChicken : IExposable
     /// destroyed. Empty for a dead entry, where recapture does not apply.
     public List<Building_ChickenBatteryCage> originNetwork;
 
-    /// Nonnegative only for a dead bird. Its age is fixed at this tick while
-    /// generation is pending; a generated body is retained across retries.
-    public int diedAtTick = -1;
+    /// The death tick for a dead bird, or <see cref="NotDead"/> for a live one.
+    /// Its age is fixed at this tick while generation is pending; a generated
+    /// body is retained across retries. Any real tick marks the entry dead,
+    /// including a negative one after the game-tick counter wraps, so death is
+    /// detected by inequality rather than by sign.
+    public int diedAtTick = NotDead;
     public Corpse corpse;
 
-    public bool IsDead => diedAtTick >= 0;
+    /// Sentinel recorded in <see cref="diedAtTick"/> for a live entry. -1 is
+    /// also a real (if vanishingly unlikely) tick, so it is the one value the
+    /// death check treats as "not yet dead".
+    public const int NotDead = -1;
+
+    public bool IsDead => diedAtTick != NotDead;
 
     // Scribe needs a parameterless constructor.
     public StrandedCagedChicken()
@@ -89,7 +97,7 @@ public class StrandedCagedChicken : IExposable
         Scribe_Values.Look(ref near, "near");
         Scribe_Values.Look(ref injured, "injured", false);
         Scribe_Collections.Look(ref originNetwork, "originNetwork", LookMode.Reference);
-        Scribe_Values.Look(ref diedAtTick, "diedAtTick", -1);
+        Scribe_Values.Look(ref diedAtTick, "diedAtTick", NotDead);
         Scribe_Deep.Look(ref corpse, "corpse");
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
