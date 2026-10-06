@@ -76,9 +76,63 @@ public class MapComponent_CagedChickenRescue : MapComponent
         base.ExposeData();
         Scribe_Collections.Look(ref stranded, "strandedCagedChickens", LookMode.Deep);
 
-        if (Scribe.mode == LoadSaveMode.PostLoadInit && stranded == null)
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
-            stranded = new List<StrandedCagedChicken>();
+            if (stranded == null)
+            {
+                stranded = new List<StrandedCagedChicken>();
+            }
+
+            SanitizeLoadedState();
+        }
+    }
+
+    /**
+     * Repairs or drops malformed stranded records at load.
+     *
+     * A record can be stranded here after its cage was destroyed and placement
+     * failed, so it never passes through the building's own load repair. An
+     * unreleasable record would otherwise retry a reconstruction that can
+     * never succeed, every retry interval, forever. A dead entry is dropped
+     * only once it has neither a corpse nor a repairable record left, so a
+     * corpse still waiting for placement is never lost.
+     */
+    void SanitizeLoadedState()
+    {
+        if (stranded.Count == 0)
+        {
+            return;
+        }
+
+        int now = GenTicks.TicksAbs;
+        int dropped = 0;
+        for (int i = stranded.Count - 1; i >= 0; i--)
+        {
+            StrandedCagedChicken entry = stranded[i];
+            if (entry == null)
+            {
+                stranded.RemoveAt(i);
+                dropped++;
+                continue;
+            }
+
+            if (entry.record != null && !entry.record.TryRepair(now))
+            {
+                entry.record = null;
+            }
+
+            if (entry.corpse == null && entry.record == null)
+            {
+                stranded.RemoveAt(i);
+                dropped++;
+            }
+        }
+
+        if (dropped > 0)
+        {
+            Log.Warning("[ChickenBatteryCage] Dropped " + dropped +
+                " malformed stranded chicken record(s) while loading; the rest " +
+                "of the map's rescued flock was kept.");
         }
     }
 
