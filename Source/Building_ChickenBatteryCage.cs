@@ -234,13 +234,11 @@ public class Building_ChickenBatteryCage : Building
             float adultYears = AdultMinAgeYears;
             int now = GenTicks.TicksAbs;
             float rate = 0f;
+
+            // Gender is no longer persisted: every housed bird is a hen by
+            // construction, so each record contributes laying directly.
             foreach (CagedChickenRecord record in chickens)
             {
-                if (record.gender != Gender.Female)
-                {
-                    continue;
-                }
-
                 rate += CageEggMath.EggsPerHenPerDay(
                     record.BiologicalAgeYearsAt(now),
                     adultYears,
@@ -606,7 +604,85 @@ public class Building_ChickenBatteryCage : Building
             {
                 pendingUnloads = new List<ChickenReleaseFilter>();
             }
+
+            SanitizeLoadedState();
         }
+    }
+
+    /**
+     * Repairs or drops malformed loaded state so a single bad number cannot
+     * brick the save. Cheap fields are clamped; only an impossible chicken
+     * record is dropped, and even then the rest of the cage is kept.
+     */
+    void SanitizeLoadedState()
+    {
+        int now = GenTicks.TicksAbs;
+
+        // Plain range checks let NaN and infinities through, so repair the
+        // floating-point totals explicitly rather than with bare comparisons.
+        nutritionStored = CagedChickenValidation.RepairStored(nutritionStored, NutritionCapacity);
+        eggProgress = CagedChickenValidation.RepairEggProgress(eggProgress);
+
+        if (starvingTicks < 0)
+        {
+            starvingTicks = 0;
+        }
+
+        // A tick marker that is future-dated or a corrupt negative loses no
+        // real elapsed time by starting over from now; the wrapping test keeps
+        // a legitimate pre-wrap marker valid after the counter wraps.
+        if (CagedChickenMath.IsImpossibleTick(nutritionSettledAtTick, now))
+        {
+            nutritionSettledAtTick = now;
+        }
+
+        if (CagedChickenMath.IsImpossibleTick(eggCheckedAtTick, now))
+        {
+            eggCheckedAtTick = now;
+        }
+
+        if (CagedChickenMath.IsImpossibleTick(mortalityCheckedAtTick, now))
+        {
+            mortalityCheckedAtTick = now;
+        }
+
+        int dropped = 0;
+        for (int i = chickens.Count - 1; i >= 0; i--)
+        {
+            CagedChickenRecord record = chickens[i];
+            if (record == null || !record.TryRepair(now))
+            {
+                chickens.RemoveAt(i);
+                dropped++;
+            }
+        }
+
+        // A dropped bird can leave an unload mark with nothing left to satisfy
+        // it. Prune the queue exactly as a death does, so a stale mark cannot
+        // keep reporting an unavailable bird or hold a request slot.
+        ReconcilePendingUnloads();
+
+        if (dropped > 0)
+        {
+            Log.Warning(
+                "[ChickenBatteryCage] Dropped " + dropped + " malformed caged " +
+                "chicken record(s) from " + DescribeCageForLog() +
+                " while loading; the rest of the cage was kept.");
+        }
+    }
+
+    /// Identifies this cage for load-repair log messages: its ThingID, cell
+    /// and map when available, so a bad save can be tracked down in the wild.
+    string DescribeCageForLog()
+    {
+        if (ThingID.NullOrEmpty())
+        {
+            return "(unknown cage)";
+        }
+
+        return Map != null
+            ? ThingID + " at " + Position + " on map " + Map.uniqueID
+            : ThingID;
     }
 
     public override string GetInspectString()
@@ -1068,10 +1144,11 @@ public class Building_ChickenBatteryCage : Building
                 return ExtremeByAge(now, youngest: false);
 
             case ChickenReleaseFilter.AdultHen:
-                return FirstMatching(now, Gender.Female, adult: true);
+                // Every caged bird is female, so "adult hen" reduces to "adult".
+                return FirstMatching(now, adult: true);
 
             case ChickenReleaseFilter.Juvenile:
-                return FirstMatching(now, Gender.None, adult: false, anyGender: true);
+                return FirstMatching(now, adult: false);
 
             default:
                 return -1;
@@ -1094,16 +1171,11 @@ public class Building_ChickenBatteryCage : Building
         return best;
     }
 
-    int FirstMatching(int now, Gender gender, bool adult, bool anyGender = false)
+    int FirstMatching(int now, bool adult)
     {
         for (int i = 0; i < chickens.Count; i++)
         {
-            CagedChickenRecord record = chickens[i];
-            if (IsAdult(record, now) != adult)
-            {
-                continue;
-            }
-            if (!anyGender && record.gender != gender)
+            if (IsAdult(chickens[i], now) != adult)
             {
                 continue;
             }
@@ -1266,10 +1338,11 @@ public class Building_ChickenBatteryCage : Building
     void AccrueEggProduction()
     {
         int now = GenTicks.TicksAbs;
-        if (eggCheckedAtTick <= 0 || eggCheckedAtTick > now)
+        if (eggCheckedAtTick == 0 || CagedChickenMath.IsImpossibleTick(eggCheckedAtTick, now))
         {
-            // First settlement, or a clock that moved backwards: seed the
-            // marker without crediting a bogus interval.
+            // First settlement, or a corrupt marker: seed the marker without
+            // crediting a bogus interval. The check is wrap-safe so a marker
+            // written before the counter wrapped is still a valid past tick.
             eggCheckedAtTick = now;
             return;
         }
@@ -1428,7 +1501,7 @@ public class Building_ChickenBatteryCage : Building
     void EvaluateMortality(bool force = false)
     {
         int now = GenTicks.TicksAbs;
-        if (mortalityCheckedAtTick <= 0 || mortalityCheckedAtTick > now)
+        if (mortalityCheckedAtTick == 0 || CagedChickenMath.IsImpossibleTick(mortalityCheckedAtTick, now))
         {
             mortalityCheckedAtTick = now;
             if (!force)
@@ -1520,13 +1593,13 @@ public class Building_ChickenBatteryCage : Building
         int juveniles = 0;
         foreach (CagedChickenRecord record in chickens)
         {
-            if (!IsAdult(record, now))
-            {
-                juveniles++;
-            }
-            else if (record.gender == Gender.Female)
+            if (IsAdult(record, now))
             {
                 adultHens++;
+            }
+            else
+            {
+                juveniles++;
             }
         }
 

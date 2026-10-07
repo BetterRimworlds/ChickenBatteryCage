@@ -19,6 +19,9 @@
     <Compile Include="..\Source\ChickenReleaseFilter.cs" Link="ChickenReleaseFilter.cs" />
     <Compile Include="..\Source\CageUnloadMath.cs" Link="CageUnloadMath.cs" />
     <Compile Include="..\Source\CageEggMath.cs" Link="CageEggMath.cs" />
+    <Compile Include="..\Source\CagedChickenFields.cs" Link="CagedChickenFields.cs" />
+    <Compile Include="..\Source\CageSaveSize.cs" Link="CageSaveSize.cs" />
+    <Compile Include="..\Source\CagedChickenValidation.cs" Link="CagedChickenValidation.cs" />
   </ItemGroup>
 
   <ItemGroup>

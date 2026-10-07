@@ -26,6 +26,22 @@ public class CageMortalityTests
     }
 
     [Test]
+    public void ExposureBeginsAtTheLaterTickAcrossTheWrap()
+    {
+        // A hen housed just before the counter wrapped keeps a positive entry
+        // tick, while the settle marker has gone negative. The settle is the
+        // later tick in wrapping order, so the start must not jump back to the
+        // numerically larger pre-wrap entry.
+        const int JustBeforeWrap = int.MaxValue - 100;
+        const int JustAfterWrap = int.MinValue + 100;
+
+        Assert.AreEqual(JustAfterWrap,
+            CageMortalityMath.ExposureStartTick(JustAfterWrap, JustBeforeWrap));
+        Assert.AreEqual(JustAfterWrap,
+            CageMortalityMath.ExposureStartTick(JustBeforeWrap, JustAfterWrap));
+    }
+
+    [Test]
     public void AccumulatedExposureSurvivesSettlementBoundaries()
     {
         double exposure = CageMortalityMath.ExposureOverTicks(0.2f, Day / 3)

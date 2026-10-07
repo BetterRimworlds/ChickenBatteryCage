@@ -86,7 +86,7 @@ public static class CageNetwork
 
         int now = GenTicks.TicksAbs;
         if (!clusterCacheTick.TryGetValue(map, out int cachedAt)
-            || now < cachedAt
+            || CagedChickenMath.IsFutureTick(cachedAt, now)
             || now - cachedAt >= ClusterCacheTicks)
         {
             RebuildClusters(map, now);
@@ -410,15 +410,25 @@ public static class CageNetwork
     public static void SettleCluster(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
     {
         int last = 0;
+        bool anySettled = false;
         foreach (Building_ChickenBatteryCage cage in cluster)
         {
-            if (Alive(cage) && cage.NutritionSettledAtTick > last)
+            if (!Alive(cage))
             {
-                last = cage.NutritionSettledAtTick;
+                continue;
+            }
+
+            // Compare with a wrapping subtraction so the most recent settle is
+            // found correctly after the game-tick counter wraps negative.
+            int settledAt = cage.NutritionSettledAtTick;
+            if (!anySettled || CagedChickenMath.IsAfter(settledAt, last))
+            {
+                last = settledAt;
+                anySettled = true;
             }
         }
 
-        if (last <= 0 || last > now)
+        if (!anySettled || last == 0 || CagedChickenMath.IsImpossibleTick(last, now))
         {
             SetSettledAt(cluster, now);
             return;

@@ -22,7 +22,7 @@ The original Pawn identity does not need to survive.
 
 Every pull request below is stacked on the one before it, so the review diff
 for a given PR is simply `<base>..<branch>`. PRs 1–3 are merged into `trunk`;
-PRs 4–12 are open and local.
+PRs 4–10 are open and local.
 
 | PR | Title | Branch | Base | Commits | Status |
 |---:|-------|--------|------|--------:|--------|
@@ -30,13 +30,12 @@ PRs 4–12 are open and local.
 | 2 | Virtualized chickens inside battery cages | `loading-and-unloading` | `battery-cage-foundation` | 5 | Merged |
 | 3 | Deconstructed and destroyed battery cages safely | `deconstructing-and-destroying` | `loading-and-unloading` | 3 | Merged |
 | 4 | Created the battery cage nutrition system | `pr4-cage-nutrition` | `trunk` | 5 | Open |
-| 5 | Added statistical mortality for caged chickens | `pr5-statistical-mortality` | `pr4-cage-nutrition` | 4 | Open |
+| 5 | Added statistical mortality for caged chickens | `pr5-statistical-mortality` | `pr4-cage-nutrition` | 6 | Open |
 | 6 | Virtualized egg production inside battery cages | `pr6-virtualized-eggs` | `pr5-statistical-mortality` | 6 | Open |
-| 7 | Added cage-only poultry modules | `pr7-cage-modules` | `pr6-virtualized-eggs` | 5 | Open |
-| 9 | Hardened savegames and chicken-history cleanup | `pr9-savegame-hardening` | `pr7-cage-modules` | 4 | Open |
-| 10 | Profiled large industrial poultry colonies | `pr10-profiling` | `pr9-savegame-hardening` | 4 | Open |
-| 11 | Finished the RimWorld 1.6 battery-poultry release | `pr11-release` | `pr10-profiling` | 5 | Open |
-| 12 | Added a per-chicken picker window for unloading battery cages | `pr12-chicken-picker` | `pr11-release` | 5 | Open |
+| 7 | Hardened savegames and chicken-history cleanup | `pr7-savegame-hardening` | `pr6-virtualized-eggs` | 4 | Open |
+| 8 | Profiled large industrial poultry colonies | `pr8-profiling` | `pr7-savegame-hardening` | 4 | Open |
+| 9 | Finished the RimWorld 1.6 battery-poultry release | `pr9-release` | `pr8-profiling` | 5 | Open |
+| 10 | Added a per-chicken picker window for unloading battery cages | `pr10-chicken-picker` | `pr9-release` | 5 | Open |
 
 ---
 
@@ -107,8 +106,6 @@ egg-production calculation
 | Eggs | Unfertilized |
 | Egg packaging | Egg box, released as stacks of ten |
 | Mortality | Statistical and age/starvation dependent |
-| Modules | Visible only from selected cage |
-| Module Architect visibility | Hidden from normal Build menu |
 
 ---
 
@@ -677,74 +674,8 @@ resolved, and pins the exact age right after generation.
 
 ---
 
-# Pull Request 7 — Added cage-only poultry modules
 
-## Goal
-
-Created upgrade modules that were visible and constructible only from a selected cage.
-
-## Commits
-
-### Commit 1 — `Added cage-specific module installation gizmos`
-
-Selecting a cage exposed module-installation controls.
-
-Example:
-
-```text
-Install module
-```
-
-with module choices underneath.
-
----
-
-### Commit 2 — `Removed cage modules from the Architect menu`
-
-Module `ThingDef`s were hidden from the normal global Build/Architect interface.
-
-Acceptance criteria:
-
-- Players could not browse directly to the module from the normal build menu.
-- Module definitions remained valid and constructible through cage-specific controls.
-
----
-
-### Commit 3 — `Restricted module placement to the selected battery cage`
-
-Placement validation ensured modules:
-
-- belonged to the cage that initiated the action;
-- were placed only in valid positions;
-- respected compatibility rules;
-- rejected duplicates where appropriate.
-
----
-
-### Commit 4 — `Added the climate-controller module`
-
-Implemented the first cage module.
-
-The climate controller should affect cage climate handling in a clearly documented way.
-
-Do not overcomplicate climate simulation until profiling and gameplay testing justify it.
-
----
-
-### Commit 5 — `Added climate-controller status and failure states`
-
-Inspection UI showed states such as:
-
-```text
-Climate control: Active
-Climate control: Unpowered
-Climate control: Broken
-Climate control: Not installed
-```
-
----
-
-# Pull Request 9 — Hardened savegames and chicken-history cleanup
+# Pull Request 7 — Hardened savegames and chicken-history cleanup
 
 ## Goal
 
@@ -807,7 +738,7 @@ A single malformed chicken record must not brick the save.
 
 ---
 
-# Pull Request 10 — Profiled large industrial poultry colonies
+# Pull Request 8 — Profiled large industrial poultry colonies
 
 ## Goal
 
@@ -893,7 +824,7 @@ Acceptance criterion:
 
 ---
 
-# Pull Request 11 — Finished the RimWorld 1.6 battery-poultry release
+# Pull Request 9 — Finished the RimWorld 1.6 battery-poultry release
 
 ## Goal
 
@@ -951,7 +882,6 @@ Documentation covered:
 - exact biological aging
 - mortality
 - egg cartons
-- modules
 - release behavior
 - performance architecture
 
@@ -971,7 +901,7 @@ Acceptance criteria:
 
 ---
 
-# Pull Request 12 — Added a per-chicken picker window for unloading battery cages
+# Pull Request 10 — Added a per-chicken picker window for unloading battery cages
 
 ## Goal
 
