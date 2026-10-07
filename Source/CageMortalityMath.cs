@@ -171,8 +171,15 @@ public static class CageMortalityMath
     }
 
     /// A newcomer owes no exposure for the part of a settlement before entry.
+    /// The later tick is chosen in wrapping game-tick order, not by numeric
+    /// value: after the counter wraps, a hen housed beforehand keeps a
+    /// pre-wrap positive entry tick while the settle marker has gone negative,
+    /// and a plain numeric max would jump the start back to her original entry
+    /// and re-integrate the whole span on every settlement.
     public static int ExposureStartTick(int settledAtTick, int enteredAtTick)
     {
-        return Math.Max(settledAtTick, enteredAtTick);
+        return CagedChickenMath.IsAfter(enteredAtTick, settledAtTick)
+            ? enteredAtTick
+            : settledAtTick;
     }
 }
