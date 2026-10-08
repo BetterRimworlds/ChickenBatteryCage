@@ -802,7 +802,7 @@ public class Building_ChickenBatteryCage : Building
     List<FloatMenuOption> BuildDevMenu()
     {
         Map map = Map;
-        return new List<FloatMenuOption>
+        List<FloatMenuOption> menu = new List<FloatMenuOption>
         {
             new FloatMenuOption("Fill this cage", delegate { CageDevTools.FillCage(this); }),
             new FloatMenuOption("Fill all cages", delegate { CageDevTools.FillAllCages(map); }),
@@ -810,11 +810,18 @@ public class Building_ChickenBatteryCage : Building
             new FloatMenuOption("Spawn 2,000 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 2000); }),
             new FloatMenuOption("Generate 10,000 eggs", delegate { CageDevTools.SpawnEggStacks(map, 10000); }),
             new FloatMenuOption("Log population report", delegate { CageDevTools.LogPopulationReport(map, "manual"); }),
-            new FloatMenuOption("Begin benchmark", delegate { CageProfiler.Begin(map); }),
-            new FloatMenuOption("End benchmark", delegate { CageProfiler.End(map, "manual"); }),
             new FloatMenuOption("Simulate 1 year (all cages)", delegate { DebugSimulateAllCages(map, 60); }),
             new FloatMenuOption("Simulate 5 years (all cages)", delegate { DebugSimulateAllCages(map, 300); }),
         };
+
+        // The profiler is a God Mode-only aid; hide its entries otherwise.
+        if (CageProfiler.Debug)
+        {
+            menu.Insert(menu.Count - 2, new FloatMenuOption("Begin benchmark", delegate { CageProfiler.Begin(map); }));
+            menu.Insert(menu.Count - 2, new FloatMenuOption("End benchmark", delegate { CageProfiler.End(map, "manual"); }));
+        }
+
+        return menu;
     }
 
     public bool CanAcceptChicken(Pawn chicken)

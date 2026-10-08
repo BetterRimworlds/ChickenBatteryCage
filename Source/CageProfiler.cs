@@ -24,6 +24,11 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public static class CageProfiler
 {
+    /// The profiler is a developer aid. It only runs — and its menu entries are
+    /// only offered — while God Mode is enabled in the debug menu, so it can
+    /// never be triggered from a normal game.
+    public static bool Debug => DebugSettings.godMode;
+
     struct Snapshot
     {
         public int ticks;
@@ -40,7 +45,7 @@ public static class CageProfiler
 
     public static void Begin(Map map)
     {
-        if (map == null)
+        if (map == null || !Debug)
         {
             return;
         }
@@ -53,7 +58,7 @@ public static class CageProfiler
 
     public static void End(Map map, string label)
     {
-        if (map == null)
+        if (map == null || !Debug)
         {
             return;
         }

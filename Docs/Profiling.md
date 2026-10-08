@@ -7,7 +7,8 @@ size down the way a free-range flock does.
 ## In-game stress tools
 
 Select any battery cage with developer mode on and open **Dev: poultry stress
-tools** from its gizmos:
+tools** from its gizmos. The benchmark profiler entries below only appear while
+**God Mode** is also enabled:
 
 | Entry | Effect |
 |---|---|

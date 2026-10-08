@@ -83,6 +83,7 @@ warnings.
 
 - [ ] Dev mode exposes the **poultry stress-test tools** (spawn/fill commands per `Docs/Profiling.md`).
 - [ ] Fill cages to capacity and spawn 2,000 free-range birds: FPS and tick time stay playable (caged-bird ticking should be measurably lighter than free-range).
+- [ ] The **Begin/End benchmark** profiler entries appear only with God Mode on, and never in a normal game.
 - [ ] Benchmark run for free-range vs. virtualized populations produces numbers and completes without hitching.
 - [ ] Battery cages with no flock or full feed **tick minimally**.
 - [ ] Simulate **five in-game years** of feeding, starvation, mortality, and laying: no runaway slowdown, unbounded log growth, or repeated exception spam.
