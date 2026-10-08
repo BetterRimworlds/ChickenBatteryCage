@@ -9,77 +9,27 @@
  * This file is licensed under the MIT License.
  */
 
-using System.Collections.Generic;
+using System.Collections;
 
 namespace BetterRimworlds.ChickenBatteryCage;
 
-/// Verse-free reconciliation of kind-selector requests with a surviving flock.
+/// Verse-free pruning of the exact-record unload queue.
 public static class CageUnloadMath
 {
     /**
-     * Prunes requests that can no longer be satisfied. When a parallel
-     * <paramref name="targets"/> list is supplied, the entry aligned with a
-     * dropped request is dropped too, so a specific mark never loses the
-     * record it points at. A specific mark survives only while the record it
-     * names is still in <paramref name="surviving"/>; a dead bird's stale mark
-     * must be dropped before the capacity test, or it would consume a slot
-     * that a living mark needs.
+     * Drops marks whose bird is no longer in the surviving flock. Every mark
+     * names one exact record, so a mark survives only while that record is
+     * still housed; a dead bird's stale mark must be dropped before any
+     * capacity test, or it would consume a slot a living mark needs.
      */
-    public static void Reconcile(
-        IList<ChickenReleaseFilter> requests,
-        int birds,
-        int adultHens,
-        int juveniles,
-        System.Collections.IList targets = null,
-        System.Collections.IList surviving = null)
+    public static void Reconcile(IList marks, IList surviving)
     {
-        int kept = 0;
-        int adultsRequested = 0;
-        int juvenilesRequested = 0;
-        for (int i = 0; i < requests.Count;)
+        for (int i = marks.Count - 1; i >= 0; i--)
         {
-            ChickenReleaseFilter filter = requests[i];
-            bool available = kept < birds;
-            switch (filter)
+            if (!surviving.Contains(marks[i]))
             {
-                case ChickenReleaseFilter.AdultHen:
-                    available &= adultsRequested < adultHens;
-                    break;
-                case ChickenReleaseFilter.Juvenile:
-                    available &= juvenilesRequested < juveniles;
-                    break;
-                case ChickenReleaseFilter.Random:
-                case ChickenReleaseFilter.Youngest:
-                case ChickenReleaseFilter.Oldest:
-                case ChickenReleaseFilter.All:
-                    break;
-                case ChickenReleaseFilter.Specific:
-                    // Validate the exact bird before the capacity test: a
-                    // target that died (or is missing) must not keep a slot.
-                    available &= targets != null
-                        && surviving != null
-                        && i < targets.Count
-                        && surviving.Contains(targets[i]);
-                    break;
-                default:
-                    available = false;
-                    break;
+                marks.RemoveAt(i);
             }
-
-            if (!available)
-            {
-                requests.RemoveAt(i);
-                if (targets != null && i < targets.Count)
-                {
-                    targets.RemoveAt(i);
-                }
-                continue;
-            }
-
-            if (filter == ChickenReleaseFilter.AdultHen) adultsRequested++;
-            if (filter == ChickenReleaseFilter.Juvenile) juvenilesRequested++;
-            kept++;
-            i++;
         }
     }
 }
