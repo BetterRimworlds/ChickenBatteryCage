@@ -71,7 +71,8 @@ public static class CageHenIntake
 
     /**
      * Sets a held hen down on her holder's cell so she can be un-made like any
-     * other delivered bird. Returns true once nothing holds her any more.
+     * other delivered bird. Returns true once she has left whatever real
+     * container held her.
      *
      * Only called for a bird that is off the map: a spawned bird is already
      * standing where she belongs and must not be "dropped" again, which would
@@ -110,7 +111,12 @@ public static class CageHenIntake
             holder.TryDrop(hen, dropCell, map, ThingPlaceMode.Near, out Thing _);
         }
 
-        return hen.holdingOwner == null;
+        // A successful drop lets GenSpawn.Spawn clear the real holder and hand
+        // the bird to the map's spawned-things container, which is itself a
+        // ThingOwner, so holdingOwner is non-null again. Reaching the map —
+        // becoming spawned — is success; only a still-off-map bird whose
+        // holdingOwner survived the drop is genuinely stuck in a container.
+        return hen.Spawned || hen.holdingOwner == null;
     }
 
     /**
