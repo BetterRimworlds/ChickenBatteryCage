@@ -287,6 +287,59 @@ public static class CageNetwork
         return total;
     }
 
+    /// Summed daily demand of every live member of the cluster, since the feed
+    /// store — and therefore the fed interval — is shared.
+    public static float DemandPerDay(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.NutritionDemandPerDay;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * How many ticks of an elapsed interval the flock was actually fed.
+     *
+     * Laying is gated by access to feed, and the store is shared across the
+     * cluster, so an interval only earns eggs up to the point the pooled store
+     * covers the whole flock's demand. A store that runs dry partway through
+     * the interval stops earning there, instead of paying for the whole span.
+     * Returns the whole interval when feed is ample (or the flock has no
+     * demand).
+     *
+     * The result is a cluster aggregate, identical for every member. A caller
+     * crediting a whole cluster for one interval must resolve it once here
+     * rather than rescanning the cluster per cage.
+     */
+    public static int FedTicksWithin(IReadOnlyList<Building_ChickenBatteryCage> cluster, int elapsed)
+    {
+        float demandPerDay = DemandPerDay(cluster);
+        if (demandPerDay <= 0f)
+        {
+            return elapsed;
+        }
+
+        float stored = StoredNutrition(cluster);
+        if (stored <= 0f)
+        {
+            return 0;
+        }
+
+        double fedDays = stored / demandPerDay;
+        long covered = (long)(fedDays * CagedChickenMath.TicksPerDay);
+        if (covered >= elapsed)
+        {
+            return elapsed;
+        }
+
+        return (int)covered;
+    }
+
     /// Combined storage of every member, so a cluster buffers more feed than
     /// any single cage without changing the per-cage capacity rule.
     public static float NutritionCapacity(IReadOnlyList<Building_ChickenBatteryCage> cluster)
