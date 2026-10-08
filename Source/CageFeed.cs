@@ -34,6 +34,10 @@ public static class CageFeed
      * Whether a thing is suitable chicken feed. Prepared meals and meat are
      * rejected: a confined flock eats raw plant food, hay, and kibble, and
      * footing a lavish meal into the cage would be an expensive mistake.
+     *
+     * RimWorld 1.6 moved raw rice to the Seed food type (it doubles as
+     * sowing stock), so seed-class plant food must be accepted too or a rice
+     * farm cannot feed its cages at all.
      */
     public static bool Accepts(Thing thing)
     {
@@ -56,7 +60,9 @@ public static class CageFeed
             }
         }
 
-        return (def.ingestible.foodType & FoodTypeFlags.VegetableOrFruit) != 0;
+        const FoodTypeFlags plantFood =
+            FoodTypeFlags.VegetableOrFruit | FoodTypeFlags.Seed;
+        return (def.ingestible.foodType & plantFood) != 0;
     }
 
     public static float NutritionPerUnit(Thing thing)
