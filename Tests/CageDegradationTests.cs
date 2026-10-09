@@ -87,4 +87,30 @@ public class CageDegradationTests
         Assert.AreEqual(30f, CageDegradationMath.DaysUntilFailure(90f, 180f, 60f), 0.0001f);
         Assert.AreEqual(0f, CageDegradationMath.DaysUntilFailure(0f, 180f, 30f));
     }
+
+    [Test]
+    public void BadWeatherQuadruplesTheDecayRate()
+    {
+        Assert.AreEqual(4f, CageDegradationMath.WeatherMultiplier(true));
+        Assert.AreEqual(1f, CageDegradationMath.WeatherMultiplier(false));
+
+        float fair = CageDegradationMath.DamageOverTicks(180f, 30f, 250);
+        float foul = CageDegradationMath.DamageOverTicks(180f, 30f, 250, 4f);
+        Assert.AreEqual(fair * 4f, foul, 0.00001f);
+    }
+
+    [Test]
+    public void BadWeatherCutsTheRemainingDaysToAFraction()
+    {
+        Assert.AreEqual(7.5f,
+            CageDegradationMath.DaysUntilFailure(180f, 180f, 30f, 4f), 0.0001f);
+    }
+
+    [Test]
+    public void BadWeatherDoesNotSpeedUpTheCoreClock()
+    {
+        // The 30/60-day clock is the fair-weather baseline; a full fair window
+        // still exactly destroys the building.
+        Assert.AreEqual(180f, CageDegradationMath.DamageOverTicks(180f, 30f, 30 * Day, 1f), 0.0001f);
+    }
 }

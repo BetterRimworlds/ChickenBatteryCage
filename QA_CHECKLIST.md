@@ -29,7 +29,7 @@ warnings.
 - [ ] The store caps at **3.3 nutrition per bird (33 for a full ten-hen cage)** across the whole cluster; surplus food stays in the stockpile rather than being wasted.
 - [ ] When nutrition hits zero, hens pass through **hungry** and **starving** states — no starving pawns are spawned.
 - [ ] Starving birds recover once feed is hauled in.
-- [ ] **Unroofed cages keep running — then fall apart.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving, but the inspection panel now warns that the cage is unroofed and deteriorating. The exposed cage loses hit points and collapses after about **30 days if made of wood or steel**, or **60 days for any other material** — and it does so whether or not it is raining, foggy, or snowing.
+- [ ] **Unroofed cages keep running — then fall apart.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving, but the inspection panel now warns that the cage is unroofed and deteriorating. The exposed cage loses hit points and collapses after about **30 days if made of wood or steel**, or **60 days for any other material**. It rots whether or not the sky is clear, but **bad weather — rain, fog, or snow — makes it rot four times as fast**.
 - [ ] Re-roofing an unroofed cage before it collapses stops the damage; already-lost hit points are **not** restored automatically and must be repaired.
 - [ ] Save + reload preserves the cage's nutrition value exactly.
 

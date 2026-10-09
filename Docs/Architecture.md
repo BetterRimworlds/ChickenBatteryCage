@@ -37,7 +37,7 @@ per-bird work:
 | Nutrition | `nutritionStored`, `starvingTicks` | summed flock demand × elapsed time |
 | Laying | `eggProgress` | eligible-hen age curve × elapsed time × feed modifiers |
 | Mortality | death tallies | age hazard (hinged on species life expectancy) plus starvation hazard, rolled per evaluation interval |
-| Deterioration | hit points | unroofed cage takes damage so it fails in 30 days (wood/steel) or 60 (other materials) |
+| Deterioration | hit points | unroofed cage takes damage so it fails in 30 days (wood/steel) or 60 (other materials); bad weather quadruples the rate |
 
 Nutrition settles through `CageNetwork.SettleCluster`, which drains the cluster's
 shared store and accrues starvation exposure in a single call. Laying and

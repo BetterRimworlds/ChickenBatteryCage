@@ -1451,8 +1451,9 @@ public class Building_ChickenBatteryCage : Building
      * fixed clock so that, from full health, it fails after about thirty days
      * for wood or steel and sixty days for any other material. A roof covering
      * every occupied cell shelters the cage and stops the damage, but damage
-     * already suffered is not undone — the player must repair it. Weather is
-     * irrelevant: the cage decays whether or not it is raining or snowing.
+     * already suffered is not undone — the player must repair it. Bad weather
+     * rots the exposed cage four times as fast; fair weather does not pause the
+     * clock, so it still rots even when the sky is merely clear and dry.
      */
     void EvaluateDegradation()
     {
@@ -1466,7 +1467,8 @@ public class Building_ChickenBatteryCage : Building
         float damage = CageDegradationMath.DamageOverTicks(
             MaxHitPoints,
             exposureDays,
-            GenTicks.TickRareInterval);
+            GenTicks.TickRareInterval,
+            CageDegradationMath.WeatherMultiplier(IsBadWeather()));
 
         degradationDamageCarry += damage;
 
@@ -1478,6 +1480,15 @@ public class Building_ChickenBatteryCage : Building
 
         degradationDamageCarry -= whole;
         TakeDamage(new DamageInfo(DamageDefOf.Deterioration, whole));
+    }
+
+    /// True while the current weather is one of the game's flagged bad
+    /// weathers — rain, fog, snow, a thunderstorm — which rots an unroofed cage
+    /// four times as fast.
+    bool IsBadWeather()
+    {
+        WeatherDef weather = Map?.weatherManager?.curWeather;
+        return weather != null && weather.isBad;
     }
 
     /// True while every cell the cage occupies is under a roof. A single bare
@@ -1501,7 +1512,11 @@ public class Building_ChickenBatteryCage : Building
     {
         float exposureDays = CageDegradationMath.ExposureDays(
             CageDegradationMath.IsWoodOrSteel(Stuff?.defName));
-        return CageDegradationMath.DaysUntilFailure(HitPoints, MaxHitPoints, exposureDays);
+        return CageDegradationMath.DaysUntilFailure(
+            HitPoints,
+            MaxHitPoints,
+            exposureDays,
+            CageDegradationMath.WeatherMultiplier(IsBadWeather()));
     }
 
     /// Accrues exposure before nutrition settlement or population changes.

@@ -17,8 +17,9 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * A roofed cage is sheltered and never decays. Once it is open to the sky the
  * cage corrodes or rots away on a fixed clock, taking damage continuously so it
  * fails after a known number of days: wood and steel give way fastest, every
- * other material lasts twice as long. Weather is deliberately ignored — an open
- * cage is exposed whether or not it happens to be raining or snowing.
+ * other material lasts twice as long. The clock runs in fair weather and foul
+ * alike, but bad weather — rain, fog, snow, a thunderstorm — makes the cage rot
+ * four times as fast.
  */
 public static class CageDegradationMath
 {
@@ -27,6 +28,9 @@ public static class CageDegradationMath
 
     /// Days an unroofed cage of any other material survives.
     public const float OtherMaterialExposureDays = 60f;
+
+    /// How much faster an unroofed cage rots while the weather is bad.
+    public const float BadWeatherMultiplier = 4f;
 
     /// The two stuff defs that decay on the faster clock: common structural
     /// wood and plain steel.
@@ -47,33 +51,57 @@ public static class CageDegradationMath
         return woodOrSteel ? WoodOrSteelExposureDays : OtherMaterialExposureDays;
     }
 
+    /// The decay-rate factor for the current weather: four while it is bad,
+    /// otherwise the normal rate.
+    public static float WeatherMultiplier(bool badWeather)
+    {
+        return badWeather ? BadWeatherMultiplier : 1f;
+    }
+
     /**
      * Damage to deal over an elapsed unroofed window so that, applied
-     * continuously from full health, the building reaches zero hit points
-     * exactly when the exposure clock runs out.
+     * continuously from full health in fair weather, the building reaches zero
+     * hit points exactly when the exposure clock runs out. A weather multiplier
+     * of four (bad weather) drains it four times as fast.
      */
-    public static float DamageOverTicks(float maxHitPoints, float exposureDays, int elapsedTicks)
+    public static float DamageOverTicks(
+        float maxHitPoints,
+        float exposureDays,
+        int elapsedTicks,
+        float weatherMultiplier = 1f)
     {
-        if (maxHitPoints <= 0f || exposureDays <= 0f || elapsedTicks <= 0)
+        if (maxHitPoints <= 0f
+            || exposureDays <= 0f
+            || elapsedTicks <= 0
+            || weatherMultiplier <= 0f)
         {
             return 0f;
         }
 
         float totalTicks = exposureDays * CagedChickenMath.TicksPerDay;
-        return maxHitPoints * elapsedTicks / totalTicks;
+        return maxHitPoints * elapsedTicks / totalTicks * weatherMultiplier;
     }
 
     /**
      * Days left before an unroofed cage of this material would fail, given its
-     * current health. A cage at full health reports the whole clock.
+     * current health and the weather. A cage at full health in fair weather
+     * reports the whole clock; bad weather shortens it in step with the faster
+     * damage.
      */
-    public static float DaysUntilFailure(float hitPoints, float maxHitPoints, float exposureDays)
+    public static float DaysUntilFailure(
+        float hitPoints,
+        float maxHitPoints,
+        float exposureDays,
+        float weatherMultiplier = 1f)
     {
-        if (hitPoints <= 0f || maxHitPoints <= 0f || exposureDays <= 0f)
+        if (hitPoints <= 0f
+            || maxHitPoints <= 0f
+            || exposureDays <= 0f
+            || weatherMultiplier <= 0f)
         {
             return 0f;
         }
 
-        return hitPoints / maxHitPoints * exposureDays;
+        return hitPoints / maxHitPoints * exposureDays / weatherMultiplier;
     }
 }
