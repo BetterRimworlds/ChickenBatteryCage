@@ -24,6 +24,9 @@
     <Compile Include="..\Source\CageSaveSize.cs" Link="CageSaveSize.cs" />
     <Compile Include="..\Source\CagedChickenValidation.cs" Link="CagedChickenValidation.cs" />
     <Compile Include="..\Source\DairyFeedRules.cs" Link="DairyFeedRules.cs" />
+    <Compile Include="..\Source\CageWasteMath.cs" Link="CageWasteMath.cs" />
+    <Compile Include="..\Source\FertilizerTerrainRules.cs" Link="FertilizerTerrainRules.cs" />
+    <Compile Include="..\Source\FertilizerSpreadMath.cs" Link="FertilizerSpreadMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

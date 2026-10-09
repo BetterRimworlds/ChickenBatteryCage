@@ -25,7 +25,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public static class CageChickenFactory
 {
-    public static Pawn Generate(CagedChickenRecord record, Map map, IntVec3 near)
+    public static Pawn Generate(CagedChickenRecord record, Map map, IntVec3 near, float toxicSeverity = 0f)
     {
         Pawn chicken = Reconstruct(record, map, GenTicks.TicksAbs);
         if (chicken == null)
@@ -41,6 +41,9 @@ public static class CageChickenFactory
             return null;
         }
 
+        // The flock's accumulated virtual Toxic Buildup becomes a real Hediff on
+        // the bird the moment she crosses back onto the map.
+        CageToxicBuildup.Apply(chicken, toxicSeverity);
         return chicken;
     }
 

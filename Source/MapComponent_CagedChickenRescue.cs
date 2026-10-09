@@ -50,14 +50,14 @@ public class MapComponent_CagedChickenRescue : MapComponent
     /// recorded alongside the record so the eventual release can cut its
     /// intake off and stop handlers from roping the freed bird back in.
     public void Preserve(CagedChickenRecord record, IntVec3 near, bool injured,
-        IReadOnlyList<Building_ChickenBatteryCage> originNetwork)
+        IReadOnlyList<Building_ChickenBatteryCage> originNetwork, float toxicBuildup = 0f)
     {
         if (record == null)
         {
             return;
         }
 
-        stranded.Add(new StrandedCagedChicken(record, near, injured, originNetwork));
+        stranded.Add(new StrandedCagedChicken(record, near, injured, originNetwork, toxicBuildup));
     }
 
     /// Owns either the existing body or the dead record until placement works.
@@ -178,7 +178,7 @@ public class MapComponent_CagedChickenRescue : MapComponent
                 }
                 continue;
             }
-            Pawn chicken = CageChickenFactory.Generate(entry.record, map, entry.near);
+            Pawn chicken = CageChickenFactory.Generate(entry.record, map, entry.near, entry.toxicBuildup);
             if (chicken == null)
             {
                 // Still stranded; keep the record and try again next interval.

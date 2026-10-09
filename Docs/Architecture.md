@@ -95,6 +95,63 @@ the release threshold described above. The pooled pull-out keeps every member's
 fractions summing to the same total, so no fractional egg is lost at a cluster
 boundary.
 
+## Manure, fertilizer, and sanitation
+
+Manure follows the same elapsed-time rule as feed, laying, and mortality:
+
+| Subsystem | State | Rule |
+|---|---|---|
+| Manure | `wastePacks` | hen count × elapsed time × one pack per fifty hen-days |
+| Cleaning | `NeedsCleaning` | cluster waste past its flock-scaled threshold yields whole packs |
+| Toxicity | `toxicBuildup` | vanilla polluted-ground gain above the safe band, vanilla recovery below |
+
+No per-chicken waste object exists. `CageNetwork.SettleCluster` bills each
+member's own flock for the elapsed interval in the same call that drains feed
+and accrues mortality, so waste is measured once per cluster and summing the
+members never double counts. The persisted total is per cage, so the cluster is
+an aggregate on read and cleaning, exactly like the feed pool and egg box.
+
+Cleaning removes only whole packs and scales the remainder back across the
+members (`CageNetwork.WithdrawWaste` via `CageClusterMath.ScaleToTotal`), so the
+fraction survives a service on any member. Each whole pack becomes one
+real `CBC_FertilizerPack` stack on the ground.
+
+A Fertilizer Pack is a real spawned `Thing`, but a passive one: it ticks at the
+rare interval, counts down its own per-stack dissolution timer, and once per ten
+days consumes one pack and transforms terrain. Its comp is a deliberate rewrite
+of vanilla `CompDissolution` with every toxic effect removed.
+
+### Fertilizer spread
+
+The spread is a faithful reproduction of `PollutionUtility.GrowPollutionAt`,
+because the vanilla routine is hard wired to `map.pollutionGrid` and cannot be
+pointed at terrain. The mechanics live in the Verse-free
+`FertilizerSpreadMath.GrowAt`: improve the root, flood-fill the already-improved
+ground reachable from it, seed a best-first queue with the improvable frontier,
+then repeatedly take the most attractive cell and push its neighbours. The
+map-facing `FertilizerSpread` supplies the same Perlin-noise comparator vanilla
+uses, so the blob is as ragged as a pollution patch, and the flood/patch are
+encoded in the terrain itself rather than a per-cell dictionary: a cell that is
+already soil counts as improved and is never re-selected.
+
+`FertilizerTerrainRules` is the pure table. Sand, gravel, and the game's own
+generated rough-stone terrains become soil; constructed terrain and water are
+simply absent. Any building edifice — natural rock wall or player structure —
+blocks the spread.
+
+### Toxic Buildup
+
+While a chicken is confined the condition is a single cage-level severity.
+`CageWasteMath.ToxicBuildupAfter` integrates it over the elapsed interval,
+splitting exactly at the safe-waste crossing so a long settlement equals several
+short ones. The gain (0.4/day) and recovery (0.08/day) are vanilla's own
+numbers, and the lethal threshold is read from `ToxicBuildup.lethalSeverity`.
+Above the onset severity the cage adds a capped daily death chance, folded into
+the existing mortality roll, so a poisoned flock dies off gradually. When a hen
+is materialized, `CageToxicBuildup.Apply` gives her the real `ToxicBuildup`
+Hediff at the stored severity, so the virtual condition becomes visible on the
+map.
+
 ## Safety
 
 Loaded state is sanitized on `PostLoadInit`: cheap fields are clamped into

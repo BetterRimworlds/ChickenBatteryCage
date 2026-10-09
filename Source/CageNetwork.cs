@@ -495,6 +495,11 @@ public static class CageNetwork
 
         float stored = StoredNutrition(cluster);
         int birds = ChickenCount(cluster);
+
+        // Waste is read before it accrues so the toxicity step integrates from
+        // the density the flock actually began the interval with.
+        float wasteAtStart = WastePacks(cluster);
+
         // A negative starting duration represents the feed still available.
         // Once that duration reaches zero, the empty-store clock begins.
         double starvingDaysAtStart = CageMortalityMath.StarvingDaysAtStart(
@@ -523,6 +528,12 @@ public static class CageNetwork
             elapsed);
 
         WriteNutrition(cluster, remaining, starving);
+
+        // Manure is billed to each cage's own flock over the same elapsed
+        // interval, so a member is never counted twice, and the flock's virtual
+        // Toxic Buildup is advanced from the pooled waste density.
+        AccrueManure(cluster, elapsed);
+        UpdateToxicBuildup(cluster, wasteAtStart, birds, elapsed);
     }
 
     static int WorstStarvingTicks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
@@ -657,6 +668,143 @@ public static class CageNetwork
             {
                 cage.StarvingTicks = starvingTicks;
                 cage.FeedTopUpRequested = requested;
+            }
+        }
+    }
+
+    // ---- Manure, cleaning, and virtual Toxic Buildup ---------------------
+
+    /// Pack-equivalents of manure pooled across the whole cluster.
+    public static float WastePacks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.WastePacks;
+            }
+        }
+        return total;
+    }
+
+    /// The waste gauge's full mark for the cluster, scaled to the flock size.
+    public static float WasteCapacity(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.CapacityPacks(ChickenCount(cluster));
+    }
+
+    /// Pack-equivalents at which a cleaner is asked to visit the cluster.
+    public static float CleaningThresholdPacks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.CleaningThresholdPacks(ChickenCount(cluster));
+    }
+
+    /// The highest virtual Toxic Buildup severity any member carries. Members
+    /// are kept in step, so this is the flock's severity.
+    public static float ToxicBuildup(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float worst = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage) && cage.ToxicBuildup > worst)
+            {
+                worst = cage.ToxicBuildup;
+            }
+        }
+        return worst;
+    }
+
+    /// How dirty the cluster is, for the work giver and the inspection readout.
+    public static CageWasteMath.CleaningStatus CleaningStatus(
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.ClassifyCleaning(WastePacks(cluster), ChickenCount(cluster));
+    }
+
+    public static bool NeedsCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CleaningStatus(cluster) != CageWasteMath.CleaningStatus.Clean;
+    }
+
+    /**
+     * Removes <paramref name="amount"/> of manure from the cluster after a
+     * cleaning. Survivors scale their own stored waste down in proportion, so
+     * the fractional remainder is spread across the network rather than
+     * stranded on one member, exactly as the egg box is withdrawn.
+     */
+    public static void WithdrawWaste(IReadOnlyList<Building_ChickenBatteryCage> cluster, float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        int count = cluster.Count;
+        var stored = new float[count];
+        var result = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            stored[i] = Alive(cluster[i]) ? cluster[i].WastePacks : 0f;
+        }
+
+        float remaining = WastePacks(cluster) - amount;
+        if (remaining < 0f)
+        {
+            remaining = 0f;
+        }
+
+        CageClusterMath.ScaleToTotal(remaining, stored, result);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Alive(cluster[i]))
+            {
+                cluster[i].WastePacksValue = result[i];
+            }
+        }
+    }
+
+    /// Bills each member's own flock for the elapsed interval. A cage with no
+    /// birds accrues nothing, so summing the members is never double counting.
+    static void AccrueManure(IReadOnlyList<Building_ChickenBatteryCage> cluster, int elapsed)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.AccrueManure(elapsed);
+            }
+        }
+    }
+
+    /// Advances the flock's virtual Toxic Buildup from the pooled density and
+    /// writes the single result back to every member, the same way the shared
+    /// starvation clock is mirrored.
+    static void UpdateToxicBuildup(
+        IReadOnlyList<Building_ChickenBatteryCage> cluster,
+        float wasteAtStart,
+        int birds,
+        int elapsed)
+    {
+        if (birds <= 0 || elapsed <= 0)
+        {
+            return;
+        }
+
+        float current = ToxicBuildup(cluster);
+        float updated = CageWasteMath.ToxicBuildupAfter(
+            current,
+            wasteAtStart,
+            birds,
+            elapsed,
+            CageWasteMath.LethalSeverity);
+
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.ToxicBuildupValue = updated;
             }
         }
     }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<!-- A compacted pack of processed chicken manure. It is the beneficial
+	     inverse of a vanilla Toxic Wastepack: it dissolves on the same kind of
+	     per-stack timer and improves six cells of natural ground each time it
+	     does, but it produces no pollution, no tox gas, and no infestation. -->
+	<ThingDef ParentName="ResourceBase">
+		<defName>CBC_FertilizerPack</defName>
+		<label>fertilizer pack</label>
+		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly decomposes and builds a layer of fertile soil over the land around it, reclaiming sand, stony soil, and bare cave stone into ground crops can grow in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack dissolves roughly every ten days, and each one improves about six nearby cells.</description>
+		<graphicData>
+			<texPath>Things/Item/Resource/FertilizerPack</texPath>
+			<graphicClass>Graphic_StackCount</graphicClass>
+		</graphicData>
+		<soundInteract>Standard_Drop</soundInteract>
+		<soundDrop>Standard_Drop</soundDrop>
+		<stackLimit>5</stackLimit>
+		<statBases>
+			<Beauty>-8</Beauty>
+			<MarketValue>0</MarketValue>
+			<Mass>5</Mass>
+			<Flammability>0.5</Flammability>
+			<DeteriorationRate>0</DeteriorationRate>
+			<MaxHitPoints>60</MaxHitPoints>
+		</statBases>
+		<thingCategories>
+			<li>ItemsMisc</li>
+		</thingCategories>
+		<comps>
+			<li Class="BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution">
+				<dissolutionAfterDays>10</dissolutionAfterDays>
+				<indoorsFactor>1</indoorsFactor>
+				<rainFactor>1</rainFactor>
+				<cellsImprovedPerPack>6</cellsImprovedPerPack>
+			</li>
+		</comps>
+		<tickerType>Rare</tickerType>
+	</ThingDef>
+</Defs>

@@ -52,4 +52,19 @@
 	<ChickenBatteryCage.Message.ReleasedOnDeconstruct>A deconstructed battery cage released {0} chickens.</ChickenBatteryCage.Message.ReleasedOnDeconstruct>
 	<ChickenBatteryCage.Message.ReleasedInjured>A destroyed battery cage spilled out {0} injured chickens.</ChickenBatteryCage.Message.ReleasedInjured>
 	<ChickenBatteryCage.Message.StrandedReleased>Freed {0} more chickens that were trapped when a battery cage was destroyed.</ChickenBatteryCage.Message.StrandedReleased>
+	<ChickenBatteryCage.Inspect.Waste>Waste:         {0}</ChickenBatteryCage.Inspect.Waste>
+	<ChickenBatteryCage.Inspect.Cleaning>Cleaning:      {0}</ChickenBatteryCage.Inspect.Cleaning>
+	<ChickenBatteryCage.Inspect.FertilizerYield>Fertilizer:    {0}</ChickenBatteryCage.Inspect.FertilizerYield>
+	<ChickenBatteryCage.Inspect.Toxicity>Toxic buildup: {0}</ChickenBatteryCage.Inspect.Toxicity>
+	<ChickenBatteryCage.Waste.Status>{0} / {1} packs</ChickenBatteryCage.Waste.Status>
+	<ChickenBatteryCage.Cleaning.Clean>clean</ChickenBatteryCage.Cleaning.Clean>
+	<ChickenBatteryCage.Cleaning.NeedsCleaning>needs cleaning</ChickenBatteryCage.Cleaning.NeedsCleaning>
+	<ChickenBatteryCage.Cleaning.Critical>critical</ChickenBatteryCage.Cleaning.Critical>
+	<ChickenBatteryCage.Fertilizer.Yield>{0} packs if cleaned now</ChickenBatteryCage.Fertilizer.Yield>
+	<ChickenBatteryCage.Toxic.Status>{0} ({1})</ChickenBatteryCage.Toxic.Status>
+	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>
+	<ChickenBatteryCage.Toxic.Increasing>increasing</ChickenBatteryCage.Toxic.Increasing>
+	<ChickenBatteryCage.Toxic.Recovering>recovering</ChickenBatteryCage.Toxic.Recovering>
+	<ChickenBatteryCage.Fertilizer.Frozen>Frozen: not dissolving.</ChickenBatteryCage.Fertilizer.Frozen>
+	<ChickenBatteryCage.Fertilizer.Dissolves>Dissolves every {0}.</ChickenBatteryCage.Fertilizer.Dissolves>
 </LanguageData>

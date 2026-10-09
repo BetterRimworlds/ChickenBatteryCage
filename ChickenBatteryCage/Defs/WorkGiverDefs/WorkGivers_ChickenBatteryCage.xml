@@ -41,4 +41,18 @@
 			<li>Manipulation</li>
 		</requiredCapacities>
 	</WorkGiverDef>
+	<WorkGiverDef>
+		<defName>CBC_CleanBatteryCages</defName>
+		<label>clean battery cages</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_CleanBatteryCages</giverClass>
+		<workType>Handling</workType>
+		<verb>clean</verb>
+		<gerund>cleaning</gerund>
+		<!-- Below loading and unloading so live birds are moved first, but above
+		     ordinary animal handling, so a dirty cage is serviced promptly. -->
+		<priorityInType>165</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
 </Defs>
