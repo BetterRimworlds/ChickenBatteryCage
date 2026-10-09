@@ -45,10 +45,14 @@ mortality run through the cage's private `ApplyEggProductionElapsed` and
 scheduled wrapper. `DebugSimulateTicks` drives all three in lockstep so the dev
 simulator can advance years of behaviour in a moment.
 
-Feed enters only through adjacent vanilla hoppers, and dairy is refused there:
-chickens cannot digest lactose, so milk stored in a hopper is never counted as
-feed or drawn by the cage. The pure classifier lives in `DairyFeedRules` and
-keys on the animal-product/fluid food type plus a player-extensible def list.
+Feed is hauled straight into the cage by ordinary colony work, never through a
+hopper: a hauler carries an approved raw plant, seed, hay, or kibble stack to
+the cage, tips its nutrition into the shared store, and the used food is
+destroyed on the spot. Dairy is refused: chickens cannot digest lactose, so
+milk is never accepted as feed. `CageFeed.IsForbiddenFeed` applies the ban,
+backed by the pure classifier in `DairyFeedRules`, which keys on the
+animal-product/fluid food type plus a player-extensible def list, and the ban
+can be lifted in mod settings.
 
 ## Touching cages are one giant cage
 
@@ -63,8 +67,8 @@ The shared feed pool is the one piece of genuinely shared mutable state. Every
 cage still persists its own `nutritionStored` and `starvingTicks`, but the
 cluster settles them as a unit: whichever member ticks first computes the
 cluster's summed demand and drains the combined store, writing the result back
-across the members proportionally (`CageClusterMath.Distribute`). A hopper
-bolted to any member feeds the whole cluster. Because the state stays per-cage
+across the members proportionally (`CageClusterMath.Distribute`). Feeding any
+one member tops up the whole cluster. Because the state stays per-cage
 on disk, no save migration is needed and a cage leaving the cluster keeps only
 its own share.
 
