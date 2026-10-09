@@ -7,6 +7,8 @@ from wood, steel, or glitterworld metals. Housed chickens are managed as a flock
 
 Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection.
 
+*Schrodinger's Chickens produce Schrodinger Eggs ^_^*
+
 ## Supported RimWorld Versions
 
 - RimWorld 1.6
