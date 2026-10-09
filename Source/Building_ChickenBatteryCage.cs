@@ -1157,7 +1157,7 @@ public class Building_ChickenBatteryCage : Building
      */
     public bool RequestUnloadSpecific(CagedChickenRecord record)
     {
-        if (record == null || !chickens.Contains(record) || pendingUnloads.Count >= chickens.Count)
+        if (record == null || !chickens.Contains(record) || pendingUnloads.Contains(record) || pendingUnloads.Count >= chickens.Count)
         {
             return false;
         }
