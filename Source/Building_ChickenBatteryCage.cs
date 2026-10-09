@@ -406,21 +406,46 @@ public class Building_ChickenBatteryCage : Building
     protected virtual string FeedInspectValue => "ChickenBatteryCage.Feed.Status".Translate(
         ClusterStoredNutrition.ToString("0.#"),
         ClusterNutritionCapacity.ToString("0.#"),
-        NutritionStateLabel);
+        DaysOfFeedLabel);
 
-    string NutritionStateLabel
+    /// How long the cluster's shared store lasts at the current flock's summed
+    /// appetite, phrased for the inspection panel. Fewer hens stretch the same
+    /// feed further; an empty flock never drains it, so it reports that rather
+    /// than a divide-by-zero.
+    string DaysOfFeedLabel
     {
         get
         {
-            switch (NutritionState)
+            int hens = CageNetwork.ChickenCount(CageNetwork.Cluster(this));
+            if (hens <= 0)
             {
-                case CageNutritionState.Starving:
-                    return "ChickenBatteryCage.Feed.StateStarving".Translate();
-                case CageNutritionState.Hungry:
-                    return "ChickenBatteryCage.Feed.StateHungry".Translate();
-                default:
-                    return "ChickenBatteryCage.Feed.StateFed".Translate();
+                return "ChickenBatteryCage.Feed.NoHens".Translate();
             }
+
+            // An empty store has no days of feed left to report. Only call it
+            // starving once the flock actually is; before the measured onset
+            // it is merely out of feed, not yet taking starvation damage.
+            if (ClusterStoredNutrition <= 0f)
+            {
+                return ClusterNutritionState == CageNutritionState.Starving
+                    ? "ChickenBatteryCage.Feed.Starving".Translate()
+                    : "ChickenBatteryCage.Feed.NoFeed".Translate();
+            }
+
+            float days = CageNutritionMath.DaysOfFeed(
+                ClusterStoredNutrition,
+                hens,
+                CageNutritionMath.DefaultNutritionPerChickenPerDay);
+
+            if (days < 1f)
+            {
+                return "ChickenBatteryCage.Feed.LessThanADay".Translate();
+            }
+
+            int wholeDays = (int)Math.Round(days);
+            return wholeDays <= 1
+                ? "ChickenBatteryCage.Feed.OneDay".Translate()
+                : "ChickenBatteryCage.Feed.Days".Translate(wholeDays);
         }
     }
 

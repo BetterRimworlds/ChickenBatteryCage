@@ -52,6 +52,11 @@ public static class CageFeed
             return false;
         }
 
+        if (IsForbiddenFeed(def))
+        {
+            return false;
+        }
+
         foreach (string name in NamedFeedDefs)
         {
             if (def.defName == name)
@@ -60,9 +65,57 @@ public static class CageFeed
             }
         }
 
+        // With the ban lifted, dairy (milk) is feed even though it is neither a
+        // named feed nor a raw plant; otherwise the setting would do nothing.
+        if (IsDairy(def))
+        {
+            return true;
+        }
+
         const FoodTypeFlags plantFood =
             FoodTypeFlags.VegetableOrFruit | FoodTypeFlags.Seed;
         return (def.ingestible.foodType & plantFood) != 0;
+    }
+
+    /**
+     * True when a food is banned from the cage's feed. Dairy is refused by
+     * default: chickens are not mammals and cannot digest lactose, so milk
+     * must never be accepted as feed. The ban can be lifted in mod settings.
+     */
+    public static bool IsForbiddenFeed(ThingDef def)
+    {
+        Settings settings = ChickenBatteryCage.Settings;
+        if (settings != null && !settings.forbidDairyInFeed)
+        {
+            return false;
+        }
+
+        return MatchesDairySignature(def, settings);
+    }
+
+    /// True when a def carries the dairy signature (an animal-product fluid, or
+    /// a listed name), whether or not the ban currently refuses it.
+    public static bool IsDairy(ThingDef def)
+    {
+        return MatchesDairySignature(def, ChickenBatteryCage.Settings);
+    }
+
+    /// Whether a def matches the dairy classifier. Both <see cref="IsDairy"/>
+    /// and <see cref="IsForbiddenFeed"/> share this so their food-type flags and
+    /// def-list handling cannot drift apart.
+    static bool MatchesDairySignature(ThingDef def, Settings settings)
+    {
+        if (def?.ingestible == null)
+        {
+            return false;
+        }
+
+        FoodTypeFlags foodType = def.ingestible.foodType;
+        bool isAnimalProduct = (foodType & FoodTypeFlags.AnimalProduct) != 0;
+        bool isFluid = (foodType & FoodTypeFlags.Fluid) != 0;
+
+        return DairyFeedRules.IsForbidden(
+            def.defName, isAnimalProduct, isFluid, settings?.ExtraForbiddenFeedDefNames);
     }
 
     public static float NutritionPerUnit(Thing thing)
@@ -108,6 +161,13 @@ public static class CageFeed
     public static void Feed(Building_ChickenBatteryCage cage, Thing stack)
     {
         if (cage == null || stack == null || stack.Destroyed)
+        {
+            return;
+        }
+
+        // The stack was chosen before the haul began, so re-check it: the feed
+        // rules (the dairy ban) can change while the hauler is in transit.
+        if (!Accepts(stack))
         {
             return;
         }
