@@ -107,7 +107,7 @@ warnings.
 
 *Per-chicken picker window, life-stage grouping, exact-record marks, network-wide flock.*
 
-- [ ] Selecting a cage's **"Hens: N / M"** capacity gizmo opens the picker window; the old per-kind unload menu stays reachable as a "Bulk..." shortcut.
+- [ ] Selecting a cage's **"Hens: N / M"** capacity gizmo opens the picker window.
 - [ ] The window lists **every chicken across the whole cage network**, grouped as chicks, juveniles, and adults, oldest-first within each group.
 - [ ] Each row shows the def's life-stage/sex label plus a 1-based number; the number is display-only and renumbers as the flock changes.
 - [ ] Ticking rows marks the **exact records**; "Select all/none" and per-stage selection work.

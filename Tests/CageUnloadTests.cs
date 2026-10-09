@@ -18,97 +18,55 @@ namespace BetterRimworlds.ChickenBatteryCage.Tests;
 public class CageUnloadTests
 {
     [Test]
-    public void CompetingAdultRequestsCannotReuseTheOnlyAdult()
+    public void DeadRecordMarkDoesNotHoldASlotFromALivingOne()
     {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile,
-        };
-        CageUnloadMath.Reconcile(requests, 3, 1, 2);
-        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile }, requests);
+        object dead = new object();
+        object alive = new object();
+        var marks = new List<object> { dead, alive };
+        var surviving = new List<object> { alive };
+
+        // The dead bird's mark must be dropped; the living bird is the only
+        // one left to release.
+        CageUnloadMath.Reconcile(marks, surviving);
+
+        CollectionAssert.AreEqual(new[] { alive }, marks);
     }
 
     [Test]
-    public void UnrestrictedRequestCanLeaveTheAdultForARestrictedRequest()
+    public void LivingRecordMarksKeepTheirSlots()
     {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.Random, ChickenReleaseFilter.AdultHen,
-        };
-        CageUnloadMath.Reconcile(requests, 2, 1, 1);
-        Assert.AreEqual(2, requests.Count);
+        object first = new object();
+        object second = new object();
+        var marks = new List<object> { first, second };
+        var surviving = new List<object> { first, second };
+
+        CageUnloadMath.Reconcile(marks, surviving);
+
+        CollectionAssert.AreEqual(new[] { first, second }, marks);
     }
 
     [Test]
-    public void EarlierRequestsWinWhenTotalPopulationShrinks()
+    public void ReconciliationPreservesQueueOrder()
     {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.Youngest, ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile,
-        };
-        CageUnloadMath.Reconcile(requests, 2, 1, 1);
-        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.Youngest, ChickenReleaseFilter.AdultHen }, requests);
+        object dropped = new object();
+        object first = new object();
+        object second = new object();
+        var marks = new List<object> { dropped, first, second };
+        var surviving = new List<object> { first, second };
+
+        CageUnloadMath.Reconcile(marks, surviving);
+
+        CollectionAssert.AreEqual(new[] { first, second }, marks);
     }
 
     [Test]
-    public void MissingCategoriesDoNotBlockLaterSatisfiableRequests()
+    public void ReconciliationEmptiesWhenNoBirdSurvives()
     {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile, ChickenReleaseFilter.Oldest,
-        };
-        CageUnloadMath.Reconcile(requests, 2, 0, 2);
-        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.Juvenile, ChickenReleaseFilter.Oldest }, requests);
-        CageUnloadMath.Reconcile(requests, 0, 0, 0);
-        Assert.IsEmpty(requests);
-    }
+        object first = new object();
+        var marks = new List<object> { first };
 
-    [Test]
-    public void AllRequestsSurviveReconciliationWhileBirdsRemain()
-    {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.All, ChickenReleaseFilter.All,
-        };
-        CageUnloadMath.Reconcile(requests, 2, 2, 0);
-        CollectionAssert.AreEqual(
-            new[] { ChickenReleaseFilter.All, ChickenReleaseFilter.All }, requests);
-    }
+        CageUnloadMath.Reconcile(marks, new List<object>());
 
-    [Test]
-    public void ExcessAllRequestsAreDroppedOnlyWhenTheFlockEmpties()
-    {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.All, ChickenReleaseFilter.All, ChickenReleaseFilter.All,
-        };
-        // A bird died after two All marks were queued: keep both, drop one.
-        CageUnloadMath.Reconcile(requests, 2, 2, 0);
-        CollectionAssert.AreEqual(
-            new[] { ChickenReleaseFilter.All, ChickenReleaseFilter.All }, requests);
-
-        // One more release succeeds: the last mark still has a bird to free.
-        CageUnloadMath.Reconcile(requests, 1, 1, 0);
-        Assert.AreEqual(1, requests.Count);
-
-        // The flock is gone: nothing remains to release.
-        CageUnloadMath.Reconcile(requests, 0, 0, 0);
-        Assert.IsEmpty(requests);
-    }
-
-    [Test]
-    public void MixedSelectorsAndAllRequestsShareTheShrinkingFlock()
-    {
-        var requests = new List<ChickenReleaseFilter>
-        {
-            ChickenReleaseFilter.All, ChickenReleaseFilter.AdultHen, ChickenReleaseFilter.Juvenile,
-        };
-        CageUnloadMath.Reconcile(requests, 3, 2, 1);
-        Assert.AreEqual(3, requests.Count);
-
-        // One hen and one juvenile died; the All mark covers the survivor,
-        // leaving no bird for the AdultHen mark.
-        CageUnloadMath.Reconcile(requests, 1, 1, 0);
-        CollectionAssert.AreEqual(new[] { ChickenReleaseFilter.All }, requests);
+        Assert.IsEmpty(marks);
     }
 }

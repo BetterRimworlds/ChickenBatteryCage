@@ -26,12 +26,13 @@ public static class CageHenIntake
      * Puts a delivered hen into her cage.
      *
      * The caller must deliver a spawnable, unowned hen. A small hen may still be
-     * carried in a handler's hands when the rope job reports her as arrived,
-     * so she is first set down out of whatever container holds her; only a
-     * holder that refuses to let go, or a bird that cannot reach the map, is
-     * refused with an error and left untouched. Returns false when the cage
-     * cannot accept her or she could not be freed; true means the record was
-     * captured and the Pawn unmade.
+     * held in a handler's hands when the rope job reports her as arrived, so an
+     * off-map bird is first set down out of whatever container holds her. A
+     * bird already standing on the map needs no such freeing. Only a holder
+     * that refuses to let go, or a bird that cannot reach the map, is refused
+     * with an error and left untouched. Returns false when the cage cannot
+     * accept her or she could not be freed; true means the record was captured
+     * and the Pawn unmade.
      */
     public static bool PutHenInCage(Building_ChickenBatteryCage cage, Pawn hen)
     {
@@ -40,18 +41,24 @@ public static class CageHenIntake
             return false;
         }
 
-        if (hen.holdingOwner != null && !TryFreeHeldHen(hen, cage))
-        {
-            Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is still held by " +
-                hen.holdingOwner + " and could not be set down. The hen was left untouched.");
-            return false;
-        }
-
+        // A spawned bird's holdingOwner is the map's spawned-things container,
+        // not a real holder; only a bird that is off the map can be genuinely
+        // held in a handler's hands, inventory, or a container.
         if (!hen.Spawned)
         {
-            Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is not on the map. " +
-                "The hen was left untouched.");
-            return false;
+            if (hen.holdingOwner != null && !TryFreeHeldHen(hen, cage))
+            {
+                Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is still held by " +
+                    hen.holdingOwner + " and could not be set down. The hen was left untouched.");
+                return false;
+            }
+
+            if (!hen.Spawned)
+            {
+                Log.Error("[ChickenBatteryCage] Refused to put a hen in a cage: she is not on the map. " +
+                    "The hen was left untouched.");
+                return false;
+            }
         }
 
         // Record first: if the unmaking below ever threw, the bird would at
@@ -64,46 +71,59 @@ public static class CageHenIntake
 
     /**
      * Sets a held hen down on her holder's cell so she can be un-made like any
-     * other delivered bird. Returns true once nothing holds her any more.
+     * other delivered bird. Returns true once she has left whatever real
+     * container held her.
+     *
+     * Only called for a bird that is off the map: a spawned bird is already
+     * standing where she belongs and must not be "dropped" again, which would
+     * only log "already spawned".
      */
     static bool TryFreeHeldHen(Pawn hen, Building_ChickenBatteryCage cage)
     {
         ThingOwner holder = hen.holdingOwner;
-        if (holder == null)
+        if (holder == null || hen.Spawned)
         {
             return true;
         }
 
-        Thing owner = holder.Owner as Thing;
-        Map map = owner != null ? owner.MapHeld : hen.MapHeld;
+        // A carry tracker or inventory resolves its root map and position
+        // through its holder, which the bird does for us here.
+        Map map = hen.MapHeld;
         if (map == null)
         {
             return false;
         }
 
-        IntVec3 dropCell = owner != null ? owner.PositionHeld : hen.PositionHeld;
+        IntVec3 dropCell = hen.PositionHeld;
         if (!dropCell.IsValid || !dropCell.InBounds(map))
         {
             dropCell = cage.Position;
         }
 
-        if (owner is Pawn carrier && carrier.carryTracker != null && carrier.carryTracker.CarriedThing == hen)
+        // The owner of a carry tracker's container is the tracker, not the
+        // Pawn, so the carried bird must be checked against the tracker.
+        if (holder.Owner is Pawn_CarryTracker carryTracker && carryTracker.CarriedThing == hen)
         {
-            carrier.carryTracker.TryDropCarriedThing(dropCell, ThingPlaceMode.Near, out Thing _);
+            carryTracker.TryDropCarriedThing(dropCell, ThingPlaceMode.Near, out Thing _);
         }
         else
         {
             holder.TryDrop(hen, dropCell, map, ThingPlaceMode.Near, out Thing _);
         }
 
-        return hen.holdingOwner == null;
+        // A successful drop lets GenSpawn.Spawn clear the real holder and hand
+        // the bird to the map's spawned-things container, which is itself a
+        // ThingOwner, so holdingOwner is non-null again. Reaching the map —
+        // becoming spawned — is success; only a still-off-map bird whose
+        // holdingOwner survived the drop is genuinely stuck in a container.
+        return hen.Spawned || hen.holdingOwner == null;
     }
 
     /**
      * A Pawn ceases to exist without the game recording a death: no corpse,
      * no death tale, no dead-pawn entry, no mourning. This mirrors the
      * destroy-and-discard path RimWorld itself uses when garbage collecting
-     * world pawns. The pawn must not be held by any container — being
+     * world pawns. The pawn must not be held by any real container — being
      * destroyed while owned is refused by the engine, so that is treated as a
      * contract violation here too.
      */
@@ -114,15 +134,18 @@ public static class CageHenIntake
             return;
         }
 
+        // Despawn first: a spawned pawn's holdingOwner is the map's
+        // spawned-things container, and despawning is what clears it. Only a
+        // holder that survives that is a genuine container.
+        if (pawn.Spawned)
+        {
+            pawn.DeSpawn(DestroyMode.Vanish);
+        }
+
         if (pawn.holdingOwner != null)
         {
             Log.Error("[ChickenBatteryCage] Refused to unmake " + pawn + ": it is still held by " + pawn.holdingOwner + ".");
             return;
-        }
-
-        if (pawn.Spawned)
-        {
-            pawn.DeSpawn(DestroyMode.Vanish);
         }
 
         // Scrub the references other pawns and colony systems keep to this one,

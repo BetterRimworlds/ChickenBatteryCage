@@ -12,11 +12,11 @@
 
   <ItemGroup>
     <Compile Include="..\Source\CagedChickenMath.cs" Link="CagedChickenMath.cs" />
+    <Compile Include="..\Source\CagedChickenStage.cs" Link="CagedChickenStage.cs" />
     <Compile Include="..\Source\CageNutrition.cs" Link="CageNutrition.cs" />
     <Compile Include="..\Source\CageClusterMath.cs" Link="CageClusterMath.cs" />
     <Compile Include="..\Source\CageFeedMath.cs" Link="CageFeedMath.cs" />
     <Compile Include="..\Source\CageMortalityMath.cs" Link="CageMortalityMath.cs" />
-    <Compile Include="..\Source\ChickenReleaseFilter.cs" Link="ChickenReleaseFilter.cs" />
     <Compile Include="..\Source\CageUnloadMath.cs" Link="CageUnloadMath.cs" />
     <Compile Include="..\Source\CageEggMath.cs" Link="CageEggMath.cs" />
     <Compile Include="..\Source\CagedChickenFields.cs" Link="CagedChickenFields.cs" />

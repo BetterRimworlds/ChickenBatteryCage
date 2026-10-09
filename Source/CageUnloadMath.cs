@@ -9,50 +9,27 @@
  * This file is licensed under the MIT License.
  */
 
-using System.Collections.Generic;
+using System.Collections;
 
 namespace BetterRimworlds.ChickenBatteryCage;
 
-/// Verse-free reconciliation of kind-selector requests with a surviving flock.
+/// Verse-free pruning of the exact-record unload queue.
 public static class CageUnloadMath
 {
-    public static void Reconcile(IList<ChickenReleaseFilter> requests, int birds, int adultHens, int juveniles)
+    /**
+     * Drops marks whose bird is no longer in the surviving flock. Every mark
+     * names one exact record, so a mark survives only while that record is
+     * still housed; a dead bird's stale mark must be dropped before any
+     * capacity test, or it would consume a slot a living mark needs.
+     */
+    public static void Reconcile(IList marks, IList surviving)
     {
-        int kept = 0;
-        int adultsRequested = 0;
-        int juvenilesRequested = 0;
-        for (int i = 0; i < requests.Count;)
+        for (int i = marks.Count - 1; i >= 0; i--)
         {
-            ChickenReleaseFilter filter = requests[i];
-            bool available = kept < birds;
-            switch (filter)
+            if (!surviving.Contains(marks[i]))
             {
-                case ChickenReleaseFilter.AdultHen:
-                    available &= adultsRequested < adultHens;
-                    break;
-                case ChickenReleaseFilter.Juvenile:
-                    available &= juvenilesRequested < juveniles;
-                    break;
-                case ChickenReleaseFilter.Random:
-                case ChickenReleaseFilter.Youngest:
-                case ChickenReleaseFilter.Oldest:
-                case ChickenReleaseFilter.All:
-                    break;
-                default:
-                    available = false;
-                    break;
+                marks.RemoveAt(i);
             }
-
-            if (!available)
-            {
-                requests.RemoveAt(i);
-                continue;
-            }
-
-            if (filter == ChickenReleaseFilter.AdultHen) adultsRequested++;
-            if (filter == ChickenReleaseFilter.Juvenile) juvenilesRequested++;
-            kept++;
-            i++;
         }
     }
 }
