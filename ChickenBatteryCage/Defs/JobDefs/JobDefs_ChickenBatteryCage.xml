@@ -19,4 +19,10 @@
 		<reportString>hauling feed to a battery cage.</reportString>
 		<casualInterruptible>false</casualInterruptible>
 	</JobDef>
+	<JobDef>
+		<defName>CBC_CleanBatteryCage</defName>
+		<driverClass>BetterRimworlds.ChickenBatteryCage.JobDriver_CleanBatteryCage</driverClass>
+		<reportString>cleaning a battery cage.</reportString>
+		<casualInterruptible>false</casualInterruptible>
+	</JobDef>
 </Defs>
