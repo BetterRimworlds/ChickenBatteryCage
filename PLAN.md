@@ -98,7 +98,7 @@ egg-production calculation
 | Cage footprint | 2×3 cells |
 | Capacity | 10 chickens |
 | Vertical tiers | 4 |
-| Roof requirement | Required |
+| Roof requirement | Required; unroofed cages deteriorate and fail in 30 days (wood/steel) or 60 (other materials) |
 | Water requirement | None, matching vanilla RimWorld animals |
 | Chicken identity | Not preserved |
 | Biological age | Preserved exactly |

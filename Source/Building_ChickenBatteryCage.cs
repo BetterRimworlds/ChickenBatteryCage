@@ -62,6 +62,11 @@ public class Building_ChickenBatteryCage : Building
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
 
+    /// Fractional exposure damage not yet handed to the building, kept below
+    /// one hit point. A slow drip is accumulated here so it becomes whole hit
+    /// points at a steady rate instead of being rounded away every rare tick.
+    protected float degradationDamageCarry;
+
     /// Developer-simulation clock offset. Never persisted, and always zero
     /// outside a run; the dev simulator advances it to age the flock quickly
     /// and clears it when the run ends, so normal play never sees a shifted
@@ -678,6 +683,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
         Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
+        Scribe_Values.Look(ref degradationDamageCarry, "degradationDamageCarry", 0f);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
 
         // The queue is saved as positions in "chickens", not deep copies:
@@ -747,6 +753,16 @@ public class Building_ChickenBatteryCage : Building
         if (starvingTicks < 0)
         {
             starvingTicks = 0;
+        }
+
+        // The degradation carry is only ever a fraction of one hit point. A
+        // corrupt value could otherwise dump a huge damage load on the cage in
+        // a single tick, so keep it inside [0, 1).
+        if (degradationDamageCarry < 0f
+            || degradationDamageCarry >= 1f
+            || float.IsNaN(degradationDamageCarry))
+        {
+            degradationDamageCarry = 0f;
         }
 
         // A tick marker that is future-dated or a corrupt negative loses no
@@ -827,6 +843,12 @@ public class Building_ChickenBatteryCage : Building
         if (!penSystemEnabled)
         {
             sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
+        }
+
+        if (Spawned && Map != null && !IsFullyRoofed())
+        {
+            int daysLeft = (int)Math.Round(DaysUntilDegradation());
+            sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate(daysLeft));
         }
 
         int clusterChickens = CageNetwork.ChickenCount(cluster);
@@ -1421,6 +1443,65 @@ public class Building_ChickenBatteryCage : Building
         EvaluateEggProduction();
         SettleNutrition();
         EvaluateMortality();
+        EvaluateDegradation();
+    }
+
+    /**
+     * An unroofed cage is open to the sky and falls apart: it takes damage on a
+     * fixed clock so that, from full health, it fails after about thirty days
+     * for wood or steel and sixty days for any other material. A roof covering
+     * every occupied cell shelters the cage and stops the damage, but damage
+     * already suffered is not undone — the player must repair it. Weather is
+     * irrelevant: the cage decays whether or not it is raining or snowing.
+     */
+    void EvaluateDegradation()
+    {
+        if (Destroyed || !Spawned || Map == null || IsFullyRoofed())
+        {
+            return;
+        }
+
+        float exposureDays = CageDegradationMath.ExposureDays(
+            CageDegradationMath.IsWoodOrSteel(Stuff?.defName));
+        float damage = CageDegradationMath.DamageOverTicks(
+            MaxHitPoints,
+            exposureDays,
+            GenTicks.TickRareInterval);
+
+        degradationDamageCarry += damage;
+
+        int whole = (int)degradationDamageCarry;
+        if (whole <= 0)
+        {
+            return;
+        }
+
+        degradationDamageCarry -= whole;
+        TakeDamage(new DamageInfo(DamageDefOf.Deterioration, whole));
+    }
+
+    /// True while every cell the cage occupies is under a roof. A single bare
+    /// cell is enough to expose the whole cage.
+    bool IsFullyRoofed()
+    {
+        foreach (IntVec3 cell in GenAdj.OccupiedRect(this))
+        {
+            if (!Map.roofGrid.Roofed(cell))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// Days left before this cage, if it stays unroofed, would fail. Used by
+    /// the inspection readout so a player can see the exposure clock running.
+    float DaysUntilDegradation()
+    {
+        float exposureDays = CageDegradationMath.ExposureDays(
+            CageDegradationMath.IsWoodOrSteel(Stuff?.defName));
+        return CageDegradationMath.DaysUntilFailure(HitPoints, MaxHitPoints, exposureDays);
     }
 
     /// Accrues exposure before nutrition settlement or population changes.
