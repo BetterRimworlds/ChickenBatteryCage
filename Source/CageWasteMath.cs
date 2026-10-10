@@ -43,10 +43,6 @@ public static class CageWasteMath
     /// cells, so one Fertilizer Pack improves six.
     public const int CellsImprovedPerPack = 6;
 
-    /// Days one pack in a stack takes to decompose. Vanilla wastepacks use a
-    /// per-stack dissolution timer; each stack is its own decomposition source.
-    public const float DecompositionDaysPerPack = 10f;
-
     /// Days of accumulation at which haulers are asked to clean a cage. A
     /// hundred-hen installation makes two packs a day, so this is the intended
     /// five-day service interval. Exposed so it can be rebalanced after play.
@@ -330,48 +326,12 @@ public static class CageWasteMath
         return CageMortalityMath.ExposureOverTicks(ToxicDailyChance(severity), ticks);
     }
 
-    /**
-     * The decomposition interval for one pack in a stack, mirroring vanilla
-     * CompDissolution's shape: a base interval, optionally shortened or
-     * lengthened by being indoors or rained on. The fertilizer pack leaves both
-     * factors at one, so the plain ten-day baseline holds wherever it rests.
-     */
-    public static int DecompositionIntervalTicks(
-        float days,
-        bool outdoors,
-        bool rainedOn,
-        float indoorsFactor = 1f,
-        float rainFactor = 1f)
+    /// Cells a dissolving stack strikes: six per pack by default. The whole
+    /// stack rots away at once, exactly as a stack of food does. Striking a
+    /// cell is not the same as transforming it; that takes three strikes.
+    public static int CellsImprovedByPacks(int packs, int cellsPerPack = CellsImprovedPerPack)
     {
-        if (days <= 0f)
-        {
-            return 0;
-        }
-
-        double ticks = CagedChickenMath.TicksPerDay * days;
-        if (!outdoors && indoorsFactor > 0f)
-        {
-            ticks /= indoorsFactor;
-        }
-
-        if (rainedOn && rainFactor > 0f)
-        {
-            ticks /= rainFactor;
-        }
-
-        if (ticks >= int.MaxValue)
-        {
-            return int.MaxValue;
-        }
-
-        return ticks < 0.0 ? 0 : (int)ticks;
-    }
-
-    /// One pack is removed from a stack when it decomposes; the stack shrinks
-    /// by one until it is empty.
-    public static int PacksAfterDissolution(int stackCount)
-    {
-        return stackCount <= 1 ? 0 : stackCount - 1;
+        return packs <= 0 || cellsPerPack <= 0 ? 0 : packs * cellsPerPack;
     }
 
     /// Days until the next whole pack accrues, for the inspection readout.

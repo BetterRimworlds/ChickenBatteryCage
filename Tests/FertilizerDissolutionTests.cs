@@ -14,59 +14,37 @@ using NUnit.Framework;
 namespace BetterRimworlds.ChickenBatteryCage.Tests;
 
 /**
- * Covers the per-stack fertilizer decomposition timer and the pure half of the
- * spread that does not need a live map.
+ * Covers how many cells a dissolving pack strikes. Transforming one of those
+ * cells takes three strikes. The dissolution interval itself is covered by
+ * FertilizerDissolutionMathTests.
  */
 [TestFixture]
 public class FertilizerDissolutionTests
 {
-    const int Day = CagedChickenMath.TicksPerDay;
-
-    [Test]
-    public void OnePackDecomposesEveryTenDays()
-    {
-        Assert.AreEqual(
-            10 * Day,
-            CageWasteMath.DecompositionIntervalTicks(CageWasteMath.DecompositionDaysPerPack,
-                outdoors: true, rainedOn: false));
-    }
-
-    [Test]
-    public void NineIndependentStacksEachLoseOnePack()
-    {
-        int[] stacks = { 5, 5, 5, 5, 5, 5, 5, 5, 5 };
-        int active = 0;
-        for (int i = 0; i < stacks.Length; i++)
-        {
-            if (stacks[i] > 0)
-            {
-                stacks[i] = CageWasteMath.PacksAfterDissolution(stacks[i]);
-                active++;
-            }
-        }
-
-        Assert.AreEqual(9, active);
-        foreach (int remaining in stacks)
-        {
-            Assert.AreEqual(4, remaining);
-        }
-    }
-
-    [Test]
-    public void AStackDissolvesOnePackAtATimeUntilEmpty()
-    {
-        int count = 3;
-        for (int i = 0; i < 3; i++)
-        {
-            count = CageWasteMath.PacksAfterDissolution(count);
-        }
-
-        Assert.AreEqual(0, count);
-    }
-
     [Test]
     public void OnePackImprovesSixCells()
     {
         Assert.AreEqual(6, CageWasteMath.CellsImprovedPerPack);
+    }
+
+    [Test]
+    public void AWholeStackImprovesSixCellsForEachPackItHolds()
+    {
+        Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(0));
+        Assert.AreEqual(6, CageWasteMath.CellsImprovedByPacks(1));
+        Assert.AreEqual(30, CageWasteMath.CellsImprovedByPacks(5));
+    }
+
+    [Test]
+    public void ConfiguredCellsPerPackIsHonoured()
+    {
+        Assert.AreEqual(4, CageWasteMath.CellsImprovedByPacks(2, 2));
+        Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(2, 0));
+    }
+
+    [Test]
+    public void NegativeOrEmptyStacksImproveNothing()
+    {
+        Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(-3));
     }
 }

@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Defs>
 	<!-- A compacted pack of processed chicken manure. It is the beneficial
-	     inverse of a vanilla Toxic Wastepack: it dissolves on the same kind of
-	     per-stack timer and improves six cells of natural ground each time it
-	     does, but it produces no pollution, no tox gas, and no infestation. -->
+	     inverse of a vanilla toxic wastepack: the same dissolution clock and
+	     the same deterioration rate, and fertile ground instead of pollution.
+	     One pack dissolves at a time. A cell changes only after three packs
+	     have struck it. It produces no pollution, no tox gas, and no infestation. -->
 	<ThingDef ParentName="ResourceBase">
 		<defName>CBC_FertilizerPack</defName>
 		<label>fertilizer pack</label>
-		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly decomposes and builds a layer of fertile soil over the land around it, reclaiming sand, stony soil, and bare cave stone into ground crops can grow in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack dissolves roughly every ten days, and each one improves about six nearby cells.</description>
+		<description>A compacted package of processed chicken manure that will slowly dissolve if not frozen. Left on natural ground, each pack that dissolves builds a layer of fertile soil over the land around it, reclaiming barren ground step by step: soft sand into sand, sand and bare cave stone into stony soil, stony soil into lichen-covered soil, lichen-covered soil into soil, and soil into ground crops grow best in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas.\n\nA grower can spread a pack into natural ground immediately, including the rough stone of an underground base. Left alone outdoors, one pack dissolves every eight days on natural ground, or every four days in the rain or snow. Indoors it does not dissolve on its own. On a constructed floor or a shelf it does not dissolve, and growers will not spread it. Freezing stops the clock. If the stack deteriorates or is otherwise destroyed, every pack left in it improves the ground at once. Each pack strikes about six cells. A cell takes one step along that progression only after three packs have struck it.</description>
 		<graphicData>
 			<texPath>Things/Item/Resource/FertilizerPack</texPath>
 			<graphicClass>Graphic_StackCount</graphicClass>
@@ -20,20 +21,20 @@
 			<MarketValue>0</MarketValue>
 			<Mass>5</Mass>
 			<Flammability>0.5</Flammability>
-			<DeteriorationRate>0</DeteriorationRate>
-			<MaxHitPoints>60</MaxHitPoints>
+			<!-- Same deterioration rate as a toxic wastepack. Max hit points
+			     stay at the resource default of 100. -->
+			<DeteriorationRate>4</DeteriorationRate>
 		</statBases>
 		<thingCategories>
 			<li>ItemsMisc</li>
 		</thingCategories>
 		<comps>
 			<li Class="BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution">
-				<dissolutionAfterDays>10</dissolutionAfterDays>
-				<indoorsFactor>1</indoorsFactor>
-				<rainFactor>1</rainFactor>
+				<dissolutionAfterDays>8</dissolutionAfterDays>
+				<dissolutionFactorRain>2</dissolutionFactorRain>
 				<cellsImprovedPerPack>6</cellsImprovedPerPack>
 			</li>
 		</comps>
-		<tickerType>Rare</tickerType>
+		<tickerType>Normal</tickerType>
 	</ThingDef>
 </Defs>

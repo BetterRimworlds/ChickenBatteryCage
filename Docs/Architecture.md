@@ -116,10 +116,19 @@ members (`CageNetwork.WithdrawWaste` via `CageClusterMath.ScaleToTotal`), so the
 fraction survives a service on any member. Each whole pack becomes one
 real `CBC_FertilizerPack` stack on the ground.
 
-A Fertilizer Pack is a real spawned `Thing`, but a passive one: it ticks at the
-rare interval, counts down its own per-stack dissolution timer, and once per ten
-days consumes one pack and transforms terrain. Its comp is a deliberate rewrite
-of vanilla `CompDissolution` with every toxic effect removed.
+A Fertilizer Pack is a real spawned `Thing` on the toxic-wastepack clock. It
+does not rot. `CompFertilizerDissolution` dissolves one pack per interval
+only while the pack's room uses the outdoor temperature and the pack sits on
+terrain the spread can grow from: eight days, or four in rain or snow (the
+weather rain rate above 0.1). Indoors the clock does not advance.
+`WorkGiver_SpreadFertilizer` lets a grower spend a short Growing job to
+dissolve one pack on natural ground immediately, including under a mountain
+roof. A constructed floor or a shelf does not advance the clock and is not a
+work target, so stored packs are not consumed. At or below 0°C the clock pauses. The def's deterioration rate is 4,
+with the default 100 hit points, so vanilla wear can still destroy the stack;
+lethal damage improves the ground for every pack left in it and then lets the
+damage remove the thing. Each dissolved pack improves six cells. There is no
+tox gas, no goodwill loss, and no wastepack infestation.
 
 ### Fertilizer spread
 

@@ -14,25 +14,22 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Def properties for a Fertilizer Pack's slow decomposition.
+ * Def properties for a Fertilizer Pack's dissolution.
  *
- * This mirrors the shape of vanilla CompProperties_Dissolution — a base number
- * of days and optional indoor and rain factors — but the defaults keep both
- * factors at one, so the plain ten-day-per-pack-per-stack baseline holds
- * wherever the pack rests.
+ * Outdoors, one pack dissolves every eight days on natural ground, and twice
+ * as fast in rain or snow. There is no indoor rate: a pack indoors waits until
+ * a grower spreads it or it is taken outside. Cells struck per pack is the
+ * beneficial opposite of a wastepack's six polluted cells.
  */
 public class CompProperties_FertilizerDissolution : CompProperties
 {
-    /// Days one pack in a stack takes to decompose.
-    public float dissolutionAfterDays = CageWasteMath.DecompositionDaysPerPack;
+    /// Days between dissolving one pack outdoors in fair weather.
+    public float dissolutionAfterDays = FertilizerDissolutionMath.DaysToDissolve;
 
-    /// Multiplier on the interval while indoors. One keeps the baseline.
-    public float indoorsFactor = 1f;
+    /// Divides the interval while rain or snow is falling on an outdoor pack.
+    public float dissolutionFactorRain = FertilizerDissolutionMath.RainFactor;
 
-    /// Multiplier on the interval while being rained on. One keeps the baseline.
-    public float rainFactor = 1f;
-
-    /// Terrain cells improved per pack that dissolves.
+    /// Cells struck per pack that dissolves. A cell transforms on its third strike.
     public int cellsImprovedPerPack = CageWasteMath.CellsImprovedPerPack;
 
     public CompProperties_FertilizerDissolution()

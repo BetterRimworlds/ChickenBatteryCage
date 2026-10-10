@@ -9,6 +9,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -16,83 +17,145 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Slowly improves the ground under a Fertilizer Pack.
+ * Dissolves a Fertilizer Pack the way a toxic wastepack dissolves, and leaves
+ * fertile ground instead of pollution.
  *
- * The implementation mirrors vanilla CompDissolution's pattern — a per-stack
- * elapsed-tick counter, a frozen pack pausing, and one pack consumed each
- * interval — but deliberately drops every toxic behaviour: no pollution, no tox
- * gas, no wastepack infestation, no faction retaliation. A stack standing on
- * the ground releases one pack every ten days and improves six cells with it,
- * which is exactly the beneficial inverse of one wastepack polluting six.
+ * Dried fertilizer does not dissolve indoors, so the clock runs only in a room
+ * that uses the outdoor temperature, and only on natural ground. One pack
+ * leaves the stack every eight days, or every four days in rain or snow. A
+ * constructed floor or a shelf never starts it. An underground base is indoors,
+ * so a pack there waits until a grower spreads it. At freezing or below the
+ * clock also waits. There is no food-rot timer. Hit-point deterioration is the
+ * wastepack's own rate, and any damage that destroys the stack — wear, fire, a
+ * smash — improves the ground for every pack still in it, then lets the damage
+ * destroy the thing.
  *
- * The timer runs on the rare tick rather than every tick: a pack can wait
- * patiently, so it does not need per-tick attention.
+ * A <c>./build.sh fast</c> build keeps those factors and shortens the outdoor
+ * base from eight days to one.
  */
 public class CompFertilizerDissolution : ThingComp
 {
+    /// Ticks accumulated toward the next single pack. Reset after each one.
     int dissolveTicks;
 
     CompProperties_FertilizerDissolution Props => (CompProperties_FertilizerDissolution)props;
 
+    float Days
+    {
+        get
+        {
+#if CBC_FAST_DECOMPOSITION
+            return FertilizerDissolutionMath.FastDays;
+#else
+            return Props.dissolutionAfterDays;
+#endif
+        }
+    }
+
+    /// True while the pack's room uses the outdoor temperature, as wastepacks define it.
     bool IsOutdoors
     {
         get
         {
             Map map = parent.MapHeld;
-            if (map != null)
+            if (map == null)
             {
-                Room room = parent.Position.GetRoom(map);
-                if (room != null && room.UsesOutdoorTemperature)
-                {
-                    return true;
-                }
+                return false;
             }
 
-            return false;
+            Room room = parent.PositionHeld.GetRoom(map);
+            return room != null && room.UsesOutdoorTemperature;
         }
     }
 
-    /// A frozen pack is inert, exactly as a frozen wastepack is.
     bool IsFrozen => parent.AmbientTemperature <= 0f;
 
+    /// True when this pack is on ground a patch can grow from, and not on a shelf.
+    bool SitsOnWorkingGround
+    {
+        get
+        {
+            if (KeptOnShelf())
+            {
+                return false;
+            }
+
+            Map map = parent.MapHeld;
+            if (map == null)
+            {
+                return false;
+            }
+
+            TerrainDef terrain = parent.PositionHeld.GetTerrain(map);
+            return terrain != null && FertilizerTerrainRules.AnchorsSpread(terrain.defName);
+        }
+    }
+
+    /// A shelf or similar building holds the pack in storage even over cave stone.
+    bool KeptOnShelf()
+    {
+        IThingHolder holder = parent.ParentHolder;
+        for (int i = 0; i < 8 && holder != null; i++)
+        {
+            if (holder is Thing thing && thing.def?.building?.preventDeteriorationOnTop == true)
+            {
+                return true;
+            }
+
+            holder = holder.ParentHolder;
+        }
+
+        Map map = parent.Map;
+        if (map == null || !parent.Spawned)
+        {
+            return false;
+        }
+
+        Building edifice = parent.Position.GetEdifice(map);
+        return edifice != null
+            && edifice.def.building != null
+            && edifice.def.building.preventDeteriorationOnTop;
+    }
+
+    /// Rain or snow on an outdoor pack. A roof does not matter; the room does.
     bool IsBeingRainedOn
     {
         get
         {
-            WeatherManager weather = parent.MapHeld?.weatherManager;
-            return IsOutdoors && weather?.curWeather != null && weather.curWeather.rainRate > 0.1f;
+            if (!IsOutdoors)
+            {
+                return false;
+            }
+
+            WeatherDef weather = parent.MapHeld?.weatherManager?.curWeather;
+            return weather != null && FertilizerDissolutionMath.CountsAsRain(weather.rainRate);
         }
     }
 
-    /// Ticks between one pack dissolving and the next in this stack.
-    public int DissolutionIntervalTicks => CageWasteMath.DecompositionIntervalTicks(
-        Props.dissolutionAfterDays,
-        IsOutdoors,
+    int IntervalTicks => FertilizerDissolutionMath.IntervalTicks(
+        Days,
         IsBeingRainedOn,
-        Props.indoorsFactor,
-        Props.rainFactor);
+        Props.dissolutionFactorRain);
 
-    public override void CompTickRare()
+    public override void CompTick()
     {
-        base.CompTickRare();
+        base.CompTick();
 
-        if (parent == null || parent.Destroyed || parent.MapHeld == null || IsFrozen)
+        if (parent == null || parent.Destroyed || parent.MapHeld == null
+            || IsFrozen || !IsOutdoors || !SitsOnWorkingGround)
         {
             return;
         }
 
-        dissolveTicks += GenTicks.TickRareInterval;
-        int interval = DissolutionIntervalTicks;
-        if (interval > 0 && dissolveTicks >= interval)
+        dissolveTicks++;
+        if (dissolveTicks >= IntervalTicks)
         {
             TriggerDissolution(1);
         }
     }
 
-    /// Dissolves up to <paramref name="amount"/> packs and improves the ground
-    /// for each, returning how many cells were improved. Also used when the
-    /// pack is destroyed by force, so a smashed pack still fertilizes the
-    /// ground rather than vanishing.
+    /// Improves the ground for up to <paramref name="amount"/> packs and
+    /// removes them. Also used by dev tools. Returns how many cells were struck.
     public int TriggerDissolution(int amount)
     {
         if (parent == null || parent.Destroyed || parent.MapHeld == null)
@@ -106,11 +169,7 @@ public class CompFertilizerDissolution : ThingComp
             return 0;
         }
 
-        int improved = FertilizerSpread.GrowAt(
-            parent.PositionHeld,
-            parent.MapHeld,
-            toDissolve * Props.cellsImprovedPerPack);
-
+        int improved = ImproveGround(toDissolve);
         parent.stackCount -= toDissolve;
         dissolveTicks = 0;
 
@@ -122,18 +181,43 @@ public class CompFertilizerDissolution : ThingComp
         return improved;
     }
 
+    /// Strikes ground for packs that are about to be destroyed by damage.
+    /// The stack is left in place so the damage itself can remove it.
+    int ImproveGround(int packs)
+    {
+        if (packs <= 0 || parent?.MapHeld == null)
+        {
+            return 0;
+        }
+
+        // Each pack makes its own six-cell strike. Laying all of a stack's
+        // packs down as one disjoint patch would never put the three strikes
+        // on a cell that a terrain step needs, so a stack spread at once would
+        // do nothing at all until the same ground was struck again.
+        int improved = 0;
+        for (int i = 0; i < packs; i++)
+        {
+            improved += FertilizerSpread.GrowAt(
+                parent.PositionHeld,
+                parent.MapHeld,
+                Props.cellsImprovedPerPack);
+        }
+
+        return improved;
+    }
+
     public override void PostPreApplyDamage(ref DamageInfo dinfo, out bool absorbed)
     {
         base.PostPreApplyDamage(ref dinfo, out absorbed);
 
-        if (absorbed || parent == null || parent.Destroyed)
+        if (absorbed || parent == null || parent.Destroyed || parent.MapHeld == null)
         {
             return;
         }
 
         if (dinfo.Def != null && dinfo.Def.harmsHealth && dinfo.Amount >= parent.HitPoints)
         {
-            TriggerDissolution(parent.stackCount);
+            ImproveGround(parent.stackCount);
         }
     }
 
@@ -145,12 +229,62 @@ public class CompFertilizerDissolution : ThingComp
 
     public override string CompInspectStringExtra()
     {
+        if (parent == null || parent.Destroyed)
+        {
+            return null;
+        }
+
+        if (!IsOutdoors)
+        {
+            return "ChickenBatteryCage.Fertilizer.Indoors".Translate();
+        }
+
+        if (!SitsOnWorkingGround)
+        {
+            return "ChickenBatteryCage.Fertilizer.Stored".Translate();
+        }
+
         if (IsFrozen)
         {
             return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
         }
 
-        return "ChickenBatteryCage.Fertilizer.Dissolves".Translate(
-            DissolutionIntervalTicks.ToStringTicksToPeriod());
+        string line = "ChickenBatteryCage.Fertilizer.DissolvesEvery".Translate(
+            IntervalTicks.ToStringTicksToPeriod());
+
+        var reasons = new List<string>();
+        if (IsBeingRainedOn)
+        {
+            reasons.Add(
+                "ChickenBatteryCage.Fertilizer.Rain".Translate()
+                + " x" + Props.dissolutionFactorRain.ToStringPercent());
+        }
+
+        if (reasons.Count == 0)
+        {
+            return line;
+        }
+
+        return line + " (" + reasons.ToLineList().CapitalizeFirst() + ")";
+    }
+
+    public override IEnumerable<Gizmo> CompGetGizmosExtra()
+    {
+        if (!DebugSettings.ShowDevGizmos)
+        {
+            yield break;
+        }
+
+        yield return new Command_Action
+        {
+            defaultLabel = "DEV: Fertilizer dissolve one pack",
+            action = delegate { TriggerDissolution(1); },
+        };
+
+        yield return new Command_Action
+        {
+            defaultLabel = "DEV: Fertilizer dissolve stack now",
+            action = delegate { TriggerDissolution(parent.stackCount); },
+        };
     }
 }

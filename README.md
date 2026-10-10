@@ -78,18 +78,25 @@ behind, so no manure is lost between visits.
 ### Fertilizer packs
 
 Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
-stack five to a tile and dissolve on the same kind of per-stack timer: **one
-pack decomposes every ten days**. Nine stacked sources therefore release nine
-packs every ten days until spent. They produce no pollution, no tox gas, and no
-infestations.
+use the same dissolution clock and the same deterioration rate, and they stack
+five to a tile. **One pack dissolves at a time** on natural ground: every
+eight days on natural ground, or every four days in the rain or snow. Indoors
+it does not dissolve on its own. A grower can spread a pack immediately
+instead: right-click it and choose spread fertilizer, or leave Growing
+enabled and the work is picked up after sowing. Rough cave stone counts, so a
+pack in an underground base can be spread at once. On a constructed floor or
+a shelf the clock waits and growers will not spread it. Freezing stops the clock and keeps its progress. They produce no pollution, no
+tox gas, and no infestations.
 
-When a pack decomposes it improves **six cells of natural ground**, using the
-same irregular, outward-creeping cell selection that vanilla pollution uses.
-Repeated decomposition grows the fertile patch outward the same way repeated
-wastepack dissolution grows a polluted one. Sand, stony soil, and rough natural
-cave stone become ordinary **soil**; constructed floors, bridges, roads, water,
-and buildings are never touched, and natural rock walls block the spread exactly
-as they block pollution.
+If the stack deteriorates or is otherwise destroyed, every pack still in it
+improves the ground at once, the same way a destroyed wastepack pollutes for
+every pack it held. Each dissolved pack improves **six cells of
+natural ground**, using the same irregular, outward-creeping cell selection that
+vanilla pollution uses. Repeated dissolution grows the fertile patch outward the
+same way repeated wastepack dissolution grows a polluted one. Sand, stony soil,
+and rough natural cave stone become ordinary **soil**; constructed floors,
+bridges, roads, water, and buildings are never touched, and natural rock walls
+block the spread exactly as they block pollution.
 
 For scale, a hundred hens make enough fertilizer in a year to improve roughly
 **720 cells**: a genuine terraforming project for desert, sandy, underground, or
