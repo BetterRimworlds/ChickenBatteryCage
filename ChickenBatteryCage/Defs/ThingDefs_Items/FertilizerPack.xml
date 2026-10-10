@@ -7,7 +7,7 @@
 	<ThingDef ParentName="ResourceBase">
 		<defName>CBC_FertilizerPack</defName>
 		<label>fertilizer pack</label>
-		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly spoils and builds a layer of fertile soil over the land around it, reclaiming sand, stony soil, and bare cave stone into ground crops can grow in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack keeps as food keeps: warmth rots it in about ten days, cold holds it back, and freezing stops it outright. When the stack rots away it leaves about six improved cells behind for every pack it held.</description>
+		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly spoils and builds a layer of fertile soil over the land around it, reclaiming barren ground step by step: soft sand into sand, sand and bare cave stone into stony soil, stony soil into lichen-covered soil, lichen-covered soil into soil, and soil into ground crops grow best in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack keeps as food keeps: warmth rots it in about ten days, cold holds it back, and freezing stops it outright. When the stack rots away it leaves about six improved cells behind for every pack it held.</description>
 		<graphicData>
 			<texPath>Things/Item/Resource/FertilizerPack</texPath>
 			<graphicClass>Graphic_StackCount</graphicClass>

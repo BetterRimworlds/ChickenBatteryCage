@@ -135,13 +135,15 @@ ground reachable from it, seed a best-first queue with the improvable frontier,
 then repeatedly take the most attractive cell and push its neighbours. The
 map-facing `FertilizerSpread` supplies the same Perlin-noise comparator vanilla
 uses, so the blob is as ragged as a pollution patch, and the flood/patch are
-encoded in the terrain itself rather than a per-cell dictionary: a cell that is
-already soil counts as improved and is never re-selected.
+encoded in the terrain itself rather than a per-cell dictionary: finished ground
+counts as improved and is never re-selected.
 
-`FertilizerTerrainRules` is the pure table. Sand, gravel, and the game's own
-generated rough-stone terrains become soil; constructed terrain and water are
-simply absent. Any building edifice — natural rock wall or player structure —
-blocks the spread.
+`FertilizerTerrainRules` is the pure table. It runs a progression from the
+barren grounds up toward rich soil — soft sand to sand to stony soil to
+lichen-covered soil to soil to rich soil, marshy soil to stony soil, and the
+game's own generated rough-stone terrains to stony soil. Constructed terrain
+and water are simply absent. Any building edifice — natural rock wall or player
+structure — blocks the spread.
 
 ### Toxic Buildup
 

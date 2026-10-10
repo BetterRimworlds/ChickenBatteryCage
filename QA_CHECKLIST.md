@@ -178,13 +178,16 @@ style terrain improvement, and virtualized Toxic Buildup.*
       once, exactly as a stack of raw corn is destroyed all at once.
 - [ ] Each pack the stack held improves **six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
-- [ ] Sand, stony soil (gravel), and rough natural cave stone become **soil**;
-      the resulting patch is comparable in size and raggedness to the pollution
-      patch the same number of wastepacks would make.
+- [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand
+      and rough natural cave stone → stony soil, stony soil → lichen-covered
+      soil, marshy soil → stony soil, lichen-covered soil → soil, and soil →
+      rich soil; the resulting patch is comparable in size and raggedness to the
+      pollution patch the same number of wastepacks would make.
 - [ ] Constructed floors, bridges, roads, water, and buildings are never
       replaced; natural rock walls block the spread exactly as they block
       pollution.
-- [ ] Ground that is already soil is left alone rather than re-improved.
+- [ ] Ground that is already rich soil or riverbank is left alone rather than
+      re-improved.
 - [ ] Fertilizer never creates pollution, tox gas, or wastepack infestations.
 
 **Toxic buildup**
