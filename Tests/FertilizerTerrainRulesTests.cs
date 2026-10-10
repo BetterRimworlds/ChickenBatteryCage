@@ -15,49 +15,171 @@ namespace BetterRimworlds.ChickenBatteryCage.Tests;
 
 /**
  * Pins the fertilizer terrain table: what becomes what, what already counts as
- * improved, and what is left strictly alone.
+ * finished, and what is left strictly alone.
  */
 [TestFixture]
 public class FertilizerTerrainRulesTests
 {
     [Test]
-    public void SandBecomesSoil()
+    public void SoftSandBecomesSand()
     {
-        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("Sand"));
-        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("SoftSand"));
+        Assert.AreEqual(FertilizerTerrainRules.Sand, FertilizerTerrainRules.TargetFor("SoftSand"));
     }
 
     [Test]
-    public void GravelBecomesSoil()
+    public void SandBecomesGravel()
     {
-        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("Gravel"));
+        Assert.AreEqual(FertilizerTerrainRules.Gravel, FertilizerTerrainRules.TargetFor("Sand"));
     }
 
     [Test]
-    public void RoughNaturalCaveStoneBecomesSoil()
+    public void GravelBecomesMossyTerrain()
     {
-        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("Granite_Rough"));
-        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("Slate_RoughHewn"));
+        Assert.AreEqual(FertilizerTerrainRules.MossyTerrain, FertilizerTerrainRules.TargetFor("Gravel"));
     }
 
     [Test]
-    public void ExistingSoilIsAlreadyImproved()
+    public void MossyTerrainBecomesSoil()
     {
-        Assert.IsTrue(FertilizerTerrainRules.IsImproved("Soil"));
+        Assert.AreEqual(FertilizerTerrainRules.Soil, FertilizerTerrainRules.TargetFor("MossyTerrain"));
+    }
+
+    [Test]
+    public void SoilBecomesRichSoil()
+    {
+        Assert.AreEqual(FertilizerTerrainRules.SoilRich, FertilizerTerrainRules.TargetFor("Soil"));
+    }
+
+    [Test]
+    public void MarshyTerrainBecomesGravel()
+    {
+        Assert.AreEqual(FertilizerTerrainRules.Gravel, FertilizerTerrainRules.TargetFor("MarshyTerrain"));
+    }
+
+    [Test]
+    public void RoughNaturalCaveStoneBecomesGravel()
+    {
+        Assert.AreEqual(FertilizerTerrainRules.Gravel, FertilizerTerrainRules.TargetFor("Granite_Rough"));
+        Assert.AreEqual(FertilizerTerrainRules.Gravel, FertilizerTerrainRules.TargetFor("Slate_RoughHewn"));
+    }
+
+    [Test]
+    public void MinedOutRoughHewnStoneQualifiesEvenThoughVanillaLeavesNaturalUnset()
+    {
+        // TerrainDefGenerator_Stone only sets natural on *_Rough; every
+        // *_RoughHewn terrain keeps the default false.
+        Assert.IsTrue(FertilizerTerrainRules.CanConvert(
+            "Sandstone_RoughHewn",
+            natural: false,
+            isWater: false,
+            isFoundation: false,
+            isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.CanConvert(
+            "Granite_Rough",
+            natural: true,
+            isWater: false,
+            isFoundation: false,
+            isFloor: false));
+    }
+
+    [Test]
+    public void AnyNaturalGroundQualifiesAndUnlistedGroundFallsBackToGravel()
+    {
+        Assert.IsTrue(FertilizerTerrainRules.CanConvert(
+            "Mud",
+            natural: true,
+            isWater: false,
+            isFoundation: false,
+            isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.CanConvert(
+            "FungalGravel",
+            natural: true,
+            isWater: false,
+            isFoundation: false,
+            isFloor: false));
+
+        // Mud carries its own natural succession; unknown ground becomes stony
+        // soil and then joins the normal progression.
+        Assert.AreEqual(
+            FertilizerTerrainRules.Soil,
+            FertilizerTerrainRules.TargetForConvertible("Mud", "Soil"));
+        Assert.AreEqual(
+            FertilizerTerrainRules.Gravel,
+            FertilizerTerrainRules.TargetForConvertible("FungalGravel", null));
+    }
+
+    [Test]
+    public void SmoothedBuiltWaterAndFoundationTerrainIsNotConvertible()
+    {
+        Assert.IsFalse(FertilizerTerrainRules.CanConvert(
+            "Sandstone_Smooth",
+            natural: false,
+            isWater: false,
+            isFoundation: false,
+            isFloor: true));
+        Assert.IsFalse(FertilizerTerrainRules.CanConvert(
+            "Concrete",
+            natural: false,
+            isWater: false,
+            isFoundation: false,
+            isFloor: true));
+        Assert.IsFalse(FertilizerTerrainRules.CanConvert(
+            "Soil",
+            natural: true,
+            isWater: false,
+            isFoundation: true,
+            isFloor: false));
+        Assert.IsFalse(FertilizerTerrainRules.CanConvert(
+            "Marsh",
+            natural: true,
+            isWater: true,
+            isFoundation: false,
+            isFloor: false));
+        Assert.IsFalse(FertilizerTerrainRules.CanConvert(
+            "Sandstone_RoughHewn",
+            natural: false,
+            isWater: false,
+            isFoundation: true,
+            isFloor: false));
+    }
+
+    [Test]
+    public void RichSoilIsAlreadyFinished()
+    {
         Assert.IsTrue(FertilizerTerrainRules.IsImproved("SoilRich"));
-        Assert.IsNull(FertilizerTerrainRules.TargetFor("Soil"));
+        Assert.IsTrue(FertilizerTerrainRules.IsImproved("Riverbank"));
+        Assert.IsNull(FertilizerTerrainRules.TargetFor("SoilRich"));
+        Assert.IsNull(FertilizerTerrainRules.TargetFor("Riverbank"));
     }
 
     [Test]
-    public void ACaveFloorAnchorsAPatchAndAConstructedFloorDoesNot()
+    public void IntermediateGroundIsNotYetFinished()
     {
-        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Granite_Rough"));
-        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Granite_RoughHewn"));
-        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Soil"));
-        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("SoilRich"));
-        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("Concrete"));
-        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("PavedTile"));
-        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("WaterDeep"));
+        Assert.IsFalse(FertilizerTerrainRules.IsImproved("Soil"));
+        Assert.IsFalse(FertilizerTerrainRules.IsImproved("Gravel"));
+        Assert.IsFalse(FertilizerTerrainRules.IsImproved("MossyTerrain"));
+        Assert.IsFalse(FertilizerTerrainRules.IsImproved("MarshyTerrain"));
+    }
+
+    [Test]
+    public void NaturalGroundAndFinishedGroundAnchorAPatchButFloorsAndWaterDoNot()
+    {
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread(
+            "Granite_Rough", natural: true, isWater: false, isFoundation: false, isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread(
+            "Granite_RoughHewn", natural: false, isWater: false, isFoundation: false, isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread(
+            "Soil", natural: true, isWater: false, isFoundation: false, isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread(
+            "SoilRich", natural: true, isWater: false, isFoundation: false, isFloor: false));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread(
+            "Mud", natural: true, isWater: false, isFoundation: false, isFloor: false));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread(
+            "Concrete", natural: false, isWater: false, isFoundation: false, isFloor: true));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread(
+            "Sandstone_Smooth", natural: false, isWater: false, isFoundation: false, isFloor: true));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread(
+            "WaterDeep", natural: true, isWater: true, isFoundation: false, isFloor: false));
     }
 
     [Test]
@@ -68,11 +190,7 @@ public class FertilizerTerrainRulesTests
         Assert.IsNull(FertilizerTerrainRules.TargetFor("Bridge"));
         Assert.IsNull(FertilizerTerrainRules.TargetFor("BrokenAsphalt"));
         Assert.IsNull(FertilizerTerrainRules.TargetFor("WaterDeep"));
-    }
-
-    [Test]
-    public void GravelIsNotYetImproved()
-    {
-        Assert.IsFalse(FertilizerTerrainRules.IsImproved("Gravel"));
+        Assert.IsNull(FertilizerTerrainRules.TargetFor("Mud"));
+        Assert.IsNull(FertilizerTerrainRules.TargetFor("Ice"));
     }
 }

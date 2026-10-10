@@ -21,10 +21,11 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * fertile ground instead of pollution.
  *
  * Dried fertilizer does not dissolve indoors, so the clock runs only in a room
- * that uses the outdoor temperature, and only on natural ground. One pack
+ * that uses the outdoor temperature, and only over improvable ground. One pack
  * leaves the stack every eight days, or every four days in rain or snow. A
- * constructed floor or a shelf never starts it. An underground base is indoors,
- * so a pack there waits until a grower spreads it. At freezing or below the
+ * shelf never starts it; constructed floors preserve their surface while the
+ * ground underneath improves. Natural rock roofs prevent spreading altogether.
+ * In constructed rooms, a grower can spread it manually. At freezing or below the
  * clock also waits. There is no food-rot timer. Hit-point deterioration is the
  * wastepack's own rate, and any damage that destroys the stack — wear, fire, a
  * smash — improves the ground for every pack still in it, then lets the damage
@@ -86,8 +87,8 @@ public class CompFertilizerDissolution : ThingComp
                 return false;
             }
 
-            TerrainDef terrain = parent.PositionHeld.GetTerrain(map);
-            return terrain != null && FertilizerTerrainRules.AnchorsSpread(terrain.defName);
+            return FertilizerSpread.IsImprovedCell(parent.PositionHeld, map)
+                || FertilizerSpread.CanImproveCell(parent.PositionHeld, map);
         }
     }
 

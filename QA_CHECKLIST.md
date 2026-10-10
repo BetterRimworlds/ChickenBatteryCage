@@ -190,13 +190,18 @@ style terrain improvement, and virtualized Toxic Buildup.*
       ground says it will not dissolve.
 - [ ] Each pack the stack held improves **six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
-- [ ] Sand, stony soil (gravel), and rough natural cave stone become **soil**;
-      the resulting patch is comparable in size and raggedness to the pollution
-      patch the same number of wastepacks would make.
-- [ ] Constructed floors, bridges, roads, water, and buildings are never
+- [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand
+      and rough natural cave stone → stony soil, stony soil → lichen-covered
+      soil, marshy soil → stony soil, lichen-covered soil → soil, and soil →
+      rich soil; the resulting patch is comparable in size and raggedness to the
+      pollution patch the same number of wastepacks would make.
+- [ ] Any other natural ground converts too: mud → soil directly, and natural
+      ground with no succession of its own → stony soil first.
+- [ ] Smoothed floors, built floors, bridges, water, and buildings are never
       replaced; natural rock walls block the spread exactly as they block
       pollution.
-- [ ] Ground that is already soil is left alone rather than re-improved.
+- [ ] Ground that is already rich soil or riverbank is left alone rather than
+      re-improved.
 - [ ] Fertilizer never creates pollution, tox gas, or wastepack infestations.
 
 **Toxic buildup**

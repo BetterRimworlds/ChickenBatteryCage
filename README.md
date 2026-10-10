@@ -93,10 +93,14 @@ improves the ground at once, the same way a destroyed wastepack pollutes for
 every pack it held. Each dissolved pack improves **six cells of
 natural ground**, using the same irregular, outward-creeping cell selection that
 vanilla pollution uses. Repeated dissolution grows the fertile patch outward the
-same way repeated wastepack dissolution grows a polluted one. Sand, stony soil,
-and rough natural cave stone become ordinary **soil**; constructed floors,
-bridges, roads, water, and buildings are never touched, and natural rock walls
-block the spread exactly as they block pollution.
+same way repeated wastepack dissolution grows a polluted one. Fertilizer works
+a progression up toward rich **soil**: soft sand becomes sand, sand and rough
+natural cave stone become stony soil, stony soil becomes lichen-covered soil,
+marshy soil becomes stony soil, lichen-covered soil becomes soil, and soil
+becomes rich soil. Any other natural ground converts too: mud dries straight to
+soil, and ground with no succession of its own becomes stony soil first. Only
+smoothed floors, built floors, bridges, water, and buildings are never touched,
+and natural rock walls block the spread exactly as they block pollution.
 
 For scale, a hundred hens make enough fertilizer in a year to improve roughly
 **720 cells**: a genuine terraforming project for desert, sandy, underground, or

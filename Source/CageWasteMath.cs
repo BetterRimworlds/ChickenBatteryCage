@@ -38,9 +38,10 @@ public static class CageWasteMath
     /// of manure a day, and a pack stands for roughly 5 kg of it.
     public const float PacksPerHenPerDay = 1f / 50f;
 
-    /// Improved terrain cells produced when one pack decomposes. Deliberately
-    /// symmetrical with vanilla pollution: one Toxic Wastepack pollutes six
-    /// cells, so one Fertilizer Pack improves six.
+    /// Cells one pack strikes when it dissolves. Deliberately symmetrical with
+    /// vanilla pollution: one Toxic Wastepack pollutes six cells, so one
+    /// Fertilizer Pack strikes six. A cell does not transform until
+    /// <see cref="FertilizerChargeMath.PacksToTransform"/> packs have struck it.
     public const int CellsImprovedPerPack = 6;
 
     /// Days of accumulation at which haulers are asked to clean a cage. A

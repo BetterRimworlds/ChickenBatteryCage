@@ -24,11 +24,11 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * class supplies the three things that need a live map:
  *
  *   - the improved/can-improve predicates, taken from the terrain table and the
- *     block on any building edifice;
+ *     block on natural rock roofs;
  *   - the Perlin-noise score, copied from PollutionUtility.PollutionCellComparer
  *     so the patch is irregular exactly the way players recognize from
  *     pollution; and
- *   - the terrain change itself.
+ *   - the terrain change itself, which a cell earns only on its third strike.
  *
  * Why the algorithm is reproduced rather than reused: GrowPollutionAt is hard
  * wired to map.pollutionGrid and sets a pollution flag on every cell it visits.
@@ -47,8 +47,9 @@ public static class FertilizerSpread
     const float PerlinNoiseFactor = 2f;
 
     /**
-     * Improves up to <paramref name="cellCount"/> cells, growing outward from
-     * <paramref name="root"/>, and returns how many cells actually changed.
+     * Strikes up to <paramref name="cellCount"/> cells, growing outward from
+     * <paramref name="root"/>, and returns how many cells were struck. A cell's
+     * terrain changes only on its third strike.
      */
     public static int GrowAt(IntVec3 root, Map map, int cellCount)
     {
@@ -90,45 +91,63 @@ public static class FertilizerSpread
     /// through these cells to reach the poor ground beyond them.
     public static bool IsImprovedCell(IntVec3 cell, Map map)
     {
-        TerrainDef terrain = cell.GetTerrain(map);
+        if (map == null || !cell.InBounds(map) || HasNaturalRoof(cell, map))
+        {
+            return false;
+        }
+
+        TerrainDef terrain = GroundAt(cell, map);
         return terrain != null && FertilizerTerrainRules.IsImproved(terrain.defName);
     }
 
     /**
-     * True when a cell is natural, unconstructed ground the table knows how to
-     * improve. Constructed floors, bridges, roads, water, and every building —
-     * including natural rock walls — fail this test, so the spread can neither
-     * see nor replace them, mirroring how a natural rock wall blocks vanilla
-     * pollution.
+     * True when a cell has ground fertilizer may improve. Floors, buildings,
+     * and constructed roofs do not block treatment of the ground underneath.
+     * Natural rock roofs block both treatment and traversal, even on rich soil.
      */
     public static bool CanImproveCell(IntVec3 cell, Map map)
     {
-        if (!cell.InBounds(map))
+        if (map == null || !cell.InBounds(map) || HasNaturalRoof(cell, map))
         {
             return false;
         }
 
-        TerrainDef terrain = cell.GetTerrain(map);
-        if (terrain == null || !terrain.natural || terrain.IsWater || terrain.isFoundation)
+        TerrainDef terrain = GroundAt(cell, map);
+        if (terrain == null
+            || !FertilizerTerrainRules.CanConvert(
+                terrain.defName,
+                terrain.natural,
+                terrain.IsWater,
+                terrain.isFoundation,
+                terrain.IsFloor))
         {
             return false;
         }
 
-        if (FertilizerTerrainRules.TargetFor(terrain.defName) == null)
-        {
-            return false;
-        }
+        return true;
+    }
 
-        // Any building on the cell stops the spread: natural rock walls and
-        // player-built structures are both boundaries.
-        return cell.GetEdifice(map) == null;
+    /// Uses buried ground when a floor or other terrain layer covers it.
+    static TerrainDef GroundAt(IntVec3 cell, Map map)
+    {
+        return map.terrainGrid.UnderTerrainAt(cell) ?? cell.GetTerrain(map);
+    }
+
+    static bool HasNaturalRoof(IntVec3 cell, Map map)
+    {
+        RoofDef roof = map.roofGrid.RoofAt(cell);
+        return roof != null && roof.isNatural;
     }
 
     /// The terrain a cell would become, or null when it cannot be improved.
     static TerrainDef TerrainTargetAt(IntVec3 cell, Map map)
     {
-        TerrainDef terrain = cell.GetTerrain(map);
-        string targetName = terrain == null ? null : FertilizerTerrainRules.TargetFor(terrain.defName);
+        TerrainDef terrain = GroundAt(cell, map);
+        string targetName = terrain == null
+            ? null
+            : FertilizerTerrainRules.TargetForConvertible(
+                terrain.defName,
+                terrain.driesTo?.defName);
         if (targetName == null)
         {
             return null;
@@ -138,10 +157,17 @@ public static class FertilizerSpread
         return target ?? TerrainDefOf.Soil;
     }
 
-    /// Applies the terrain change for one chosen cell.
+    /// Records one pack striking a chosen cell. The terrain changes only when
+    /// this is the third strike since the cell last transformed.
     static bool ApplyImprovement(IntVec3 cell, Map map)
     {
-        if (!cell.InBounds(map))
+        if (!CanImproveCell(cell, map))
+        {
+            return false;
+        }
+
+        MapComponent_FertilizerCharge charges = map.GetComponent<MapComponent_FertilizerCharge>();
+        if (charges == null || !charges.RecordHit(cell))
         {
             return false;
         }
@@ -152,7 +178,14 @@ public static class FertilizerSpread
             return false;
         }
 
-        map.terrainGrid.SetTerrain(cell, target);
+        if (map.terrainGrid.UnderTerrainAt(cell) != null)
+        {
+            map.terrainGrid.SetUnderTerrain(cell, target);
+        }
+        else
+        {
+            map.terrainGrid.SetTerrain(cell, target);
+        }
         return true;
     }
 

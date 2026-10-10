@@ -9,51 +9,68 @@
  * This file is licensed under the MIT License.
  */
 
+using System.Collections.Generic;
+
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
  * The Verse-free terrain table the fertilizer spread consults.
  *
  * Fertilizer stands for both nutrients and accumulated organic material, so a
- * pack can build a soil layer over otherwise infertile mineral ground. The
- * first implementation reclaims sand, gravel, and rough natural cave stone into
- * ordinary soil. Nothing constructed — floors, bridges, roads, water, or
- * buildings — is ever touched; those are simply absent from the table, so the
- * spread can neither see nor replace them.
+ * pack builds a richer layer over poorer natural ground. The progression runs
+ * from the barren grounds up toward rich soil:
+ *
+ *     SoftSand -> Sand -> Gravel -> MossyTerrain -> Soil -> SoilRich
+ *     MarshyTerrain -> Gravel
+ *     every rough natural stone -> Gravel
+ *
+ * Any other natural ground also qualifies. A terrain with its own driesTo
+ * target follows that (mud dries to soil); anything else becomes stony soil and
+ * joins the normal progression. Floors and foundations are preserved while
+ * their underlying ground is treated; water remains unchanged. Natural rock
+ * roofs block the spread, but constructed roofs and buildings do not.
  *
  * The table keys on defName so it is easy to extend with future progressions
- * (for example soil to rich soil) without touching the spread algorithm. A
- * rough stone terrain is recognized by the suffixed names RimWorld's own
- * TerrainDefGenerator_Stone builds for every natural rock, so a modded stone
- * type works without being listed.
+ * without touching the spread algorithm. A rough stone terrain is recognized by
+ * the suffixed names RimWorld's own TerrainDefGenerator_Stone builds for every
+ * natural rock, so a modded stone type works without being listed.
  */
 public static class FertilizerTerrainRules
 {
-    /// The ordinary soil every improvement ends at.
+    /// The ordinary soil the natural progression passes through.
     public const string Soil = "Soil";
 
-    /// Rich soil is already better than the target, so the spread treats it as
-    /// done rather than overwriting it.
+    /// Rich soil, the final step the progression ends at.
     public const string SoilRich = "SoilRich";
 
-    /// Terrains that already count as improved: the spread floods through them
+    /// Stony soil, the target of sand and of every rough natural stone.
+    public const string Gravel = "Gravel";
+
+    /// Lichen-covered soil, the step between stony ground and ordinary soil.
+    public const string MossyTerrain = "MossyTerrain";
+
+    /// Sand, the step above soft sand.
+    public const string Sand = "Sand";
+
+    /// Terrains that already count as finished: the spread floods through them
     /// to reach the poor ground beyond, and never tries to improve them again.
     static readonly string[] ImprovedDefNames =
     {
-        Soil,
         SoilRich,
-        "MossyTerrain",
-        "MarshyTerrain",
         "Riverbank",
     };
 
-    /// Source terrains that can be improved, and what they become.
-    static readonly string[] TransformableDefNames =
-    {
-        "Sand",
-        "SoftSand",
-        "Gravel",
-    };
+    /// Source terrains that can be improved, and the terrain each becomes.
+    static readonly Dictionary<string, string> TransformTargets =
+        new Dictionary<string, string>
+        {
+            { "SoftSand", Sand },
+            { Sand, Gravel },
+            { Gravel, MossyTerrain },
+            { MossyTerrain, Soil },
+            { Soil, SoilRich },
+            { "MarshyTerrain", Gravel },
+        };
 
     /// True when this terrain is already fertile enough to count as improved.
     public static bool IsImproved(string defName)
@@ -86,25 +103,75 @@ public static class FertilizerTerrainRules
             return null;
         }
 
-        foreach (string name in TransformableDefNames)
+        string target;
+        if (TransformTargets.TryGetValue(defName, out target))
         {
-            if (defName == name)
-            {
-                return Soil;
-            }
+            return target;
         }
 
-        return IsRoughStone(defName) ? Soil : null;
+        return IsRoughStone(defName) ? Gravel : null;
+    }
+
+    /**
+     * The terrain a convertible cell becomes. Unlisted natural ground follows
+     * its own driesTo target when it has one; otherwise it becomes stony soil
+     * and joins the normal progression.
+     */
+    public static string TargetForConvertible(string defName, string driesTo)
+    {
+        string target = TargetFor(defName);
+        if (target != null)
+        {
+            return target;
+        }
+
+        if (IsImproved(defName))
+        {
+            return null;
+        }
+
+        return string.IsNullOrEmpty(driesTo) ? Gravel : driesTo;
+    }
+
+    /**
+     * True when the spread may replace this terrain.
+     *
+     * All natural ground qualifies, plus the game's generated rough-hewn cave
+     * stone: RimWorld leaves TerrainDef.natural unset on every *_RoughHewn
+     * terrain even though it is the stone floor a mined-out wall leaves behind,
+     * so testing that flag alone would reject the most common underground
+     * floor. Floors — smoothed or built — water, and foundations never qualify
+     * themselves; the map adapter checks the ground beneath coverings instead.
+     */
+    public static bool CanConvert(
+        string defName,
+        bool natural,
+        bool isWater,
+        bool isFoundation,
+        bool isFloor)
+    {
+        if (isWater || isFoundation || isFloor || IsImproved(defName))
+        {
+            return false;
+        }
+
+        return natural || IsRoughStone(defName);
     }
 
     /**
      * True when a pack sitting on this terrain can start or continue a fertile
-     * patch. Rough cave stone counts, so an underground floor can be fertilized.
-     * Constructed floors, water, and ice do not, so a pack stored on them waits.
+     * patch. Finished ground anchors a patch too, so the spread can flood
+     * through it to reach poorer ground beyond.
      */
-    public static bool AnchorsSpread(string defName)
+    public static bool AnchorsSpread(
+        string defName,
+        bool natural,
+        bool isWater,
+        bool isFoundation,
+        bool isFloor)
     {
-        return TargetFor(defName) != null || IsImproved(defName);
+        return IsImproved(defName)
+            || CanConvert(defName, natural, isWater, isFoundation, isFloor);
     }
 
     /// True when a terrain defName is one of the game's generated rough-stone

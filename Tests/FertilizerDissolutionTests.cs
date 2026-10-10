@@ -22,13 +22,13 @@ namespace BetterRimworlds.ChickenBatteryCage.Tests;
 public class FertilizerDissolutionTests
 {
     [Test]
-    public void OnePackImprovesSixCells()
+    public void OnePackStrikesSixCells()
     {
         Assert.AreEqual(6, CageWasteMath.CellsImprovedPerPack);
     }
 
     [Test]
-    public void AWholeStackImprovesSixCellsForEachPackItHolds()
+    public void AWholeStackStrikesSixCellsForEachPackItHolds()
     {
         Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(0));
         Assert.AreEqual(6, CageWasteMath.CellsImprovedByPacks(1));

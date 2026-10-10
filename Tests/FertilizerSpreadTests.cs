@@ -134,7 +134,7 @@ public class FertilizerSpreadTests
     }
 
     [Test]
-    public void ExistingSoilIsTreatedAsAlreadyImproved()
+    public void FinishedGroundIsTreatedAsAlreadyImproved()
     {
         var grid = new TestGrid(20, 20);
         grid.Improved.Add(new Cell(10, 10));
@@ -142,7 +142,7 @@ public class FertilizerSpreadTests
         List<Cell> chosen = Grow(grid, 10, 10, 6);
 
         Assert.AreEqual(6, chosen.Count);
-        Assert.IsFalse(chosen.Contains(new Cell(10, 10)), "existing soil must not be re-improved");
+        Assert.IsFalse(chosen.Contains(new Cell(10, 10)), "finished ground must not be re-improved");
     }
 
     [Test]
