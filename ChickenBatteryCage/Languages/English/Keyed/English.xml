@@ -65,6 +65,4 @@
 	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>
 	<ChickenBatteryCage.Toxic.Increasing>increasing</ChickenBatteryCage.Toxic.Increasing>
 	<ChickenBatteryCage.Toxic.Recovering>recovering</ChickenBatteryCage.Toxic.Recovering>
-	<ChickenBatteryCage.Fertilizer.Frozen>Frozen: not dissolving.</ChickenBatteryCage.Fertilizer.Frozen>
-	<ChickenBatteryCage.Fertilizer.Dissolves>Dissolves every {0}.</ChickenBatteryCage.Fertilizer.Dissolves>
 </LanguageData>

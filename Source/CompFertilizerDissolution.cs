@@ -9,6 +9,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -16,77 +17,57 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Slowly improves the ground under a Fertilizer Pack.
+ * Turns a rotted Fertilizer Pack into fertile ground.
  *
- * The implementation mirrors vanilla CompDissolution's pattern — a per-stack
- * elapsed-tick counter, a frozen pack pausing, and one pack consumed each
- * interval — but deliberately drops every toxic behaviour: no pollution, no tox
- * gas, no wastepack infestation, no faction retaliation. A stack standing on
- * the ground releases one pack every ten days and improves six cells with it,
- * which is exactly the beneficial inverse of one wastepack polluting six.
+ * A pack now spoils exactly like food. It carries vanilla CompRottable, so its
+ * rot progress advances with temperature the same way a raw corn cob's does:
+ * full speed at ten degrees and above, proportionally slower down to freezing,
+ * and stopped below zero. Anything that preserves food — a freezer, a cold snap
+ * — preserves fertilizer too, and the usual "Fresh / Rotting" and refrigerated
+ * or frozen hints come from vanilla.
  *
- * The timer runs on the rare tick rather than every tick: a pack can wait
- * patiently, so it does not need per-tick attention.
+ * This comp supplies the only fertilizer-specific behaviour. Vanilla CompRottable
+ * is not allowed to remove the stack (the def leaves rotDestroys off and
+ * rotDamagePerDay at zero), because the ground must be improved first. So when
+ * the stack's rot stage leaves Fresh, the whole stack dissolves at once: every
+ * pack in it improves its cells, and the stack is removed. This mirrors raw
+ * corn, which is likewise destroyed all at once the moment it begins to rot,
+ * except that this pack leaves fertile ground behind.
  */
 public class CompFertilizerDissolution : ThingComp
 {
-    int dissolveTicks;
-
     CompProperties_FertilizerDissolution Props => (CompProperties_FertilizerDissolution)props;
 
-    bool IsOutdoors
-    {
-        get
-        {
-            Map map = parent.MapHeld;
-            if (map != null)
-            {
-                Room room = parent.Position.GetRoom(map);
-                if (room != null && room.UsesOutdoorTemperature)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
-
-    /// A frozen pack is inert, exactly as a frozen wastepack is.
-    bool IsFrozen => parent.AmbientTemperature <= 0f;
-
-    bool IsBeingRainedOn
-    {
-        get
-        {
-            WeatherManager weather = parent.MapHeld?.weatherManager;
-            return IsOutdoors && weather?.curWeather != null && weather.curWeather.rainRate > 0.1f;
-        }
-    }
-
-    /// Ticks between one pack dissolving and the next in this stack.
-    public int DissolutionIntervalTicks => CageWasteMath.DecompositionIntervalTicks(
-        Props.dissolutionAfterDays,
-        IsOutdoors,
-        IsBeingRainedOn,
-        Props.indoorsFactor,
-        Props.rainFactor);
+    /// Vanilla rot progress for this stack, or null if the def is misconfigured.
+    CompRottable Rottable => parent.GetComp<CompRottable>();
 
     public override void CompTickRare()
     {
         base.CompTickRare();
+        TryDissolveRottenStack();
+    }
 
-        if (parent == null || parent.Destroyed || parent.MapHeld == null || IsFrozen)
+    public override void CompTickInterval(int delta)
+    {
+        base.CompTickInterval(delta);
+        TryDissolveRottenStack();
+    }
+
+    /// Once the stack has begun to rot, dissolve all of it at once.
+    void TryDissolveRottenStack()
+    {
+        if (parent == null || parent.Destroyed || parent.MapHeld == null)
         {
             return;
         }
 
-        dissolveTicks += GenTicks.TickRareInterval;
-        int interval = DissolutionIntervalTicks;
-        if (interval > 0 && dissolveTicks >= interval)
+        CompRottable rottable = Rottable;
+        if (rottable == null || rottable.Stage == RotStage.Fresh)
         {
-            TriggerDissolution(1);
+            return;
         }
+
+        TriggerDissolution(parent.stackCount);
     }
 
     /// Dissolves up to <paramref name="amount"/> packs and improves the ground
@@ -109,10 +90,9 @@ public class CompFertilizerDissolution : ThingComp
         int improved = FertilizerSpread.GrowAt(
             parent.PositionHeld,
             parent.MapHeld,
-            toDissolve * Props.cellsImprovedPerPack);
+            CageWasteMath.CellsImprovedByPacks(toDissolve));
 
         parent.stackCount -= toDissolve;
-        dissolveTicks = 0;
 
         if (parent.stackCount <= 0 && !parent.Destroyed)
         {
@@ -137,20 +117,17 @@ public class CompFertilizerDissolution : ThingComp
         }
     }
 
-    public override void PostExposeData()
+    public override IEnumerable<Gizmo> CompGetGizmosExtra()
     {
-        base.PostExposeData();
-        Scribe_Values.Look(ref dissolveTicks, "dissolveTicks", 0);
-    }
-
-    public override string CompInspectStringExtra()
-    {
-        if (IsFrozen)
+        if (!DebugSettings.ShowDevGizmos)
         {
-            return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
+            yield break;
         }
 
-        return "ChickenBatteryCage.Fertilizer.Dissolves".Translate(
-            DissolutionIntervalTicks.ToStringTicksToPeriod());
+        yield return new Command_Action
+        {
+            defaultLabel = "DEV: Fertilizer dissolve stack now",
+            action = delegate { TriggerDissolution(parent.stackCount); },
+        };
     }
 }

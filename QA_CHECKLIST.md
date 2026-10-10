@@ -172,10 +172,11 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 - [ ] A `fertilizer pack` stacks five to a tile, is haulable and stockpilable,
       and uses a distinct custom texture rather than vanilla art.
-- [ ] One pack in each stack decomposes every **ten days**; nine stacks of five
-      in a 3×3 area release nine packs every ten days.
-- [ ] A frozen (sub-zero) pack stops dissolving; thawing resumes it.
-- [ ] Each decomposed pack improves **six** nearby natural cells, growing an
+- [ ] A pack spoils on vanilla rot: about **ten days** in the warm open, slower
+      in the cold, and stopped outright below freezing (a freezer preserves it).
+- [ ] When a stack's rot stage leaves Fresh the **whole stack** dissolves at
+      once, exactly as a stack of raw corn is destroyed all at once.
+- [ ] Each pack the stack held improves **six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
 - [ ] Sand, stony soil (gravel), and rough natural cave stone become **soil**;
       the resulting patch is comparable in size and raggedness to the pollution

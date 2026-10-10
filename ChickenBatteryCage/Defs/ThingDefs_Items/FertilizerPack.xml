@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Defs>
 	<!-- A compacted pack of processed chicken manure. It is the beneficial
-	     inverse of a vanilla Toxic Wastepack: it dissolves on the same kind of
-	     per-stack timer and improves six cells of natural ground each time it
-	     does, but it produces no pollution, no tox gas, and no infestation. -->
+	     inverse of a vanilla Toxic Wastepack: it spoils like food and, when the
+	     stack finally rots away, improves six cells of natural ground per pack,
+	     but it produces no pollution, no tox gas, and no infestation. -->
 	<ThingDef ParentName="ResourceBase">
 		<defName>CBC_FertilizerPack</defName>
 		<label>fertilizer pack</label>
-		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly decomposes and builds a layer of fertile soil over the land around it, reclaiming sand, stony soil, and bare cave stone into ground crops can grow in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack dissolves roughly every ten days, and each one improves about six nearby cells.</description>
+		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly spoils and builds a layer of fertile soil over the land around it, reclaiming sand, stony soil, and bare cave stone into ground crops can grow in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack keeps as food keeps: warmth rots it in about ten days, cold holds it back, and freezing stops it outright. When the stack rots away it leaves about six improved cells behind for every pack it held.</description>
 		<graphicData>
 			<texPath>Things/Item/Resource/FertilizerPack</texPath>
 			<graphicClass>Graphic_StackCount</graphicClass>
@@ -27,10 +27,17 @@
 			<li>ItemsMisc</li>
 		</thingCategories>
 		<comps>
+			<!-- Spoilage is vanilla rot now: temperature-scaled progress that a
+			     freezer or a cold snap holds back, exactly like food. Rot is not
+			     allowed to remove the stack itself, because the ground has to be
+			     improved first; the dissolution comp, declared after it so the
+			     rot stage is current, does that when rot begins. -->
+			<li Class="CompProperties_Rottable">
+				<daysToRotStart>10</daysToRotStart>
+				<rotDestroys>false</rotDestroys>
+				<rotDamagePerDay>0</rotDamagePerDay>
+			</li>
 			<li Class="BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution">
-				<dissolutionAfterDays>10</dissolutionAfterDays>
-				<indoorsFactor>1</indoorsFactor>
-				<rainFactor>1</rainFactor>
 				<cellsImprovedPerPack>6</cellsImprovedPerPack>
 			</li>
 		</comps>

@@ -239,8 +239,8 @@ public static class CageDevTools
         Log.Message("[ChickenBatteryCage] Dev: spawned " + spawned + " fertilizer packs.");
     }
 
-    /// Forces every spawned Fertilizer Pack to dissolve the rest of its stack,
-    /// so the spread can be watched without waiting ten days per pack.
+    /// Forces every spawned Fertilizer Pack to dissolve its whole stack, so the
+    /// spread can be watched without waiting for the stack to rot.
     public static void AdvanceFertilizerDecomposition(Map map)
     {
         ThingDef def = ChickenBatteryCageDefOf.CBC_FertilizerPack;

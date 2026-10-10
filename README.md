@@ -78,18 +78,19 @@ behind, so no manure is lost between visits.
 ### Fertilizer packs
 
 Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
-stack five to a tile and dissolve on the same kind of per-stack timer: **one
-pack decomposes every ten days**. Nine stacked sources therefore release nine
-packs every ten days until spent. They produce no pollution, no tox gas, and no
-infestations.
+stack five to a tile and **spoil like food**: rot progress runs on temperature,
+so a pack keeps roughly ten days in the warm open, lingers longer in the cold,
+and stops outright below freezing — a freezer preserves fertilizer as well as it
+preserves corn. They produce no pollution, no tox gas, and no infestations.
 
-When a pack decomposes it improves **six cells of natural ground**, using the
-same irregular, outward-creeping cell selection that vanilla pollution uses.
-Repeated decomposition grows the fertile patch outward the same way repeated
-wastepack dissolution grows a polluted one. Sand, stony soil, and rough natural
-cave stone become ordinary **soil**; constructed floors, bridges, roads, water,
-and buildings are never touched, and natural rock walls block the spread exactly
-as they block pollution.
+When a stack rots away the **whole stack dissolves at once**, exactly as a stack
+of raw corn is destroyed all at once. Each pack it held improves **six cells of
+natural ground**, using the same irregular, outward-creeping cell selection that
+vanilla pollution uses. Repeated dissolution grows the fertile patch outward the
+same way repeated wastepack dissolution grows a polluted one. Sand, stony soil,
+and rough natural cave stone become ordinary **soil**; constructed floors,
+bridges, roads, water, and buildings are never touched, and natural rock walls
+block the spread exactly as they block pollution.
 
 For scale, a hundred hens make enough fertilizer in a year to improve roughly
 **720 cells**: a genuine terraforming project for desert, sandy, underground, or

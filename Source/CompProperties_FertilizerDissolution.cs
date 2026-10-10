@@ -14,24 +14,15 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Def properties for a Fertilizer Pack's slow decomposition.
+ * Def properties for a Fertilizer Pack's decomposition.
  *
- * This mirrors the shape of vanilla CompProperties_Dissolution — a base number
- * of days and optional indoor and rain factors — but the defaults keep both
- * factors at one, so the plain ten-day-per-pack-per-stack baseline holds
- * wherever the pack rests.
+ * Spoilage is vanilla CompRottable now, so the temperature curve, the frozen
+ * pause, and the inspect hints all come from the game. This comp only carries
+ * the one fertilizer-specific number: how much ground a pack improves when the
+ * stack finally rots away.
  */
 public class CompProperties_FertilizerDissolution : CompProperties
 {
-    /// Days one pack in a stack takes to decompose.
-    public float dissolutionAfterDays = CageWasteMath.DecompositionDaysPerPack;
-
-    /// Multiplier on the interval while indoors. One keeps the baseline.
-    public float indoorsFactor = 1f;
-
-    /// Multiplier on the interval while being rained on. One keeps the baseline.
-    public float rainFactor = 1f;
-
     /// Terrain cells improved per pack that dissolves.
     public int cellsImprovedPerPack = CageWasteMath.CellsImprovedPerPack;
 

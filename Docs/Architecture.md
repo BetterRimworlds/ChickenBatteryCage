@@ -116,10 +116,14 @@ members (`CageNetwork.WithdrawWaste` via `CageClusterMath.ScaleToTotal`), so the
 fraction survives a service on any member. Each whole pack becomes one
 real `CBC_FertilizerPack` stack on the ground.
 
-A Fertilizer Pack is a real spawned `Thing`, but a passive one: it ticks at the
-rare interval, counts down its own per-stack dissolution timer, and once per ten
-days consumes one pack and transforms terrain. Its comp is a deliberate rewrite
-of vanilla `CompDissolution` with every toxic effect removed.
+A Fertilizer Pack is a real spawned `Thing`, but a passive one: it carries
+vanilla `CompRottable`, so it spoils with temperature exactly as food does —
+full speed at ten degrees and above, proportionally slower in the cold, and
+stopped below freezing, with vanilla's own Fresh/Rotting and refrigerated or
+frozen hints. A small companion comp watches the rot stage and, the moment the
+stack leaves Fresh, dissolves all of it at once, improving six cells per pack.
+This is raw corn's one-shot spoilage with `CompDissolution`'s toxic behavior
+left out.
 
 ### Fertilizer spread
 
