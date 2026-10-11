@@ -61,6 +61,8 @@
 	<ChickenBatteryCage.Cleaning.NeedsCleaning>needs cleaning</ChickenBatteryCage.Cleaning.NeedsCleaning>
 	<ChickenBatteryCage.Cleaning.Critical>critical</ChickenBatteryCage.Cleaning.Critical>
 	<ChickenBatteryCage.Fertilizer.Yield>{0} packs if cleaned now</ChickenBatteryCage.Fertilizer.Yield>
+	<ChickenBatteryCage.Fertilizer.DissolvesIn>Dissolves in {0}.</ChickenBatteryCage.Fertilizer.DissolvesIn>
+	<ChickenBatteryCage.Fertilizer.DissolvesInBadWeather>Dissolves in {0} (bad weather).</ChickenBatteryCage.Fertilizer.DissolvesInBadWeather>
 	<ChickenBatteryCage.Toxic.Status>{0} ({1})</ChickenBatteryCage.Toxic.Status>
 	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>
 	<ChickenBatteryCage.Toxic.Increasing>increasing</ChickenBatteryCage.Toxic.Increasing>

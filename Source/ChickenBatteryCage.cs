@@ -45,6 +45,13 @@ public class ChickenBatteryCage : Mod
     {
         Settings = GetSettings<Settings>() ?? new Settings();
 
+#if CBC_FAST_DECOMPOSITION
+        Log.Warning(
+            "[ChickenBatteryCage] Fast fertilizer decomposition is enabled. "
+            + "A stack dissolves in 1 day, or four times as fast while unroofed in bad weather. "
+            + "Temperature does not preserve fertilizer in this build.");
+#endif
+
         var harmony = new Harmony("BetterRimworlds.ChickenBatteryCage");
 
         foreach (Type type in Assembly.GetExecutingAssembly().GetTypes())

@@ -1,5 +1,12 @@
 #!/bin/bash
 # ==== build.sh ====
+#
+# ./build.sh [1] [fast]
+#   1     build once. The file watcher below is disabled either way.
+#   fast  define CBC_FAST_DECOMPOSITION. Fertilizer stacks then dissolve in one
+#         day, or four times as fast while unroofed in bad weather. A build
+#         without this argument keeps the ten-day food-rot timer.
+#
 # Check if inotifywait is installed
 if [ -z "$(which inotifywait)" ]; then
     echo "inotifywait not installed."
@@ -19,6 +26,26 @@ solutionPath="Source/${MOD}.sln"
 
 # Define an array of configurations
 configurations=("v1.6")
+
+fast_decomposition=false
+one_shot=false
+for arg in "$@"; do
+    case "$arg" in
+        fast) fast_decomposition=true ;;
+        1) one_shot=true ;;
+        *)
+            echo "Unknown argument: $arg" >&2
+            echo "Usage: ./build.sh [1] [fast]" >&2
+            exit 1
+            ;;
+    esac
+done
+
+build_props=()
+if [[ "$fast_decomposition" == true ]]; then
+    build_props+=(-p:FastDecomposition=true)
+    echo "Fast fertilizer decomposition enabled: a stack dissolves in 1 day, or faster while unroofed in bad weather."
+fi
 
 dotnet restore "$solutionPath"
 
@@ -47,7 +74,7 @@ function build() {
     local pids=()
     for config in "${configurations[@]}"; do
         echo "Building for configuration: $config"
-        dotnet build --no-restore "$solutionPath" --configuration "Release $config" &
+        dotnet build --no-restore "$solutionPath" --configuration "Release $config" "${build_props[@]}" &
         pids+=($!)
     done
 
@@ -74,7 +101,7 @@ function build() {
 
 build || exit 1
 
-if [ "$1" == "1" ]; then
+if [[ "$one_shot" == true || "$1" == "1" ]]; then
     echo "Done"
     exit
 fi
