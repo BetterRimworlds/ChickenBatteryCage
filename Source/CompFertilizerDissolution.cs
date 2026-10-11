@@ -17,122 +17,97 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Turns a rotted Fertilizer Pack into fertile ground.
+ * Dissolves a Fertilizer Pack the way a toxic wastepack dissolves, and leaves
+ * fertile ground instead of pollution.
  *
- * A pack now spoils exactly like food. It carries vanilla CompRottable, so its
- * rot progress advances with temperature the same way a raw corn cob's does:
- * full speed at ten degrees and above, proportionally slower down to freezing,
- * and stopped below zero. Anything that preserves food — a freezer, a cold snap
- * — preserves fertilizer too, and the usual "Fresh / Rotting" and refrigerated
- * or frozen hints come from vanilla.
+ * The clock is vanilla <c>CompDissolution</c>. One pack leaves the stack per
+ * interval: eight days outdoors, sixteen days indoors, four days outdoors in
+ * rain or snow. At freezing or below the clock waits and keeps its progress.
+ * There is no food-rot timer. Hit-point deterioration is the wastepack's own
+ * rate, and any damage that destroys the stack — wear, fire, a smash —
+ * improves the ground for every pack still in it, then lets the damage
+ * destroy the thing.
  *
- * This comp supplies the only fertilizer-specific behaviour. Vanilla CompRottable
- * is not allowed to remove the stack (the def leaves rotDestroys off and
- * rotDamagePerDay at zero), because the ground must be improved first. So when
- * the stack's rot stage leaves Fresh, the whole stack dissolves at once: every
- * pack in it improves its cells, and the stack is removed. This mirrors raw
- * corn, which is likewise destroyed all at once the moment it begins to rot,
- * except that this pack leaves fertile ground behind.
- *
- * Outdoors the pack also deteriorates like raw food: about ten days of hit
- * points in fair weather, and five times that fast while rain or snow falls
- * on an unroofed cell, which is vanilla's own rain factor. Wearing away
- * dissolves the stack the same way rot does.
- *
- * A build from <c>./build.sh fast</c> shortens the rot wait to one warm day, and
- * rain on an unroofed cell dissolves it four times as fast, in six hours.
- * Cold still slows the stack, and freezing still stops it, exactly as it does
- * for food. Vanilla rot is
- * patched out for this def in that build so the ten-day timer does not also
- * run; the fast clock applies the same temperature curve itself.
+ * A <c>./build.sh fast</c> build keeps those factors and shortens the outdoor
+ * base from eight days to one.
  */
 public class CompFertilizerDissolution : ThingComp
 {
-#if CBC_FAST_DECOMPOSITION
-    /// Warm-fair-equivalent ticks accumulated while this stack waits to
-    /// dissolve. Present only in a <c>./build.sh fast</c> build, so a normal
-    /// build does not write it into saves.
-    float fastTicks;
-#endif
+    /// Ticks accumulated toward the next single pack. Reset after each one.
+    int dissolveTicks;
 
     CompProperties_FertilizerDissolution Props => (CompProperties_FertilizerDissolution)props;
 
-    /// Vanilla rot progress for this stack, or null if the def is misconfigured.
-    CompRottable Rottable => parent.GetComp<CompRottable>();
-
-    public override void CompTickRare()
+    float Days
     {
-        base.CompTickRare();
+        get
+        {
 #if CBC_FAST_DECOMPOSITION
-        TickFastDecomposition(GenTicks.TickRareInterval);
+            return FertilizerDissolutionMath.FastDays;
+#else
+            return Props.dissolutionAfterDays;
 #endif
-        TryDissolveRottenStack();
+        }
     }
 
-    public override void CompTickInterval(int delta)
+    /// True while the pack's room uses the outdoor temperature, as wastepacks define it.
+    bool IsOutdoors
     {
-        base.CompTickInterval(delta);
-#if CBC_FAST_DECOMPOSITION
-        TickFastDecomposition(delta);
-#endif
-        TryDissolveRottenStack();
+        get
+        {
+            Map map = parent.MapHeld;
+            if (map == null)
+            {
+                return false;
+            }
+
+            Room room = parent.PositionHeld.GetRoom(map);
+            return room != null && room.UsesOutdoorTemperature;
+        }
     }
 
-#if CBC_FAST_DECOMPOSITION
-    /// Advances the one-day clock. Compiled only into a <c>./build.sh fast</c>
-    /// build; a normal build keeps the ten-day rot timer and nothing else.
-    void TickFastDecomposition(int delta)
+    bool IsFrozen => parent.AmbientTemperature <= 0f;
+
+    /// Rain or snow on an outdoor pack. A roof does not matter; the room does.
+    bool IsBeingRainedOn
     {
-        if (parent == null || parent.Destroyed || parent.MapHeld == null)
+        get
+        {
+            if (!IsOutdoors)
+            {
+                return false;
+            }
+
+            WeatherDef weather = parent.MapHeld?.weatherManager?.curWeather;
+            return weather != null && FertilizerDissolutionMath.CountsAsRain(weather.rainRate);
+        }
+    }
+
+    int IntervalTicks => FertilizerDissolutionMath.IntervalTicks(
+        Days,
+        IsOutdoors,
+        IsBeingRainedOn,
+        Props.dissolutionFactorIndoors,
+        Props.dissolutionFactorRain);
+
+    public override void CompTick()
+    {
+        base.CompTick();
+
+        if (parent == null || parent.Destroyed || parent.MapHeld == null || IsFrozen)
         {
             return;
         }
 
-        bool raining = IsRainedOn();
-        float rotRate = FertilizerFastDecompositionMath.TemperatureRotRate(parent.AmbientTemperature);
-        fastTicks += FertilizerFastDecompositionMath.EquivalentTicks(delta, raining, rotRate);
-        if (FertilizerFastDecompositionMath.ShouldDissolve(fastTicks))
+        dissolveTicks++;
+        if (dissolveTicks >= IntervalTicks)
         {
-            TriggerDissolution(parent.stackCount);
+            TriggerDissolution(1);
         }
     }
 
-    /// True when rain is falling on this pack's cell. Vanilla's plain Rain
-    /// def has a rain rate of 1 and leaves isBad false, so the bad-weather
-    /// flag does not see it. A roof keeps the one-day rate.
-    bool IsRainedOn()
-    {
-        Map map = parent.MapHeld;
-        if (map == null || map.roofGrid.Roofed(parent.PositionHeld))
-        {
-            return false;
-        }
-
-        return FertilizerFastDecompositionMath.CountsAsRain(map.weatherManager.RainRate);
-    }
-#endif
-
-    /// Once the stack has begun to rot, dissolve all of it at once.
-    void TryDissolveRottenStack()
-    {
-        if (parent == null || parent.Destroyed || parent.MapHeld == null)
-        {
-            return;
-        }
-
-        CompRottable rottable = Rottable;
-        if (rottable == null || rottable.Stage == RotStage.Fresh)
-        {
-            return;
-        }
-
-        TriggerDissolution(parent.stackCount);
-    }
-
-    /// Dissolves up to <paramref name="amount"/> packs and improves the ground
-    /// for each, returning how many cells were improved. Also used when the
-    /// pack is destroyed by force, so a smashed pack still fertilizes the
-    /// ground rather than vanishing.
+    /// Improves the ground for up to <paramref name="amount"/> packs and
+    /// removes them. Also used by dev tools. Returns how many cells were struck.
     public int TriggerDissolution(int amount)
     {
         if (parent == null || parent.Destroyed || parent.MapHeld == null)
@@ -146,12 +121,9 @@ public class CompFertilizerDissolution : ThingComp
             return 0;
         }
 
-        int improved = FertilizerSpread.GrowAt(
-            parent.PositionHeld,
-            parent.MapHeld,
-            CageWasteMath.CellsImprovedByPacks(toDissolve));
-
+        int improved = ImproveGround(toDissolve);
         parent.stackCount -= toDissolve;
+        dissolveTicks = 0;
 
         if (parent.stackCount <= 0 && !parent.Destroyed)
         {
@@ -161,92 +133,78 @@ public class CompFertilizerDissolution : ThingComp
         return improved;
     }
 
-#if CBC_FAST_DECOMPOSITION
-    public override void PostExposeData()
+    /// Strikes ground for packs that are about to be destroyed by damage.
+    /// The stack is left in place so the damage itself can remove it.
+    int ImproveGround(int packs)
     {
-        base.PostExposeData();
-        Scribe_Values.Look(ref fastTicks, "fastTicks", 0);
+        if (packs <= 0 || parent?.MapHeld == null)
+        {
+            return 0;
+        }
+
+        return FertilizerSpread.GrowAt(
+            parent.PositionHeld,
+            parent.MapHeld,
+            CageWasteMath.CellsImprovedByPacks(packs));
     }
-
-    public override void PreAbsorbStack(Thing otherStack, int count)
-    {
-        base.PreAbsorbStack(otherStack, count);
-
-        if (parent == null || count <= 0)
-        {
-            return;
-        }
-
-        CompFertilizerDissolution other = otherStack.TryGetComp<CompFertilizerDissolution>();
-        if (other == null)
-        {
-            return;
-        }
-
-        float proportionOther = count / (float)(parent.stackCount + count);
-        fastTicks = Mathf.Lerp(fastTicks, other.fastTicks, proportionOther);
-    }
-
-    public override void PostSplitOff(Thing piece)
-    {
-        base.PostSplitOff(piece);
-
-        CompFertilizerDissolution other = piece.TryGetComp<CompFertilizerDissolution>();
-        if (other != null)
-        {
-            other.fastTicks = fastTicks;
-        }
-    }
-
-    public override string CompInspectStringExtra()
-    {
-        if (parent == null || parent.Destroyed || parent.MapHeld == null)
-        {
-            return null;
-        }
-
-        float rotRate = FertilizerFastDecompositionMath.TemperatureRotRate(parent.AmbientTemperature);
-        if (rotRate <= 0f)
-        {
-            return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
-        }
-
-        bool raining = IsRainedOn();
-        bool cold = rotRate < 0.999f;
-        int remaining = FertilizerFastDecompositionMath.RealTicksRemaining(fastTicks, raining, rotRate);
-        string period = remaining.ToStringTicksToPeriod();
-        if (raining && cold)
-        {
-            return "ChickenBatteryCage.Fertilizer.DissolvesInRainCold".Translate(period);
-        }
-
-        if (raining)
-        {
-            return "ChickenBatteryCage.Fertilizer.DissolvesInRain".Translate(period);
-        }
-
-        if (cold)
-        {
-            return "ChickenBatteryCage.Fertilizer.DissolvesInCold".Translate(period);
-        }
-
-        return "ChickenBatteryCage.Fertilizer.DissolvesIn".Translate(period);
-    }
-#endif
 
     public override void PostPreApplyDamage(ref DamageInfo dinfo, out bool absorbed)
     {
         base.PostPreApplyDamage(ref dinfo, out absorbed);
 
-        if (absorbed || parent == null || parent.Destroyed)
+        if (absorbed || parent == null || parent.Destroyed || parent.MapHeld == null)
         {
             return;
         }
 
         if (dinfo.Def != null && dinfo.Def.harmsHealth && dinfo.Amount >= parent.HitPoints)
         {
-            TriggerDissolution(parent.stackCount);
+            ImproveGround(parent.stackCount);
         }
+    }
+
+    public override void PostExposeData()
+    {
+        base.PostExposeData();
+        Scribe_Values.Look(ref dissolveTicks, "dissolveTicks", 0);
+    }
+
+    public override string CompInspectStringExtra()
+    {
+        if (parent == null || parent.Destroyed)
+        {
+            return null;
+        }
+
+        if (IsFrozen)
+        {
+            return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
+        }
+
+        string line = "ChickenBatteryCage.Fertilizer.DissolvesEvery".Translate(
+            IntervalTicks.ToStringTicksToPeriod());
+
+        var reasons = new List<string>();
+        if (!IsOutdoors)
+        {
+            reasons.Add(
+                "ChickenBatteryCage.Fertilizer.Indoors".Translate()
+                + " x" + Props.dissolutionFactorIndoors.ToStringPercent());
+        }
+
+        if (IsBeingRainedOn)
+        {
+            reasons.Add(
+                "ChickenBatteryCage.Fertilizer.Rain".Translate()
+                + " x" + Props.dissolutionFactorRain.ToStringPercent());
+        }
+
+        if (reasons.Count == 0)
+        {
+            return line;
+        }
+
+        return line + " (" + reasons.ToLineList().CapitalizeFirst() + ")";
     }
 
     public override IEnumerable<Gizmo> CompGetGizmosExtra()
@@ -255,6 +213,12 @@ public class CompFertilizerDissolution : ThingComp
         {
             yield break;
         }
+
+        yield return new Command_Action
+        {
+            defaultLabel = "DEV: Fertilizer dissolve one pack",
+            action = delegate { TriggerDissolution(1); },
+        };
 
         yield return new Command_Action
         {

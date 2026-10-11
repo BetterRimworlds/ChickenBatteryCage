@@ -240,7 +240,7 @@ public static class CageDevTools
     }
 
     /// Forces every spawned Fertilizer Pack to dissolve its whole stack, so the
-    /// spread can be watched without waiting for the stack to rot.
+    /// spread can be watched without waiting out the dissolution clock.
     public static void AdvanceFertilizerDecomposition(Map map)
     {
         ThingDef def = ChickenBatteryCageDefOf.CBC_FertilizerPack;

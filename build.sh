@@ -3,9 +3,10 @@
 #
 # ./build.sh [1] [fast]
 #   1     build once. The file watcher below is disabled either way.
-#   fast  define CBC_FAST_DECOMPOSITION. Fertilizer stacks then dissolve in one
-#         day, or four times as fast while unroofed in bad weather. A build
-#         without this argument keeps the ten-day food-rot timer.
+#   fast  define CBC_FAST_DECOMPOSITION. In the warm open a fertilizer stack
+#         dissolves one pack per day outdoors, or every twelve hours in rain
+#         or snow. Indoors takes two days. Freezing stops it. A build without
+#         this argument keeps the eight-day wastepack dissolution timer.
 #
 # Check if inotifywait is installed
 if [ -z "$(which inotifywait)" ]; then
@@ -44,7 +45,7 @@ done
 build_props=()
 if [[ "$fast_decomposition" == true ]]; then
     build_props+=(-p:FastDecomposition=true)
-    echo "Fast fertilizer decomposition enabled: a stack dissolves in 1 day, or faster while unroofed in bad weather."
+    echo "Fast fertilizer dissolution enabled: 1 day outdoors, 12 hours in rain or snow, 2 days indoors, stopped while frozen."
 fi
 
 dotnet restore "$solutionPath"

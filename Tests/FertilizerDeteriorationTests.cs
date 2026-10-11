@@ -17,10 +17,9 @@ using NUnit.Framework;
 namespace BetterRimworlds.ChickenBatteryCage.Tests;
 
 /**
- * Fertilizer deteriorates like raw plant food. The def supplies the same rate
- * and hit points; vanilla's environmental stat then multiplies an unroofed
- * cell by the rain rate, up to five times (500%) in rain or snow. Nothing in
- * this mod scales that factor.
+ * Fertilizer uses a toxic wastepack's deterioration rate. Vanilla's
+ * environmental stat then applies its own rain factor, up to five times,
+ * on top of the dissolution clock.
  */
 [TestFixture]
 public class FertilizerDeteriorationTests
@@ -30,7 +29,7 @@ public class FertilizerDeteriorationTests
         "..", "..", "..", "..");
 
     [Test]
-    public void TheDefUsesTheRawPlantRateAndHitPoints()
+    public void TheDefUsesTheWastepackDeteriorationRate()
     {
         string path = Path.Combine(
             TestRoot, "ChickenBatteryCage", "Defs", "ThingDefs_Items", "FertilizerPack.xml");
@@ -41,7 +40,6 @@ public class FertilizerDeteriorationTests
             .First(def => (string)def.Element("defName") == "CBC_FertilizerPack")
             .Element("statBases");
 
-        Assert.AreEqual("6", (string)stats.Element("DeteriorationRate"));
-        Assert.AreEqual("60", (string)stats.Element("MaxHitPoints"));
+        Assert.AreEqual("4", (string)stats.Element("DeteriorationRate"));
     }
 }

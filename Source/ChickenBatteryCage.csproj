@@ -22,7 +22,7 @@
     <RimWorldVersion>1.6</RimWorldVersion>
     <RimWorldInstall>/rimworld/1.6-steam</RimWorldInstall>
     <DefineConstants>RIMWORLD16</DefineConstants>
-    <!-- ./build.sh fast sets FastDecomposition. A normal build leaves fertilizer on the ten-day rot timer. -->
+    <!-- ./build.sh fast sets FastDecomposition. A normal build keeps the eight-day wastepack dissolution timer. -->
     <DefineConstants Condition=" '$(FastDecomposition)' == 'true' ">RIMWORLD16;CBC_FAST_DECOMPOSITION</DefineConstants>
   </PropertyGroup>
 

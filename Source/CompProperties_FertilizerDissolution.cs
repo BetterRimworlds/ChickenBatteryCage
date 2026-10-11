@@ -14,15 +14,24 @@ using Verse;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Def properties for a Fertilizer Pack's decomposition.
+ * Def properties for a Fertilizer Pack's dissolution.
  *
- * Spoilage is vanilla CompRottable now, so the temperature curve, the frozen
- * pause, and the inspect hints all come from the game. This comp only carries
- * the one fertilizer-specific number: how much ground a pack improves when the
- * stack finally rots away.
+ * The numbers match a toxic wastepack's <c>CompProperties_Dissolution</c>:
+ * one pack every eight days outdoors, half that speed indoors, and twice
+ * that speed in rain or snow. Cells struck per pack is the beneficial
+ * opposite of the wastepack's six polluted cells.
  */
 public class CompProperties_FertilizerDissolution : CompProperties
 {
+    /// Days between dissolving one pack outdoors in fair weather.
+    public float dissolutionAfterDays = FertilizerDissolutionMath.DaysToDissolve;
+
+    /// Divides the interval while the pack is not in an outdoor-temperature room.
+    public float dissolutionFactorIndoors = FertilizerDissolutionMath.IndoorFactor;
+
+    /// Divides the interval while rain or snow is falling on an outdoor pack.
+    public float dissolutionFactorRain = FertilizerDissolutionMath.RainFactor;
+
     /// Cells struck per pack that dissolves. A cell transforms on its third strike.
     public int cellsImprovedPerPack = CageWasteMath.CellsImprovedPerPack;
 

@@ -14,10 +14,9 @@ using NUnit.Framework;
 namespace BetterRimworlds.ChickenBatteryCage.Tests;
 
 /**
- * Covers the pure half of the fertilizer dissolution that does not need a live
- * map. The temperature-driven rot itself is vanilla CompRottable, so it is not
- * re-tested here; what is ours is how many cells a dissolving stack strikes.
- * Transforming one of those cells takes three strikes.
+ * Covers how many cells a dissolving pack strikes. Transforming one of those
+ * cells takes three strikes. The dissolution interval itself is covered by
+ * FertilizerDissolutionMathTests.
  */
 [TestFixture]
 public class FertilizerDissolutionTests

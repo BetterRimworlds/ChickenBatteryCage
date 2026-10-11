@@ -172,15 +172,14 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 - [ ] A `fertilizer pack` stacks five to a tile, is haulable and stockpilable,
       and uses a distinct custom texture rather than vanilla art.
-- [ ] A pack spoils on vanilla rot: about **ten days** in the warm open, slower
-      in the cold, and stopped outright below freezing (a freezer preserves it).
-- [ ] Outdoors it also deteriorates like raw food: about **ten days** of hit
-      points under a clear sky. Rain or snow on an unroofed pack wears it out
-      **five times** as fast, in about two days, the same 500% factor as raw
-      food. A roof, and fog, leave that rate alone. Wearing away fertilizes
-      the ground just as rotting does.
-- [ ] When a stack's rot stage leaves Fresh the **whole stack** dissolves at
-      once, exactly as a stack of raw corn is destroyed all at once.
+- [ ] A pack dissolves like a toxic wastepack, one pack at a time: every
+      **eight days** outdoors, every **sixteen days** indoors, and every
+      **four days** outdoors in rain or snow. Freezing stops the clock.
+- [ ] Deterioration matches a wastepack (rate 4, 100 hit points). Destroying
+      the stack by wear or any other damage fertilizes the ground for every
+      pack still in it, then the stack is gone.
+- [ ] The inspect line says how long until the next pack, and notes indoors
+      or rain the way a wastepack does. A frozen pack says it will not dissolve.
 - [ ] Each pack the stack held improves **six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
 - [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand

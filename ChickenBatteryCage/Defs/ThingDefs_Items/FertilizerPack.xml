@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Defs>
 	<!-- A compacted pack of processed chicken manure. It is the beneficial
-	     inverse of a vanilla Toxic Wastepack: it spoils like food and, when the
-	     stack finally rots away, strikes six cells of natural ground per pack.
-	     A cell changes only after three packs have struck it. It produces no
-	     pollution, no tox gas, and no infestation. -->
+	     inverse of a vanilla toxic wastepack: the same dissolution clock and
+	     the same deterioration rate, and fertile ground instead of pollution.
+	     One pack dissolves at a time. A cell changes only after three packs
+	     have struck it. It produces no pollution, no tox gas, and no infestation. -->
 	<ThingDef ParentName="ResourceBase">
 		<defName>CBC_FertilizerPack</defName>
 		<label>fertilizer pack</label>
-		<description>Compacted, processed chicken manure, sealed into a transportable pack. Left on natural ground it slowly spoils and builds a layer of fertile soil over the land around it, reclaiming barren ground step by step: soft sand into sand, sand and bare cave stone into stony soil, stony soil into lichen-covered soil, lichen-covered soil into soil, and soil into ground crops grow best in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas; they are simply organic material doing what organic material does.\n\nA pack keeps as food keeps: warmth rots it in about ten days, cold holds it back, and freezing stops it outright. Outdoors it also wears away like raw food, about ten days of hit points under a clear sky, and rain or snow wears an unroofed pack out five times as fast. When the stack rots or wears away, each pack strikes about six cells. A cell takes one step along that progression only after three packs have struck it.</description>
+		<description>A compacted package of processed chicken manure that will slowly dissolve if not frozen. Left on natural ground, each pack that dissolves builds a layer of fertile soil over the land around it, reclaiming barren ground step by step: soft sand into sand, sand and bare cave stone into stony soil, stony soil into lichen-covered soil, lichen-covered soil into soil, and soil into ground crops grow best in. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas.\n\nOne pack dissolves every eight days outdoors, every sixteen days indoors, and every four days outdoors in the rain or snow. Freezing stops the clock. If the stack deteriorates or is otherwise destroyed, every pack left in it improves the ground at once. Each pack strikes about six cells. A cell takes one step along that progression only after three packs have struck it.</description>
 		<graphicData>
 			<texPath>Things/Item/Resource/FertilizerPack</texPath>
 			<graphicClass>Graphic_StackCount</graphicClass>
@@ -21,30 +21,21 @@
 			<MarketValue>0</MarketValue>
 			<Mass>5</Mass>
 			<Flammability>0.5</Flammability>
-			<!-- Same rate as raw plant food. Sixty hit points then last about ten
-			     days outdoors in fair weather. Vanilla's environmental stat
-			     wears an unroofed pack out five times as fast in rain or snow. -->
-			<DeteriorationRate>6</DeteriorationRate>
-			<MaxHitPoints>60</MaxHitPoints>
+			<!-- Same deterioration rate as a toxic wastepack. Max hit points
+			     stay at the resource default of 100. -->
+			<DeteriorationRate>4</DeteriorationRate>
 		</statBases>
 		<thingCategories>
 			<li>ItemsMisc</li>
 		</thingCategories>
 		<comps>
-			<!-- Spoilage is vanilla rot now: temperature-scaled progress that a
-			     freezer or a cold snap holds back, exactly like food. Rot is not
-			     allowed to remove the stack itself, because the ground has to be
-			     improved first; the dissolution comp, declared after it so the
-			     rot stage is current, does that when rot begins. -->
-			<li Class="CompProperties_Rottable">
-				<daysToRotStart>10</daysToRotStart>
-				<rotDestroys>false</rotDestroys>
-				<rotDamagePerDay>0</rotDamagePerDay>
-			</li>
 			<li Class="BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution">
+				<dissolutionAfterDays>8</dissolutionAfterDays>
+				<dissolutionFactorIndoors>0.5</dissolutionFactorIndoors>
+				<dissolutionFactorRain>2</dissolutionFactorRain>
 				<cellsImprovedPerPack>6</cellsImprovedPerPack>
 			</li>
 		</comps>
-		<tickerType>Rare</tickerType>
+		<tickerType>Normal</tickerType>
 	</ThingDef>
 </Defs>
