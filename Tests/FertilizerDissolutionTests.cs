@@ -16,19 +16,20 @@ namespace BetterRimworlds.ChickenBatteryCage.Tests;
 /**
  * Covers the pure half of the fertilizer dissolution that does not need a live
  * map. The temperature-driven rot itself is vanilla CompRottable, so it is not
- * re-tested here; what is ours is how much ground a dissolving stack improves.
+ * re-tested here; what is ours is how many cells a dissolving stack strikes.
+ * Transforming one of those cells takes three strikes.
  */
 [TestFixture]
 public class FertilizerDissolutionTests
 {
     [Test]
-    public void OnePackImprovesSixCells()
+    public void OnePackStrikesSixCells()
     {
         Assert.AreEqual(6, CageWasteMath.CellsImprovedPerPack);
     }
 
     [Test]
-    public void AWholeStackImprovesSixCellsForEachPackItHolds()
+    public void AWholeStackStrikesSixCellsForEachPackItHolds()
     {
         Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(0));
         Assert.AreEqual(6, CageWasteMath.CellsImprovedByPacks(1));

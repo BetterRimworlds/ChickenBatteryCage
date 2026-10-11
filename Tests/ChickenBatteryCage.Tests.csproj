@@ -28,6 +28,7 @@
     <Compile Include="..\Source\FertilizerTerrainRules.cs" Link="FertilizerTerrainRules.cs" />
     <Compile Include="..\Source\FertilizerSpreadMath.cs" Link="FertilizerSpreadMath.cs" />
     <Compile Include="..\Source\FertilizerFastDecompositionMath.cs" Link="FertilizerFastDecompositionMath.cs" />
+    <Compile Include="..\Source\FertilizerChargeMath.cs" Link="FertilizerChargeMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

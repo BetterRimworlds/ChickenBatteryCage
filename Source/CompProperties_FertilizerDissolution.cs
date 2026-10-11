@@ -23,7 +23,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public class CompProperties_FertilizerDissolution : CompProperties
 {
-    /// Terrain cells improved per pack that dissolves.
+    /// Cells struck per pack that dissolves. A cell transforms on its third strike.
     public int cellsImprovedPerPack = CageWasteMath.CellsImprovedPerPack;
 
     public CompProperties_FertilizerDissolution()

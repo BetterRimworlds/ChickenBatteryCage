@@ -28,7 +28,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *   - the Perlin-noise score, copied from PollutionUtility.PollutionCellComparer
  *     so the patch is irregular exactly the way players recognize from
  *     pollution; and
- *   - the terrain change itself.
+ *   - the terrain change itself, which a cell earns only on its third strike.
  *
  * Why the algorithm is reproduced rather than reused: GrowPollutionAt is hard
  * wired to map.pollutionGrid and sets a pollution flag on every cell it visits.
@@ -47,8 +47,9 @@ public static class FertilizerSpread
     const float PerlinNoiseFactor = 2f;
 
     /**
-     * Improves up to <paramref name="cellCount"/> cells, growing outward from
-     * <paramref name="root"/>, and returns how many cells actually changed.
+     * Strikes up to <paramref name="cellCount"/> cells, growing outward from
+     * <paramref name="root"/>, and returns how many cells were struck. A cell's
+     * terrain changes only on its third strike.
      */
     public static int GrowAt(IntVec3 root, Map map, int cellCount)
     {
@@ -138,10 +139,17 @@ public static class FertilizerSpread
         return target ?? TerrainDefOf.Soil;
     }
 
-    /// Applies the terrain change for one chosen cell.
+    /// Records one pack striking a chosen cell. The terrain changes only when
+    /// this is the third strike since the cell last transformed.
     static bool ApplyImprovement(IntVec3 cell, Map map)
     {
-        if (!cell.InBounds(map))
+        if (!CanImproveCell(cell, map))
+        {
+            return false;
+        }
+
+        MapComponent_FertilizerCharge charges = map.GetComponent<MapComponent_FertilizerCharge>();
+        if (charges == null || !charges.RecordHit(cell))
         {
             return false;
         }
