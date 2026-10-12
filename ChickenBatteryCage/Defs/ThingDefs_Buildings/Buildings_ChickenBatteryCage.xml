@@ -3,13 +3,13 @@
 	<ThingDef ParentName="BuildingBase">
 		<defName>ChickenBatteryCage</defName>
 		<label>battery chicken cage</label>
-		<description>A four-tier battery cage for a flock of ten hens in a compact 2×3 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Must be built under a roof covering every cell of the cage — an unroofed cage is exposed to the sky and falls apart in about thirty days if made of wood or steel, or sixty days for any other material, rotting four times as fast in rain, fog, or snow. Haulers carry raw plant food, hay, or kibble straight to the cage, where it is converted into the flock's shared feed store — no hopper or nutrient paste required.</description>
+		<description>A four-tier battery cage for a flock of ten hens in a compact 2×2 footprint. Research unlocks in the medieval era; construct it from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Must be built under a roof covering every cell of the cage — an unroofed cage is exposed to the sky and falls apart in about thirty days if made of wood or steel, or sixty days for any other material, rotting four times as fast in rain, fog, or snow. Haulers carry raw plant food, hay, or kibble straight to the cage, where it is converted into the flock's shared feed store — no hopper or nutrient paste required.</description>
 		<thingClass>BetterRimworlds.ChickenBatteryCage.Building_ChickenBatteryCage</thingClass>
 		<graphicData>
 			<texPath>Things/Building/ChickenBatteryCage/ChickenBatteryCage</texPath>
 			<graphicClass>Graphic_Multi</graphicClass>
 			<shaderType>CutoutComplex</shaderType>
-			<drawSize>(2,3)</drawSize>
+			<drawSize>(2,2)</drawSize>
 			<damageData>
 				<cornerTL>Damage/Corner</cornerTL>
 				<cornerTR>Damage/Corner</cornerTR>
@@ -38,16 +38,14 @@
 			<Mass>50</Mass>
 			<Beauty>-2</Beauty>
 		</statBases>
-		<size>(2,3)</size>
+		<size>(2,2)</size>
 		<designationCategory>Production</designationCategory>
 		<uiOrder>2070</uiOrder>
-		<!-- Defaults to the wide (long-edge-south) landscape orientation but
-		     stays rotatable, so the wide face can be turned to face any
-		     approach. The interaction spot sits in the middle of whichever
-		     long edge the cage is turned to: rotating 180 degrees swings it
-		     from the south face to the north face, and from the east face to
-		     the west face when the cage is stood on end. The graphics are
-		     independent of this and are unchanged by it. -->
+		<!-- Square footprint, still rotatable. A 2×2 face has no single center
+		     cell, so the interaction spot sits on one side of a face. RimWorld
+		     rotates the offset with the building, which carries that spot
+		     around all four faces and keeps it just outside the footprint.
+		     The graphics are independent of this and are unchanged by it. -->
 		<hasInteractionCell>true</hasInteractionCell>
 		<interactionCellOffset>(2,0,0)</interactionCellOffset>
 		<defaultPlacingRot>East</defaultPlacingRot>
