@@ -19,16 +19,17 @@ namespace BetterRimworlds.ChickenBatteryCage.Tests;
 /**
  * Guards the cage's interaction spot.
  *
- * A 2×3 cage with this offset puts the spot in the middle of a long edge for
- * every rotation (RimWorld rotates the offset with the building):
+ * A 2×2 cage has no single center cell on a face. This offset keeps the spot
+ * just outside the footprint on every rotation (RimWorld rotates the offset
+ * with the building, and even-sized footprints shift their anchor):
  *
- *   North  -> (2, 0)   east face  (portrait)
- *   East   -> (0, -2)  south face (landscape, the default)
- *   South  -> (-2, 0)  west face  (portrait)
- *   West   -> (0, 2)   north face (landscape)
+ *   North  -> (2, 0)   east face
+ *   East   -> (0, -2)  south face (the default placement)
+ *   South  -> (-2, 0)  west face
+ *   West   -> (0, 2)   north face
  *
- * so rotating 180 degrees swings the spot from north to south, or east to
- * west when the cage is stood on end. The graphics are not affected.
+ * Rotating 180 degrees swings the spot to the opposite face. The graphics
+ * are not affected.
  */
 [TestFixture]
 public class CageInteractionCellTests
@@ -51,6 +52,14 @@ public class CageInteractionCellTests
     }
 
     [Test]
+    public void CageFootprintIsTwoByTwo()
+    {
+        XElement def = CageDef();
+        Assert.That((string)def.Element("size"), Is.EqualTo("(2,2)"));
+        Assert.That((string)def.Element("graphicData")?.Element("drawSize"), Is.EqualTo("(2,2)"));
+    }
+
+    [Test]
     public void CageHasAnInteractionCell()
     {
         Assert.That((string)CageDef().Element("hasInteractionCell"), Is.EqualTo("true"),
@@ -58,10 +67,10 @@ public class CageInteractionCellTests
     }
 
     [Test]
-    public void InteractionSpotSitsOnTheMiddleOfTheLongEdge()
+    public void InteractionSpotSitsJustOutsideAFace()
     {
         Assert.That((string)CageDef().Element("interactionCellOffset"), Is.EqualTo("(2,0,0)"),
-            "The spot must be centered on a long edge so rotation swings it between " +
-            "the two long faces instead of dragging it around a corner.");
+            "The spot must sit just outside one face so rotation carries it around " +
+            "the square without landing inside the cage.");
     }
 }

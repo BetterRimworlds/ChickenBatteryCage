@@ -2,7 +2,7 @@
 
 RimWorld chicken battery cages that keep huge chicken flocks without game lag. World hunger solved??
 
-Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×3 cage
+Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×2 cage
 from wood, steel, or glitterworld metals. Housed chickens are managed as a flock.
 
 Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection.
