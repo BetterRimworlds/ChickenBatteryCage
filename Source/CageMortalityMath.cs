@@ -35,10 +35,25 @@ public static class CageMortalityMath
     /// Fallback when the species def cannot be read.
     public const float DefaultLifeExpectancyYears = 6f;
 
+    /// Hens younger than this keep a quarter of the age curve.
+    public const float QuarterHazardUntilYears = 2f;
+
+    /// A 75% reduction: the share of the age curve kept under two years.
+    public const float HazardFactorUnderTwoYears = 0.25f;
+
+    /// Hens younger than this, and at least two, keep half of the age curve.
+    public const float HalfHazardUntilYears = 3f;
+
+    /// A 50% reduction: the share of the age curve kept from two until three.
+    public const float HazardFactorUnderThreeYears = 0.5f;
+
     /**
      * Age-dependent natural hazard. Low for young birds, climbing smoothly
      * through the species life expectancy and beyond, so a 10-year-old
      * chicken is unlikely but never impossible.
+     *
+     * Hens under two years keep a quarter of that curve, and hens from two
+     * until three keep half. From three years the full curve applies.
      */
     public static float NaturalDailyChance(float ageYears, float lifeExpectancyYears)
     {
@@ -52,8 +67,27 @@ public static class CageMortalityMath
             : DefaultLifeExpectancyYears;
 
         double ratio = (ageYears - expectancy) / expectancy;
-        double chance = NaturalDailyChanceAtLifeExpectancy * Math.Exp(NaturalChanceGrowth * ratio);
+        double chance = NaturalDailyChanceAtLifeExpectancy
+            * Math.Exp(NaturalChanceGrowth * ratio)
+            * HazardFactorForAge(ageYears);
         return (float)Math.Min(MaxDailyChance, chance);
+    }
+
+    /// The youth reduction for an age. Under two years the hazard is cut by
+    /// 75%, and from two until three it is cut by 50%.
+    public static float HazardFactorForAge(float ageYears)
+    {
+        if (ageYears < QuarterHazardUntilYears)
+        {
+            return HazardFactorUnderTwoYears;
+        }
+
+        if (ageYears < HalfHazardUntilYears)
+        {
+            return HazardFactorUnderThreeYears;
+        }
+
+        return 1f;
     }
 
     /// Starvation hazard on the first day past the starvation threshold.
