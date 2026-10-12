@@ -50,6 +50,14 @@ public class WorkGiver_CleanBatteryCages : WorkGiver_Scanner
             return false;
         }
 
+        // A cage another cleaner has already claimed must not be offered, or the
+        // job start logs a failed reservation and immediately bails out. This
+        // mirrors JobDriver_CleanBatteryCage.TryMakePreToilReservations.
+        if (!pawn.CanReserve(cage))
+        {
+            return false;
+        }
+
         if (!pawn.CanReach(cage, PathEndMode.ClosestTouch, Danger.Deadly))
         {
             JobFailReason.Is("NoPath".Translate());
