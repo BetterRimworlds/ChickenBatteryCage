@@ -25,4 +25,10 @@
 		<reportString>cleaning a battery cage.</reportString>
 		<casualInterruptible>false</casualInterruptible>
 	</JobDef>
+	<JobDef>
+		<defName>CBC_SpreadFertilizer</defName>
+		<driverClass>BetterRimworlds.ChickenBatteryCage.JobDriver_SpreadFertilizer</driverClass>
+		<reportString>spreading fertilizer.</reportString>
+		<casualInterruptible>true</casualInterruptible>
+	</JobDef>
 </Defs>

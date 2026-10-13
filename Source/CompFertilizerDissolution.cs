@@ -52,8 +52,8 @@ public class CompFertilizerDissolution : ThingComp
         }
     }
 
-    /// True while the pack's room uses the outdoor temperature, as wastepacks define it.
-    bool IsOutdoors
+    /// True while the pack's room uses the outdoor temperature.
+    public bool IsOutdoors
     {
         get
         {
@@ -69,6 +69,9 @@ public class CompFertilizerDissolution : ThingComp
     }
 
     bool IsFrozen => parent.AmbientTemperature <= 0f;
+
+    /// True when a grower can spread this pack, and when the passive clock may run.
+    public bool CanBeSpread => SitsOnWorkingGround;
 
     /// True when this pack is on ground a patch can grow from, and not on a shelf.
     bool SitsOnWorkingGround

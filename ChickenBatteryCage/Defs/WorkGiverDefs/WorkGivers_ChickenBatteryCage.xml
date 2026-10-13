@@ -55,4 +55,18 @@
 			<li>Manipulation</li>
 		</requiredCapacities>
 	</WorkGiverDef>
+	<WorkGiverDef>
+		<defName>CBC_SpreadFertilizer</defName>
+		<label>spread fertilizer</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_SpreadFertilizer</giverClass>
+		<workType>Growing</workType>
+		<verb>spread</verb>
+		<gerund>spreading fertilizer</gerund>
+		<!-- Below sowing (50). Automatic work is indoor natural ground only.
+		     An outdoor pack is spread only when the player orders it. -->
+		<priorityInType>40</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
 </Defs>
