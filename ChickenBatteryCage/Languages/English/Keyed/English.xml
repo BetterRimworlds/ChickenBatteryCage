@@ -63,7 +63,8 @@
 	<ChickenBatteryCage.Fertilizer.Yield>{0} packs if cleaned now</ChickenBatteryCage.Fertilizer.Yield>
 	<ChickenBatteryCage.Fertilizer.Frozen>Frozen. It will not dissolve until it thaws.</ChickenBatteryCage.Fertilizer.Frozen>
 	<ChickenBatteryCage.Fertilizer.DissolvesEvery>One fertilizer pack dissolves every {0}</ChickenBatteryCage.Fertilizer.DissolvesEvery>
-	<ChickenBatteryCage.Fertilizer.Indoors>indoors</ChickenBatteryCage.Fertilizer.Indoors>
+	<ChickenBatteryCage.Fertilizer.Indoors>Indoors. It will not dissolve on its own.</ChickenBatteryCage.Fertilizer.Indoors>
+	<ChickenBatteryCage.Fertilizer.Stored>Stored. It will not dissolve until placed on natural ground.</ChickenBatteryCage.Fertilizer.Stored>
 	<ChickenBatteryCage.Fertilizer.Rain>raining</ChickenBatteryCage.Fertilizer.Rain>
 	<ChickenBatteryCage.Toxic.Status>{0} ({1})</ChickenBatteryCage.Toxic.Status>
 	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>

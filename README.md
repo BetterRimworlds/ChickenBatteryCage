@@ -79,9 +79,13 @@ behind, so no manure is lost between visits.
 
 Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
 use the same dissolution clock and the same deterioration rate, and they stack
-five to a tile. **One pack dissolves at a time**: every eight days outdoors,
-every sixteen days indoors, and every four days outdoors in the rain or snow.
-Freezing stops the clock and keeps its progress. They produce no pollution, no
+five to a tile. **One pack dissolves at a time** on natural ground: every
+eight days on natural ground, or every four days in the rain or snow. Indoors
+it does not dissolve on its own. A grower can spread a pack immediately
+instead: right-click it and choose spread fertilizer, or leave Growing
+enabled and the work is picked up after sowing. Rough cave stone counts, so a
+pack in an underground base can be spread at once. On a constructed floor or
+a shelf the clock waits and growers will not spread it. Freezing stops the clock and keeps its progress. They produce no pollution, no
 tox gas, and no infestations.
 
 If the stack deteriorates or is otherwise destroyed, every pack still in it

@@ -16,18 +16,15 @@ namespace BetterRimworlds.ChickenBatteryCage;
 /**
  * Def properties for a Fertilizer Pack's dissolution.
  *
- * The numbers match a toxic wastepack's <c>CompProperties_Dissolution</c>:
- * one pack every eight days outdoors, half that speed indoors, and twice
- * that speed in rain or snow. Cells struck per pack is the beneficial
- * opposite of the wastepack's six polluted cells.
+ * Outdoors, one pack dissolves every eight days on natural ground, and twice
+ * as fast in rain or snow. There is no indoor rate: a pack indoors waits until
+ * a grower spreads it or it is taken outside. Cells struck per pack is the
+ * beneficial opposite of a wastepack's six polluted cells.
  */
 public class CompProperties_FertilizerDissolution : CompProperties
 {
     /// Days between dissolving one pack outdoors in fair weather.
     public float dissolutionAfterDays = FertilizerDissolutionMath.DaysToDissolve;
-
-    /// Divides the interval while the pack is not in an outdoor-temperature room.
-    public float dissolutionFactorIndoors = FertilizerDissolutionMath.IndoorFactor;
 
     /// Divides the interval while rain or snow is falling on an outdoor pack.
     public float dissolutionFactorRain = FertilizerDissolutionMath.RainFactor;

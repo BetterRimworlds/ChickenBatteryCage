@@ -82,6 +82,18 @@ public class FertilizerTerrainRulesTests
     }
 
     [Test]
+    public void ACaveFloorAnchorsAPatchAndAConstructedFloorDoesNot()
+    {
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Granite_Rough"));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Granite_RoughHewn"));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("Soil"));
+        Assert.IsTrue(FertilizerTerrainRules.AnchorsSpread("SoilRich"));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("Concrete"));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("PavedTile"));
+        Assert.IsFalse(FertilizerTerrainRules.AnchorsSpread("WaterDeep"));
+    }
+
+    [Test]
     public void ConstructedTerrainAndWaterAreNeverTargets()
     {
         Assert.IsNull(FertilizerTerrainRules.TargetFor("Concrete"));

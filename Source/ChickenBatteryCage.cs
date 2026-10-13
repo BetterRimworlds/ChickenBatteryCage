@@ -48,8 +48,8 @@ public class ChickenBatteryCage : Mod
 #if CBC_FAST_DECOMPOSITION
         Log.Warning(
             "[ChickenBatteryCage] Fast fertilizer decomposition is enabled. "
-            + "One pack dissolves per day outdoors, or every 12 hours in rain or snow. "
-            + "Indoors takes two days. Freezing stops it.");
+            + "One pack dissolves per day on natural ground outdoors, or every 12 hours in rain or snow. "
+            + "Indoors it does not dissolve on its own. Freezing stops it.");
 #endif
 
         var harmony = new Harmony("BetterRimworlds.ChickenBatteryCage");

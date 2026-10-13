@@ -20,7 +20,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * project turns that into <c>CBC_FAST_DECOMPOSITION</c>. A normal build leaves
  * the constant false. The clock itself is the wastepack dissolution timer;
  * fast only shortens the outdoor base from eight days to one and keeps the
- * indoor and rain factors.
+ * rain factor. Indoors, the clock stays stopped.
  */
 public static class FertilizerFastDecomposition
 {
@@ -47,7 +47,7 @@ public static class FertilizerFastDecompositionStartup
         }
 
         def.description +=
-            "\n\nThis development build dissolves one pack per day outdoors, or every twelve hours while rain or snow falls outdoors. Indoors takes two days. Freezing stops it.";
+            "\n\nThis development build dissolves one pack per day on natural ground outdoors, or every twelve hours in rain or snow. Indoors it does not dissolve on its own. A floor or shelf does not dissolve it. Freezing stops it.";
     }
 }
 #endif

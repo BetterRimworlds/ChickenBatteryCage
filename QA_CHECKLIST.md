@@ -172,14 +172,22 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 - [ ] A `fertilizer pack` stacks five to a tile, is haulable and stockpilable,
       and uses a distinct custom texture rather than vanilla art.
-- [ ] A pack dissolves like a toxic wastepack, one pack at a time: every
-      **eight days** outdoors, every **sixteen days** indoors, and every
-      **four days** outdoors in rain or snow. Freezing stops the clock.
+- [ ] Outdoors, a pack dissolves one at a time on natural ground: every
+      **eight days**, or every **four days** in rain or snow. Indoors it does
+      not dissolve on its own, even on rough cave stone. On a constructed floor
+      or a shelf it does not dissolve. Freezing stops the outdoor clock.
+- [ ] A grower can spread one pack immediately, including on an underground
+      cave floor. Right-click a pack on natural ground and choose **spread
+      fertilizer**, or leave Growing enabled and a grower will do it after
+      sowing. Packs on a floor or a shelf are not offered. The work takes a
+      few seconds and improves the ground the same way the outdoor clock does.
 - [ ] Deterioration matches a wastepack (rate 4, 100 hit points). Destroying
       the stack by wear or any other damage fertilizes the ground for every
       pack still in it, then the stack is gone.
-- [ ] The inspect line says how long until the next pack, and notes indoors
-      or rain the way a wastepack does. A frozen pack says it will not dissolve.
+- [ ] The inspect line says how long until the next pack, and notes rain when
+      it applies. An indoor pack says it will not dissolve on its own. A pack
+      on a floor or shelf says it is stored. A frozen outdoor pack on natural
+      ground says it will not dissolve.
 - [ ] Each pack the stack held improves **six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
 - [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand

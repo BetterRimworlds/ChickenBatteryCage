@@ -12,54 +12,40 @@
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * The Verse-free clock behind a fertilizer pack, copied from vanilla
- * <c>CompDissolution</c> on a toxic wastepack.
+ * The Verse-free clock behind a fertilizer pack left outdoors.
  *
- * One pack dissolves per interval. Outdoors that interval is eight days.
- * Indoors the interval is divided by one half, so it takes twice as long.
- * Rain or snow, a weather rain rate above one tenth while the room is
- * outdoors, divides the interval by two. Freezing is not a rate here: the
- * caller simply stops advancing the clock at zero degrees and below.
- * A <c>./build.sh fast</c> build passes <see cref="FastDays"/> instead of
- * eight, and keeps these same factors.
+ * Dried fertilizer does not dissolve indoors, so this clock has no indoor
+ * rate. Outdoors, one pack dissolves every eight days on natural ground, and
+ * rain or snow — a weather rain rate above one tenth — divides that by two.
+ * Freezing is not a rate here: the caller simply stops advancing the clock at
+ * zero degrees and below. A <c>./build.sh fast</c> build passes
+ * <see cref="FastDays"/> instead of eight, and keeps the rain factor.
  */
 public static class FertilizerDissolutionMath
 {
-    /// Days between packs outdoors, in fair weather. Vanilla wastepacks use 8.
+    /// Days between packs outdoors, in fair weather.
     public const float DaysToDissolve = 8f;
 
-    /// Base days used by <c>./build.sh fast</c>. The indoor and rain factors stay.
+    /// Base days used by <c>./build.sh fast</c>. The rain factor stays.
     public const float FastDays = 1f;
 
-    /// <c>CompProperties_Dissolution.dissolutinFactorIndoors</c>. Divides the interval.
-    public const float IndoorFactor = 0.5f;
-
-    /// <c>CompProperties_Dissolution.dissolutionFactorRain</c>. Divides the interval.
+    /// Divides the outdoor interval while rain or snow is falling.
     public const float RainFactor = 2f;
 
-    /// Wastepacks treat the weather as rain only above this rate. Snow is 1.
+    /// Rain or snow counts only above this weather rain rate. Snow is 1.
     public const float MinRainRate = 0.1f;
 
     /// Hit points per day on a toxic wastepack. Default max hit points are 100.
     public const float DeteriorationRateLikeWastepack = 4f;
 
-    /// True when a weather rain rate would speed a wastepack that is outdoors.
+    /// True when a weather rain rate would speed an outdoor pack.
     public static bool CountsAsRain(float rainRate)
     {
         return rainRate > MinRainRate;
     }
 
-    /**
-     * Ticks between dissolving one pack. Indoor and rain each divide the
-     * interval, in that order, which is how <c>CompDissolution</c> does it.
-     * The caller passes raining only while the pack is outdoors.
-     */
-    public static int IntervalTicks(
-        float days,
-        bool outdoors,
-        bool raining,
-        float indoorFactor = IndoorFactor,
-        float rainFactor = RainFactor)
+    /// Ticks between dissolving one outdoor pack. Rain divides the interval.
+    public static int IntervalTicks(float days, bool raining, float rainFactor = RainFactor)
     {
         if (days <= 0f)
         {
@@ -67,11 +53,6 @@ public static class FertilizerDissolutionMath
         }
 
         float ticks = days * CagedChickenMath.TicksPerDay;
-        if (!outdoors && indoorFactor > 0f)
-        {
-            ticks /= indoorFactor;
-        }
-
         if (raining && rainFactor > 0f)
         {
             ticks /= rainFactor;

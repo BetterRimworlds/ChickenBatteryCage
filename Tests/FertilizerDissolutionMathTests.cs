@@ -17,8 +17,8 @@ using NUnit.Framework;
 namespace BetterRimworlds.ChickenBatteryCage.Tests;
 
 /**
- * Pins the wastepack dissolution clock: eight days outdoors, twice as long
- * indoors, half as long in rain or snow, and a one-day base for a fast build.
+ * Pins the outdoor dissolution clock: eight days on natural ground, half that
+ * in rain or snow, and a one-day base for a fast build. There is no indoor rate.
  */
 [TestFixture]
 public class FertilizerDissolutionMathTests
@@ -33,13 +33,7 @@ public class FertilizerDissolutionMathTests
     public void OutdoorsInFairWeatherTakesEightDays()
     {
         Assert.AreEqual(8f, FertilizerDissolutionMath.DaysToDissolve);
-        Assert.AreEqual(8 * Day, FertilizerDissolutionMath.IntervalTicks(8f, outdoors: true, raining: false));
-    }
-
-    [Test]
-    public void IndoorsTakesTwiceAsLong()
-    {
-        Assert.AreEqual(16 * Day, FertilizerDissolutionMath.IntervalTicks(8f, outdoors: false, raining: false));
+        Assert.AreEqual(8 * Day, FertilizerDissolutionMath.IntervalTicks(8f, raining: false));
     }
 
     [Test]
@@ -48,16 +42,15 @@ public class FertilizerDissolutionMathTests
         Assert.IsTrue(FertilizerDissolutionMath.CountsAsRain(1f));
         Assert.IsFalse(FertilizerDissolutionMath.CountsAsRain(0f));
         Assert.IsFalse(FertilizerDissolutionMath.CountsAsRain(FertilizerDissolutionMath.MinRainRate));
-        Assert.AreEqual(4 * Day, FertilizerDissolutionMath.IntervalTicks(8f, outdoors: true, raining: true));
+        Assert.AreEqual(4 * Day, FertilizerDissolutionMath.IntervalTicks(8f, raining: true));
     }
 
     [Test]
-    public void AFastBuildKeepsTheFactorsAndShortensTheBaseToOneDay()
+    public void AFastBuildKeepsTheRainFactorAndShortensTheBaseToOneDay()
     {
         Assert.AreEqual(1f, FertilizerDissolutionMath.FastDays);
-        Assert.AreEqual(Day, FertilizerDissolutionMath.IntervalTicks(1f, outdoors: true, raining: false));
-        Assert.AreEqual(2 * Day, FertilizerDissolutionMath.IntervalTicks(1f, outdoors: false, raining: false));
-        Assert.AreEqual(Day / 2, FertilizerDissolutionMath.IntervalTicks(1f, outdoors: true, raining: true));
+        Assert.AreEqual(Day, FertilizerDissolutionMath.IntervalTicks(1f, raining: false));
+        Assert.AreEqual(Day / 2, FertilizerDissolutionMath.IntervalTicks(1f, raining: true));
     }
 
     [Test]
@@ -82,7 +75,7 @@ public class FertilizerDissolutionMathTests
             .First(item => (string)item.Attribute("Class") ==
                 "BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution");
         Assert.AreEqual("8", (string)comp.Element("dissolutionAfterDays"));
-        Assert.AreEqual("0.5", (string)comp.Element("dissolutionFactorIndoors"));
+        Assert.IsNull(comp.Element("dissolutionFactorIndoors"));
         Assert.AreEqual("2", (string)comp.Element("dissolutionFactorRain"));
     }
 }

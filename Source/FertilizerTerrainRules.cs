@@ -110,6 +110,16 @@ public static class FertilizerTerrainRules
         return IsRoughStone(defName) ? Gravel : null;
     }
 
+    /**
+     * True when a pack sitting on this terrain can start or continue a fertile
+     * patch. Rough cave stone counts, so an underground floor can be fertilized.
+     * Constructed floors, water, and ice do not, so a pack stored on them waits.
+     */
+    public static bool AnchorsSpread(string defName)
+    {
+        return TargetFor(defName) != null || IsImproved(defName);
+    }
+
     /// True when a terrain defName is one of the game's generated rough-stone
     /// cave-floor terrains (for example "Granite_Rough").
     public static bool IsRoughStone(string defName)

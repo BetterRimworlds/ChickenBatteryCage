@@ -20,12 +20,14 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * Dissolves a Fertilizer Pack the way a toxic wastepack dissolves, and leaves
  * fertile ground instead of pollution.
  *
- * The clock is vanilla <c>CompDissolution</c>. One pack leaves the stack per
- * interval: eight days outdoors, sixteen days indoors, four days outdoors in
- * rain or snow. At freezing or below the clock waits and keeps its progress.
- * There is no food-rot timer. Hit-point deterioration is the wastepack's own
- * rate, and any damage that destroys the stack — wear, fire, a smash —
- * improves the ground for every pack still in it, then lets the damage
+ * Dried fertilizer does not dissolve indoors, so the clock runs only in a room
+ * that uses the outdoor temperature, and only on natural ground. One pack
+ * leaves the stack every eight days, or every four days in rain or snow. A
+ * constructed floor or a shelf never starts it. An underground base is indoors,
+ * so a pack there waits until a grower spreads it. At freezing or below the
+ * clock also waits. There is no food-rot timer. Hit-point deterioration is the
+ * wastepack's own rate, and any damage that destroys the stack — wear, fire, a
+ * smash — improves the ground for every pack still in it, then lets the damage
  * destroy the thing.
  *
  * A <c>./build.sh fast</c> build keeps those factors and shortens the outdoor
@@ -68,6 +70,53 @@ public class CompFertilizerDissolution : ThingComp
 
     bool IsFrozen => parent.AmbientTemperature <= 0f;
 
+    /// True when this pack is on ground a patch can grow from, and not on a shelf.
+    bool SitsOnWorkingGround
+    {
+        get
+        {
+            if (KeptOnShelf())
+            {
+                return false;
+            }
+
+            Map map = parent.MapHeld;
+            if (map == null)
+            {
+                return false;
+            }
+
+            TerrainDef terrain = parent.PositionHeld.GetTerrain(map);
+            return terrain != null && FertilizerTerrainRules.AnchorsSpread(terrain.defName);
+        }
+    }
+
+    /// A shelf or similar building holds the pack in storage even over cave stone.
+    bool KeptOnShelf()
+    {
+        IThingHolder holder = parent.ParentHolder;
+        for (int i = 0; i < 8 && holder != null; i++)
+        {
+            if (holder is Thing thing && thing.def?.building?.preventDeteriorationOnTop == true)
+            {
+                return true;
+            }
+
+            holder = holder.ParentHolder;
+        }
+
+        Map map = parent.Map;
+        if (map == null || !parent.Spawned)
+        {
+            return false;
+        }
+
+        Building edifice = parent.Position.GetEdifice(map);
+        return edifice != null
+            && edifice.def.building != null
+            && edifice.def.building.preventDeteriorationOnTop;
+    }
+
     /// Rain or snow on an outdoor pack. A roof does not matter; the room does.
     bool IsBeingRainedOn
     {
@@ -85,16 +134,15 @@ public class CompFertilizerDissolution : ThingComp
 
     int IntervalTicks => FertilizerDissolutionMath.IntervalTicks(
         Days,
-        IsOutdoors,
         IsBeingRainedOn,
-        Props.dissolutionFactorIndoors,
         Props.dissolutionFactorRain);
 
     public override void CompTick()
     {
         base.CompTick();
 
-        if (parent == null || parent.Destroyed || parent.MapHeld == null || IsFrozen)
+        if (parent == null || parent.Destroyed || parent.MapHeld == null
+            || IsFrozen || !IsOutdoors || !SitsOnWorkingGround)
         {
             return;
         }
@@ -176,6 +224,16 @@ public class CompFertilizerDissolution : ThingComp
             return null;
         }
 
+        if (!IsOutdoors)
+        {
+            return "ChickenBatteryCage.Fertilizer.Indoors".Translate();
+        }
+
+        if (!SitsOnWorkingGround)
+        {
+            return "ChickenBatteryCage.Fertilizer.Stored".Translate();
+        }
+
         if (IsFrozen)
         {
             return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
@@ -185,13 +243,6 @@ public class CompFertilizerDissolution : ThingComp
             IntervalTicks.ToStringTicksToPeriod());
 
         var reasons = new List<string>();
-        if (!IsOutdoors)
-        {
-            reasons.Add(
-                "ChickenBatteryCage.Fertilizer.Indoors".Translate()
-                + " x" + Props.dissolutionFactorIndoors.ToStringPercent());
-        }
-
         if (IsBeingRainedOn)
         {
             reasons.Add(
