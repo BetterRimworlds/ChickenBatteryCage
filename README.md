@@ -81,7 +81,9 @@ Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
 stack five to a tile and **spoil like food**: rot progress runs on temperature,
 so a pack keeps roughly ten days in the warm open, lingers longer in the cold,
 and stops outright below freezing — a freezer preserves fertilizer as well as it
-preserves corn. They produce no pollution, no tox gas, and no infestations.
+preserves corn. Outdoors it also wears away like raw food, and rain or snow
+wears an unroofed pack out five times as fast, in about two days.
+They produce no pollution, no tox gas, and no infestations.
 
 When a stack rots away the **whole stack dissolves at once**, exactly as a stack
 of raw corn is destroyed all at once. Each pack it held improves **six cells of

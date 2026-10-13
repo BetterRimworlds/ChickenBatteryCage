@@ -34,18 +34,25 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * corn, which is likewise destroyed all at once the moment it begins to rot,
  * except that this pack leaves fertile ground behind.
  *
- * A build from <c>./build.sh fast</c> replaces that wait. The stack then
- * dissolves after one day, or four times as fast while its cell is unroofed
- * and the map's weather is bad. Vanilla rot is patched out for this def in
- * that build, so a freezer does not hold the stack back.
+ * Outdoors the pack also deteriorates like raw food: about ten days of hit
+ * points in fair weather, and five times that fast while rain or snow falls
+ * on an unroofed cell, which is vanilla's own rain factor. Wearing away
+ * dissolves the stack the same way rot does.
+ *
+ * A build from <c>./build.sh fast</c> shortens the rot wait to one warm day, and
+ * rain on an unroofed cell dissolves it four times as fast, in six hours.
+ * Cold still slows the stack, and freezing still stops it, exactly as it does
+ * for food. Vanilla rot is
+ * patched out for this def in that build so the ten-day timer does not also
+ * run; the fast clock applies the same temperature curve itself.
  */
 public class CompFertilizerDissolution : ThingComp
 {
 #if CBC_FAST_DECOMPOSITION
-    /// Fair-weather-equivalent ticks accumulated while this stack waits to
+    /// Warm-fair-equivalent ticks accumulated while this stack waits to
     /// dissolve. Present only in a <c>./build.sh fast</c> build, so a normal
     /// build does not write it into saves.
-    int fastTicks;
+    float fastTicks;
 #endif
 
     CompProperties_FertilizerDissolution Props => (CompProperties_FertilizerDissolution)props;
@@ -81,26 +88,27 @@ public class CompFertilizerDissolution : ThingComp
             return;
         }
 
-        bool badWeather = IsExposedToBadWeather();
-        fastTicks += FertilizerFastDecompositionMath.EquivalentTicks(delta, badWeather);
+        bool raining = IsRainedOn();
+        float rotRate = FertilizerFastDecompositionMath.TemperatureRotRate(parent.AmbientTemperature);
+        fastTicks += FertilizerFastDecompositionMath.EquivalentTicks(delta, raining, rotRate);
         if (FertilizerFastDecompositionMath.ShouldDissolve(fastTicks))
         {
             TriggerDissolution(parent.stackCount);
         }
     }
 
-    /// True when this pack's cell is open to a bad sky. A roof keeps the
-    /// fair-weather rate even while it is raining on the map.
-    bool IsExposedToBadWeather()
+    /// True when rain is falling on this pack's cell. Vanilla's plain Rain
+    /// def has a rain rate of 1 and leaves isBad false, so the bad-weather
+    /// flag does not see it. A roof keeps the one-day rate.
+    bool IsRainedOn()
     {
         Map map = parent.MapHeld;
-        WeatherDef weather = map?.weatherManager?.curWeather;
-        if (map == null || weather == null || !weather.isBad)
+        if (map == null || map.roofGrid.Roofed(parent.PositionHeld))
         {
             return false;
         }
 
-        return !map.roofGrid.Roofed(parent.PositionHeld);
+        return FertilizerFastDecompositionMath.CountsAsRain(map.weatherManager.RainRate);
     }
 #endif
 
@@ -176,7 +184,7 @@ public class CompFertilizerDissolution : ThingComp
         }
 
         float proportionOther = count / (float)(parent.stackCount + count);
-        fastTicks = (int)Mathf.Lerp(fastTicks, other.fastTicks, proportionOther);
+        fastTicks = Mathf.Lerp(fastTicks, other.fastTicks, proportionOther);
     }
 
     public override void PostSplitOff(Thing piece)
@@ -197,12 +205,32 @@ public class CompFertilizerDissolution : ThingComp
             return null;
         }
 
-        bool badWeather = IsExposedToBadWeather();
-        int remaining = FertilizerFastDecompositionMath.RealTicksRemaining(fastTicks, badWeather);
+        float rotRate = FertilizerFastDecompositionMath.TemperatureRotRate(parent.AmbientTemperature);
+        if (rotRate <= 0f)
+        {
+            return "ChickenBatteryCage.Fertilizer.Frozen".Translate();
+        }
+
+        bool raining = IsRainedOn();
+        bool cold = rotRate < 0.999f;
+        int remaining = FertilizerFastDecompositionMath.RealTicksRemaining(fastTicks, raining, rotRate);
         string period = remaining.ToStringTicksToPeriod();
-        return badWeather
-            ? "ChickenBatteryCage.Fertilizer.DissolvesInBadWeather".Translate(period)
-            : "ChickenBatteryCage.Fertilizer.DissolvesIn".Translate(period);
+        if (raining && cold)
+        {
+            return "ChickenBatteryCage.Fertilizer.DissolvesInRainCold".Translate(period);
+        }
+
+        if (raining)
+        {
+            return "ChickenBatteryCage.Fertilizer.DissolvesInRain".Translate(period);
+        }
+
+        if (cold)
+        {
+            return "ChickenBatteryCage.Fertilizer.DissolvesInCold".Translate(period);
+        }
+
+        return "ChickenBatteryCage.Fertilizer.DissolvesIn".Translate(period);
     }
 #endif
 

@@ -120,8 +120,12 @@ A Fertilizer Pack is a real spawned `Thing`, but a passive one: it carries
 vanilla `CompRottable`, so it spoils with temperature exactly as food does —
 full speed at ten degrees and above, proportionally slower in the cold, and
 stopped below freezing, with vanilla's own Fresh/Rotting and refrigerated or
-frozen hints. A small companion comp watches the rot stage and, the moment the
-stack leaves Fresh, dissolves all of it at once, improving six cells per pack.
+frozen hints. It also carries raw plant food's deterioration rate, so outdoors
+it loses hit points over about ten fair days, and rain or snow on an unroofed
+cell makes that five times as fast, the same 500% factor vanilla uses for raw
+food. A small companion comp watches the rot
+stage and, the moment the stack leaves Fresh — or the moment deterioration
+destroys it — dissolves all of it at once, improving six cells per pack.
 This is raw corn's one-shot spoilage with `CompDissolution`'s toxic behavior
 left out.
 

@@ -174,6 +174,11 @@ style terrain improvement, and virtualized Toxic Buildup.*
       and uses a distinct custom texture rather than vanilla art.
 - [ ] A pack spoils on vanilla rot: about **ten days** in the warm open, slower
       in the cold, and stopped outright below freezing (a freezer preserves it).
+- [ ] Outdoors it also deteriorates like raw food: about **ten days** of hit
+      points under a clear sky. Rain or snow on an unroofed pack wears it out
+      **five times** as fast, in about two days, the same 500% factor as raw
+      food. A roof, and fog, leave that rate alone. Wearing away fertilizes
+      the ground just as rotting does.
 - [ ] When a stack's rot stage leaves Fresh the **whole stack** dissolves at
       once, exactly as a stack of raw corn is destroyed all at once.
 - [ ] Each pack the stack held improves **six** nearby natural cells, growing an
