@@ -18,7 +18,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *
  * Outdoors, one pack dissolves every eight days on natural ground, and twice
  * as fast in rain or snow. There is no indoor rate: a pack indoors waits until
- * a grower spreads it or it is taken outside. Cells struck per pack is the
+ * a grower is ordered to spread it or it is taken outside. Cells struck per pack is the
  * beneficial opposite of a wastepack's six polluted cells.
  */
 public class CompProperties_FertilizerDissolution : CompProperties

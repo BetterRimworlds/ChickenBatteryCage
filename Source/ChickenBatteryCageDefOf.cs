@@ -25,6 +25,8 @@ public static class ChickenBatteryCageDefOf
 
     public static JobDef CBC_CleanBatteryCage;
 
+    public static JobDef CBC_SpreadFertilizer;
+
     /// The Fertilizer Pack the cages produce when cleaned.
     public static ThingDef CBC_FertilizerPack;
 
