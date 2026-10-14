@@ -41,13 +41,13 @@
 		<size>(2,2)</size>
 		<designationCategory>Production</designationCategory>
 		<uiOrder>2070</uiOrder>
-		<!-- Square footprint, still rotatable. A 2×2 face has no single center
-		     cell, so the interaction spot sits on one side of a face. RimWorld
-		     rotates the offset with the building, which carries that spot
-		     around all four faces and keeps it just outside the footprint.
-		     The graphics are independent of this and are unchanged by it. -->
-		<hasInteractionCell>true</hasInteractionCell>
-		<interactionCellOffset>(2,0,0)</interactionCellOffset>
+		<!-- Square footprint, still rotatable. The cage deliberately declares no
+		     fixed interaction spot: a hard-coded offset makes RimWorld refuse to
+		     place a cage whenever that one cell is not standable, which blocks
+		     packing cages into networks of odd shapes. With no offset, RimWorld
+		     computes InteractionCell at runtime from the first standable cell
+		     around the footprint, so every interaction still has somewhere to
+		     stand while placement stays free. The graphics are unchanged. -->
 		<defaultPlacingRot>East</defaultPlacingRot>
 		<rotatable>true</rotatable>
 		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
