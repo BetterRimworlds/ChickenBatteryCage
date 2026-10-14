@@ -2178,6 +2178,10 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
+        // The def declares no fixed interaction spot, so InteractionCell is
+        // resolved at runtime to a standable cell beside the cage (or the
+        // cage's own cell). That keeps corpses off the footprint without a
+        // hard-coded offset blocking odd-shaped cage networks.
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
         int diedAtTick = GenTicks.TicksAbs;
         Corpse corpse = CageChickenFactory.GenerateCorpse(record, Map, diedAtTick);
