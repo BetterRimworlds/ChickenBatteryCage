@@ -65,4 +65,14 @@ public class CageInteractionCellTests
             "A fixed offset is meaningless without hasInteractionCell and would " +
             "read as if a spot were still pinned to one face.");
     }
+
+    [Test]
+    public void CagePlaceWorkerDrawsTheOccupiedFootprint()
+    {
+        XElement def = CageDef();
+        Assert.That((string)def.Element("drawPlaceWorkersWhileSelected"), Is.EqualTo("true"));
+        Assert.That(
+            def.Element("placeWorkers")?.Elements("li").Select(e => (string)e),
+            Does.Contain("BetterRimworlds.ChickenBatteryCage.PlaceWorker_MustBeRoofed"));
+    }
 }
