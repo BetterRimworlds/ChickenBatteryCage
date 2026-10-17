@@ -31,28 +31,34 @@ public static class CageFeed
     static readonly string[] NamedFeedDefs = { "Hay", "Kibble" };
 
     /**
-     * Whether a thing is suitable chicken feed. Prepared meals and meat are
-     * rejected: a confined flock eats raw plant food, hay, and kibble, and
-     * footing a lavish meal into the cage would be an expensive mistake.
-     *
-     * RimWorld 1.6 moved raw rice to the Seed food type (it doubles as
-     * sowing stock), so seed-class plant food must be accepted too or a rice
-     * farm cannot feed its cages at all.
+     * Whether a thing is food at all, before the cage's own selector narrows
+     * the list. Anything the colony can haul and eat qualifies, except dairy
+     * while the mod setting forbids it. The player's filter decides which of
+     * these foods may actually be brought to the cage.
      */
-    public static bool Accepts(Thing thing)
+    public static bool IsFeedDef(ThingDef def)
     {
-        if (thing == null || thing.Destroyed || thing.stackCount <= 0)
-        {
-            return false;
-        }
-
-        ThingDef def = thing.def;
         if (def == null || !def.IsNutritionGivingIngestible || def.ingestible == null)
         {
             return false;
         }
 
-        if (IsForbiddenFeed(def))
+        return !IsForbiddenFeed(def);
+    }
+
+    /**
+     * The foods a fresh cage allows. Hay, kibble, and raw plant food are the
+     * sensible staples, and dairy joins them only when the mod setting lifts
+     * the ban. The player can widen this to any other food in the cage's
+     * storage-style feed selector.
+     *
+     * RimWorld 1.6 moved raw rice to the Seed food type (it doubles as
+     * sowing stock), so seed-class plant food must be accepted too or a rice
+     * farm cannot feed its cages at all.
+     */
+    public static bool IsDefaultFeed(ThingDef def)
+    {
+        if (!IsFeedDef(def))
         {
             return false;
         }
@@ -75,6 +81,66 @@ public static class CageFeed
         const FoodTypeFlags plantFood =
             FoodTypeFlags.VegetableOrFruit | FoodTypeFlags.Seed;
         return (def.ingestible.foodType & plantFood) != 0;
+    }
+
+    /// A fresh selector that starts with the same foods cages accepted before
+    /// the player could choose: the plant staples, hay, and kibble.
+    public static ThingFilter CreateDefaultFilter()
+    {
+        ThingFilter filter = new ThingFilter();
+        foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
+        {
+            if (IsDefaultFeed(def))
+            {
+                filter.SetAllow(def, true);
+            }
+        }
+
+        return filter;
+    }
+
+    /// The universe of foods the selector can offer. Used as the filter UI's
+    /// parent so inedible items do not clutter the list.
+    public static ThingFilter CreateSelectableFilter()
+    {
+        ThingFilter filter = new ThingFilter();
+        foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
+        {
+            if (IsFeedDef(def))
+            {
+                filter.SetAllow(def, true);
+            }
+        }
+
+        return filter;
+    }
+
+    /**
+     * Whether a thing may be fed to a cage under its selector. The base food
+     * rules still apply, so the selector can only narrow the list, never turn
+     * a rock or a forbidden dairy product into feed.
+     */
+    public static bool Accepts(Thing thing, ThingFilter filter)
+    {
+        if (thing == null || thing.Destroyed || thing.stackCount <= 0)
+        {
+            return false;
+        }
+
+        ThingDef def = thing.def;
+        if (!IsFeedDef(def))
+        {
+            return false;
+        }
+
+        return filter == null || filter.Allows(thing);
+    }
+
+    /// Base suitability without a cage selector, for callers that only need to
+    /// know whether a def is feed at all.
+    public static bool Accepts(Thing thing)
+    {
+        return Accepts(thing, null);
     }
 
     /**
@@ -137,6 +203,7 @@ public static class CageFeed
             return null;
         }
 
+        ThingFilter filter = cage.ClusterFeedFilter;
         return GenClosest.ClosestThingReachable(
             pawn.Position,
             pawn.Map,
@@ -144,7 +211,7 @@ public static class CageFeed
             PathEndMode.ClosestTouch,
             TraverseParms.For(pawn),
             maxDistance: 9999f,
-            validator: thing => Accepts(thing)
+            validator: thing => Accepts(thing, filter)
                 && !thing.IsForbidden(pawn)
                 && pawn.CanReserve(thing)
                 && CageFeedMath.ConsumeUnits(
@@ -166,8 +233,8 @@ public static class CageFeed
         }
 
         // The stack was chosen before the haul began, so re-check it: the feed
-        // rules (the dairy ban) can change while the hauler is in transit.
-        if (!Accepts(stack))
+        // selector or the dairy ban can change while the hauler is in transit.
+        if (!Accepts(stack, cage.ClusterFeedFilter))
         {
             return;
         }
