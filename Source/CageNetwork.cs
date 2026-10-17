@@ -824,6 +824,48 @@ public static class CageNetwork
 
     // ---- Toggles, marks, and routing -------------------------------------
 
+    /// The feed selector shared by a cluster. Like the feed store, the choice
+    /// belongs to the whole network, so one stable member (lowest thing ID)
+    /// holds the effective list and every food check reads it.
+    public static ThingFilter FeedFilter(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        Building_ChickenBatteryCage leader = null;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (leader == null || cage.thingIDNumber < leader.thingIDNumber)
+            {
+                leader = cage;
+            }
+        }
+
+        return leader?.FeedFilter;
+    }
+
+    /// Copies the cluster's effective selector onto every member. Called when a
+    /// cage joins and before one leaves, so a cage that outlives the leader
+    /// keeps the player's choice.
+    public static void CopyFeedFilterAcross(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        ThingFilter source = FeedFilter(cluster);
+        if (source == null)
+        {
+            return;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.CopyFeedFilterFrom(source);
+            }
+        }
+    }
+
     /// True only when every cage in the cluster has its pen system on; the
     /// gizmo reads this so a partial cluster shows as off.
     public static bool PenSystemEnabled(IReadOnlyList<Building_ChickenBatteryCage> cluster)

@@ -52,6 +52,11 @@ public class Building_ChickenBatteryCage : Building
     /// the flock up instead of sipping at it every time a unit is eaten.
     protected bool feedTopUpRequested;
 
+    /// Which foods haulers may bring to this cage. Persisted per cage and, like
+    /// the shared feed pool, resolved once for the whole cluster by
+    /// <see cref="ClusterFeedFilter"/>.
+    protected ThingFilter feedFilter;
+
     /// Fraction of capacity below which a cluster asks to be refilled.
     public const float FeedLowWaterFraction = 0.5f;
 
@@ -218,6 +223,38 @@ public class Building_ChickenBatteryCage : Building
 
     /// Fed, hungry, or starving, derived from the cluster's shared pool.
     public CageNutritionState ClusterNutritionState => CageNetwork.NutritionState(CageNetwork.Cluster(this));
+
+    /// The feed selector for this cage's whole cluster. Touching cages share
+    /// one feed store, so they must also share the list of foods allowed into
+    /// it. The network picks one member's selector as the effective one.
+    public ThingFilter ClusterFeedFilter => CageNetwork.FeedFilter(CageNetwork.Cluster(this));
+
+    /// This cage's own persisted selector, created with the default staples
+    /// the first time it is needed.
+    public ThingFilter FeedFilter
+    {
+        get
+        {
+            if (feedFilter == null)
+            {
+                feedFilter = CageFeed.CreateDefaultFilter();
+            }
+
+            return feedFilter;
+        }
+    }
+
+    /// Replaces this cage's selector with a copy of another member's, so a cage
+    /// joining or outliving a cluster keeps the player's choice.
+    internal void CopyFeedFilterFrom(ThingFilter source)
+    {
+        if (source == null || source == FeedFilter)
+        {
+            return;
+        }
+
+        FeedFilter.CopyAllowancesFrom(source);
+    }
 
     /// Manure stored across this cage's whole cluster, in whole and fractional
     /// Fertilizer Pack-equivalents.
@@ -632,8 +669,13 @@ public class Building_ChickenBatteryCage : Building
         }
 
         // A new cage changes which cages touch; rebuild the clusters now so the
-        // just-built cage immediately joins its neighbours.
+        // just-built cage immediately joins its neighbours and inherits their
+        // feed selector rather than starting with fresh defaults.
         CageNetwork.Invalidate(map);
+        if (!respawningAfterLoad)
+        {
+            CageNetwork.CopyFeedFilterAcross(CageNetwork.Cluster(this));
+        }
     }
 
     public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
@@ -658,6 +700,10 @@ public class Building_ChickenBatteryCage : Building
     /// holds it past the building's destruction and retries the release.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
+        // Hand the cluster's effective selector to the cages that will outlive
+        // this one, so the player's feed choice is not lost with the leader.
+        CageNetwork.CopyFeedFilterAcross(CageNetwork.Cluster(this));
+
         // Capture the network's surviving cages while this cage is still a live
         // member: after base.Destroy the building is gone and its cluster can no
         // longer be discovered from here. Every bird released below must not be
@@ -815,6 +861,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Deep.Look(ref feedFilter, "feedFilter");
         Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
         Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
         Scribe_Values.Look(ref wastePacks, "wastePacks", 0f);
@@ -867,6 +914,13 @@ public class Building_ChickenBatteryCage : Building
             if (pendingUnloads == null)
             {
                 pendingUnloads = new List<CagedChickenRecord>();
+            }
+
+            // Saves made before the feed selector existed start with the
+            // familiar staples instead of an empty (nothing allowed) filter.
+            if (feedFilter == null)
+            {
+                feedFilter = CageFeed.CreateDefaultFilter();
             }
 
             SanitizeLoadedState();
@@ -1085,6 +1139,18 @@ public class Building_ChickenBatteryCage : Building
             },
         };
         yield return penSystemGizmo;
+
+        Command_Action feedFilterGizmo = new Command_Action
+        {
+            defaultLabel = "ChickenBatteryCage.Gizmo.FeedFilter".Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.FeedFilterDesc".Translate(),
+            icon = ThingDefOf.Hay.uiIcon,
+            action = delegate
+            {
+                Find.WindowStack.Add(new Window_CageFeedFilter(this));
+            },
+        };
+        yield return feedFilterGizmo;
 
         // The stress tools are destructive, so they need both the game's dev
         // mode and God mode turned on.
