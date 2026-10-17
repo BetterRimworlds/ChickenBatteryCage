@@ -824,6 +824,38 @@ public static class CageNetwork
 
     // ---- Toggles, marks, and routing -------------------------------------
 
+    /// True only when every cage in the cluster allows feeding; the toggle reads
+    /// this so a partially disabled cluster shows as off.
+    public static bool FeedAllowed(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            any = true;
+            if (!cage.FeedAllowed)
+            {
+                return false;
+            }
+        }
+        return any;
+    }
+
+    public static void SetFeedAllowed(IReadOnlyList<Building_ChickenBatteryCage> cluster, bool allowed)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.SetFeedAllowed(allowed);
+            }
+        }
+    }
+
     /// The feed selector shared by a cluster. Like the feed store, the choice
     /// belongs to the whole network, so one stable member (lowest thing ID)
     /// holds the effective list and every food check reads it.
