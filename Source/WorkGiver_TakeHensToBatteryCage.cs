@@ -95,20 +95,26 @@ public class WorkGiver_TakeHensToBatteryCage : WorkGiver_InteractAnimal
             return null;
         }
 
-        Building_ChickenBatteryCage cage = Building_ChickenBatteryCage.FindAcceptingCage(animal, pawn);
-        if (cage == null)
+        if (!Building_ChickenBatteryCage.TryFindAcceptingCage(
+                animal,
+                pawn,
+                out Building_ChickenBatteryCage cage,
+                out Building_ChickenBatteryCage serviceCage))
         {
             JobFailReason.Is(Building_ChickenBatteryCage.NoAcceptingCageReason(animal.Map));
             return null;
         }
 
-        IntVec3 standCell = cage.FindStandCellForHandler(pawn);
+        IntVec3 standCell = serviceCage.FindStandCellForHandler(pawn);
         if (!standCell.IsValid)
         {
             JobFailReason.Is("CantRopeAnimalNoSpace".Translate());
             return null;
         }
 
+        // The rope driver walks to the stand cell (B) but files the bird into
+        // the accepting cage (C). The stand cell may belong to a reachable
+        // neighbour when the accepting cage is buried in a packed network.
         return JobMaker.MakeJob(
             ChickenBatteryCageDefOf.CBC_RopeHenToBatteryCage,
             animal,

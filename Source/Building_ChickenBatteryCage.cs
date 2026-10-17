@@ -1356,23 +1356,35 @@ public class Building_ChickenBatteryCage : Building
         return "ChickenBatteryCage.FloatMenu.Full".Translate();
     }
 
-    public static Building_ChickenBatteryCage FindAcceptingCage(Pawn hen, Pawn handler)
+    /**
+     * Finds a cage that can accept the chicken and a cage in the same network
+     * the handler can actually walk to.
+     *
+     * Usually both are the same cage. When the accepting cage is buried inside
+     * a tightly packed network, the service cage is a reachable neighbour and
+     * the chicken is still filed into the accepting cage: the flock is shared
+     * across the network, so the handler does not need to stand on the exact
+     * cage that owns the record.
+     */
+    public static bool TryFindAcceptingCage(
+        Pawn chicken,
+        Pawn handler,
+        out Building_ChickenBatteryCage target,
+        out Building_ChickenBatteryCage service)
     {
-        if (hen?.Map == null || handler == null)
+        target = null;
+        service = null;
+        if (chicken?.Map == null || handler == null)
         {
-            return null;
+            return false;
         }
 
-        Building_ChickenBatteryCage best = null;
+        Building_ChickenBatteryCage bestTarget = null;
+        Building_ChickenBatteryCage bestService = null;
         int bestDist = int.MaxValue;
-        foreach (Building_ChickenBatteryCage cage in hen.Map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
+        foreach (Building_ChickenBatteryCage cage in chicken.Map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (!cage.CanAcceptChicken(hen) || cage.IsForbidden(handler))
-            {
-                continue;
-            }
-
-            if (!handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
+            if (!cage.CanAcceptChicken(chicken) || cage.IsForbidden(handler))
             {
                 continue;
             }
@@ -1386,15 +1398,64 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            // Also check that the handler can reserve a stand cell in this cage.
-            // Without this, a nearest cage may have all stand cells reserved,
-            // causing the job to fail even when another cage has availability.
-            if (!HasAvailableStandCell(cage, handler))
+            Building_ChickenBatteryCage candidateService = FindServiceCage(cage, handler);
+            if (candidateService == null)
             {
                 continue;
             }
 
-            int dist = hen.Position.DistanceToSquared(cage.Position);
+            // The handler walks to the service cage, so distance is measured
+            // there rather than at the accepting cage.
+            int dist = chicken.Position.DistanceToSquared(candidateService.Position);
+            if (dist < bestDist)
+            {
+                bestTarget = cage;
+                bestService = candidateService;
+                bestDist = dist;
+            }
+        }
+
+        target = bestTarget;
+        service = bestService;
+        return target != null;
+    }
+
+    /**
+     * The cage in <paramref name="owner"/>'s network a handler should walk to.
+     * The owner itself is preferred; otherwise the nearest live member with a
+     * free, reachable stand cell that the handler can reserve. Returns null
+     * when the whole network is sealed off, in which case neither loading nor
+     * unloading can be serviced.
+     */
+    public static Building_ChickenBatteryCage FindServiceCage(
+        Building_ChickenBatteryCage owner,
+        Pawn handler)
+    {
+        if (owner == null || handler == null || owner.Map == null)
+        {
+            return null;
+        }
+
+        if (IsServiceable(owner, handler))
+        {
+            return owner;
+        }
+
+        Building_ChickenBatteryCage best = null;
+        int bestDist = int.MaxValue;
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(owner))
+        {
+            if (cage == null || cage == owner || cage.Destroyed)
+            {
+                continue;
+            }
+
+            if (!IsServiceable(cage, handler))
+            {
+                continue;
+            }
+
+            int dist = owner.Position.DistanceToSquared(cage.Position);
             if (dist < bestDist)
             {
                 best = cage;
@@ -1403,6 +1464,16 @@ public class Building_ChickenBatteryCage : Building
         }
 
         return best;
+    }
+
+    /// True when a handler can reserve this cage, stand beside it, and work
+    /// from it.
+    static bool IsServiceable(Building_ChickenBatteryCage cage, Pawn handler)
+    {
+        return !cage.IsForbidden(handler)
+            && handler.CanReserve(cage, 1, -1)
+            && handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly)
+            && HasAvailableStandCell(cage, handler);
     }
 
     private static bool HasAvailableStandCell(Building_ChickenBatteryCage cage, Pawn handler)
@@ -1512,8 +1583,10 @@ public class Building_ChickenBatteryCage : Building
 
     /// Resolves the front of the unload queue. Discards a mark whose bird is
     /// no longer housed and stops without losing a mark if the bird could not
-    /// be materialized.
-    public bool TryUnloadNext()
+    /// be materialized. <paramref name="serviceCage"/> is the network member the
+    /// handler actually reached; the bird is placed beside it, which lets an
+    /// inaccessible interior cage be unloaded from a reachable neighbour.
+    public bool TryUnloadNext(Building_ChickenBatteryCage serviceCage = null)
     {
         while (pendingUnloads.Count > 0)
         {
@@ -1532,7 +1605,7 @@ public class Building_ChickenBatteryCage : Building
             // queue. A death during settlement can satisfy this request too.
             pendingUnloads.RemoveAt(0);
 
-            if (!ReleaseRecordAt(index))
+            if (!ReleaseRecordAt(index, serviceCage))
             {
                 // Generation failed; keep the record and its mark.
                 pendingUnloads.Insert(0, target);
@@ -1546,8 +1619,10 @@ public class Building_ChickenBatteryCage : Building
         return false;
     }
 
-    /// Materializes and releases the record at the given index.
-    public bool ReleaseRecordAt(int index)
+    /// Materializes and releases the record at the given index, placing it
+    /// beside <paramref name="serviceCage"/> when the handler serviced the
+    /// network from a different member than the one holding the record.
+    public bool ReleaseRecordAt(int index, Building_ChickenBatteryCage serviceCage = null)
     {
         if (index < 0 || index >= chickens.Count)
         {
@@ -1568,7 +1643,9 @@ public class Building_ChickenBatteryCage : Building
         }
 
         CagedChickenRecord record = chickens[index];
-        IntVec3 near = FindDropCell();
+        IntVec3 near = serviceCage != null && serviceCage.Spawned && serviceCage.Map == Map
+            ? serviceCage.FindDropCell()
+            : FindDropCell();
         Pawn released = CageChickenFactory.Generate(record, Map, near, toxicBuildup);
         if (released == null)
         {

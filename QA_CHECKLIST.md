@@ -230,6 +230,7 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 - [ ] Full PR 4→11 flow in one continuous colony: research → build → fill → feed → starve → recover → lay → build a touching cage and watch it join the cluster → pick birds → refuse dairy → 5-year run.
 - [ ] **Cluster topology sweep:** build a row of three touching cages plus one detached cage; the three share hen count/feed/picker/toggle, the detached one stays independent; deconstruct the middle cage and confirm the survivors split without losing feed or birds.
+- [ ] **Packed-network access:** build a fully packed grid (such as 3×3 of the 2×2 cages) and mark birds in the centre cages for unloading; a handler walks to a reachable outside cage, the marked bird is released outside the grid, and loading a hen into a centre cage with space also works from the outside. No cage needs to be passable.
 - [ ] Combined save/load at every stage; one save carried through the entire session.
 - [ ] Load order / mod-compat smoke test with Harmony only, then with two or three common animal mods (no duplicate defNames, no patches double-applying).
 - [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`) across the `pr4` → `pr11` stack ahead of `trunk`.

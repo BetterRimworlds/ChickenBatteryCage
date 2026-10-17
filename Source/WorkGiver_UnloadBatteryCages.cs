@@ -55,7 +55,12 @@ public class WorkGiver_UnloadBatteryCages : WorkGiver_Scanner
             return false;
         }
 
-        if (!pawn.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
+        // The handler does not need to reach the cage that owns the record.
+        // Any live member of the same network with a reachable stand cell can
+        // service it, which is how a bird in an interior cage gets out of a
+        // tightly packed grid.
+        Building_ChickenBatteryCage service = Building_ChickenBatteryCage.FindServiceCage(cage, pawn);
+        if (service == null)
         {
             JobFailReason.Is("NoPath".Translate());
             return false;
@@ -66,6 +71,19 @@ public class WorkGiver_UnloadBatteryCages : WorkGiver_Scanner
 
     public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
     {
-        return JobMaker.MakeJob(ChickenBatteryCageDefOf.CBC_UnloadBatteryCage, t);
+        Building_ChickenBatteryCage cage = t as Building_ChickenBatteryCage;
+        Building_ChickenBatteryCage service = cage == null
+            ? null
+            : Building_ChickenBatteryCage.FindServiceCage(cage, pawn);
+
+        if (cage == null || service == null)
+        {
+            return null;
+        }
+
+        return JobMaker.MakeJob(
+            ChickenBatteryCageDefOf.CBC_UnloadBatteryCage,
+            cage,
+            service);
     }
 }
