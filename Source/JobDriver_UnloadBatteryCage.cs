@@ -27,26 +27,49 @@ public class JobDriver_UnloadBatteryCage : JobDriver
 {
     public const TargetIndex CageInd = TargetIndex.A;
 
+    /// The network member the handler walks to. It may differ from
+    /// <see cref="Cage"/> when the cage holding the mark is sealed inside a
+    /// packed network and a neighbouring cage is the only reachable side.
+    public const TargetIndex ServiceCageInd = TargetIndex.B;
+
     Building_ChickenBatteryCage Cage =>
         job.GetTarget(CageInd).Thing as Building_ChickenBatteryCage;
+
+    /// Falls back to <see cref="Cage"/> for jobs saved before the service cage
+    /// existed, so an in-progress unload still completes.
+    Building_ChickenBatteryCage ServiceCage =>
+        job.GetTarget(ServiceCageInd).Thing as Building_ChickenBatteryCage ?? Cage;
 
     public override bool TryMakePreToilReservations(bool errorOnFailed)
     {
         Building_ChickenBatteryCage cage = Cage;
-        if (cage == null)
+        Building_ChickenBatteryCage service = ServiceCage;
+        if (cage == null || service == null)
         {
             return false;
         }
 
-        return pawn.Reserve(cage, job, 1, -1, null, errorOnFailed);
+        if (!pawn.Reserve(cage, job, 1, -1, null, errorOnFailed))
+        {
+            return false;
+        }
+
+        if (service != cage && !pawn.Reserve(service, job, 1, -1, null, errorOnFailed))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     protected override IEnumerable<Toil> MakeNewToils()
     {
         this.FailOnDespawnedNullOrForbidden(CageInd);
         this.FailOn(() => Cage == null || !Cage.HasPendingUnload);
+        this.FailOn(() => ServiceCage == null || !ServiceCage.Spawned || ServiceCage.IsForbidden(pawn));
 
-        yield return Toils_Goto.GotoThing(CageInd, PathEndMode.Touch);
+        TargetIndex gotoInd = job.GetTarget(ServiceCageInd).HasThing ? ServiceCageInd : CageInd;
+        yield return Toils_Goto.GotoThing(gotoInd, PathEndMode.Touch);
         yield return Toils_General.Wait(180);
 
         Toil unload = ToilMaker.MakeToil("UnloadChickenFromBatteryCage");
@@ -55,7 +78,7 @@ public class JobDriver_UnloadBatteryCage : JobDriver
             Building_ChickenBatteryCage cage = Cage;
             if (cage != null)
             {
-                cage.TryUnloadNext();
+                cage.TryUnloadNext(ServiceCage);
             }
         };
         unload.defaultCompleteMode = ToilCompleteMode.Instant;

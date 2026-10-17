@@ -73,6 +73,16 @@ one member tops up the whole cluster. Because the state stays per-cage
 on disk, no save migration is needed and a cage leaving the cluster keeps only
 its own share.
 
+Loading and unloading are network-aware about access as well as state. A
+handler normally works at the cage that owns the record, but a tightly packed
+network can bury a cage so that none of its neighbouring cells are standable.
+`FindServiceCage` then picks a reachable member of the same cluster: the
+handler walks to that service cage, while `PutHenInCage` still files the bird
+into the accepting cage and `TryUnloadNext` still drains the owning cage's
+queue. The released bird is placed beside the service cage. This keeps the per-
+cage records and capacity limits intact while letting the network be serviced
+from whichever outside face is actually reachable.
+
 The egg box is pooled the same way. Each cage banks its own fractional
 `eggProgress`, but release is decided on the cluster total: whenever the sum
 reaches a whole stack — one full day of the whole network's laying, never fewer
