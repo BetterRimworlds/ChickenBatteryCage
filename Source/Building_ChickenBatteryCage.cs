@@ -57,6 +57,10 @@ public class Building_ChickenBatteryCage : Building
     /// <see cref="ClusterFeedFilter"/>.
     protected ThingFilter feedFilter;
 
+    /// Whether haulers may bring any food to this cage. On by default; the
+    /// allow/deny gizmo turns it off for the whole cluster at once.
+    protected bool feedAllowed = true;
+
     /// Fraction of capacity below which a cluster asks to be refilled.
     public const float FeedLowWaterFraction = 0.5f;
 
@@ -155,8 +159,10 @@ public class Building_ChickenBatteryCage : Building
 
     /// True while this cage should be offered to haulers as a feeding target.
     /// The decision is shared across the cluster's pool: a member is only a
-    /// target while the flock needs feed and the pool is still filling.
-    public bool NeedsFeeding => chickens.Count > 0
+    /// target while feeding is allowed, the flock needs feed, and the pool is
+    /// still filling.
+    public bool NeedsFeeding => feedAllowed
+        && chickens.Count > 0
         && feedTopUpRequested;
 
     /// The persisted per-member copy of the cluster's refill request. The
@@ -228,6 +234,16 @@ public class Building_ChickenBatteryCage : Building
     /// one feed store, so they must also share the list of foods allowed into
     /// it. The network picks one member's selector as the effective one.
     public ThingFilter ClusterFeedFilter => CageNetwork.FeedFilter(CageNetwork.Cluster(this));
+
+    /// Whether haulers may bring food to this cage at all.
+    public bool FeedAllowed => feedAllowed;
+
+    /// Internal hook the cluster toggle uses to write the setting across every
+    /// member.
+    internal void SetFeedAllowed(bool allowed)
+    {
+        feedAllowed = allowed;
+    }
 
     /// This cage's own persisted selector, created with the default staples
     /// the first time it is needed.
@@ -861,6 +877,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref feedAllowed, "feedAllowed", true);
         Scribe_Deep.Look(ref feedFilter, "feedFilter");
         Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
         Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
@@ -1139,6 +1156,20 @@ public class Building_ChickenBatteryCage : Building
             },
         };
         yield return penSystemGizmo;
+
+        Command_Toggle feedAllowedGizmo = new Command_Toggle
+        {
+            defaultLabel = "ChickenBatteryCage.Gizmo.FeedAllowed".Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.FeedAllowedDesc".Translate(),
+            icon = CageNetwork.FeedAllowed(cluster) ? TexCommand.ForbidOff : TexCommand.ForbidOn,
+            isActive = () => CageNetwork.FeedAllowed(CageNetwork.Cluster(this)),
+            toggleAction = delegate
+            {
+                IReadOnlyList<Building_ChickenBatteryCage> current = CageNetwork.Cluster(this);
+                CageNetwork.SetFeedAllowed(current, !CageNetwork.FeedAllowed(current));
+            },
+        };
+        yield return feedAllowedGizmo;
 
         Command_Action feedFilterGizmo = new Command_Action
         {

@@ -28,6 +28,8 @@
 	<ChickenBatteryCage.Gizmo.AllowDesc>Allow handlers to rope hens into this cluster of touching battery cages. Toggling this applies to every cage in the cluster at once. Unloading marks are still worked and the hens already housed are unaffected.</ChickenBatteryCage.Gizmo.AllowDesc>
 	<ChickenBatteryCage.Gizmo.FeedFilter>Allowed feed</ChickenBatteryCage.Gizmo.FeedFilter>
 	<ChickenBatteryCage.Gizmo.FeedFilterDesc>Choose which foods haulers may bring to this cluster of touching battery cages. Hay, kibble, and raw plant food are allowed by default. Every cage in the cluster shares the selection because they share one feed store.</ChickenBatteryCage.Gizmo.FeedFilterDesc>
+	<ChickenBatteryCage.Gizmo.FeedAllowed>Allow feeding</ChickenBatteryCage.Gizmo.FeedAllowed>
+	<ChickenBatteryCage.Gizmo.FeedAllowedDesc>Allow haulers to bring food to this cluster of touching battery cages. Toggling this applies to every cage in the cluster at once. With feeding denied, the housed hens eat only what is already in the shared store; allowing it again resumes the feeding work.</ChickenBatteryCage.Gizmo.FeedAllowedDesc>
 	<ChickenBatteryCage.FeedFilter.Title>Allowed feed</ChickenBatteryCage.FeedFilter.Title>
 	<ChickenBatteryCage.Gizmo.UnloadEmpty>There are no caged chickens to unload.</ChickenBatteryCage.Gizmo.UnloadEmpty>
 	<ChickenBatteryCage.Picker.Title>Unload chickens</ChickenBatteryCage.Picker.Title>

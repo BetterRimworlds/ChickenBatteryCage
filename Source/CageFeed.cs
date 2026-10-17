@@ -198,7 +198,7 @@ public static class CageFeed
     /// and of which the cage's remaining pool can absorb at least one unit.
     public static Thing FindFeed(Pawn pawn, Building_ChickenBatteryCage cage)
     {
-        if (pawn?.Map == null || cage == null)
+        if (pawn?.Map == null || cage == null || !cage.FeedAllowed)
         {
             return null;
         }
@@ -228,6 +228,12 @@ public static class CageFeed
     public static void Feed(Building_ChickenBatteryCage cage, Thing stack)
     {
         if (cage == null || stack == null || stack.Destroyed)
+        {
+            return;
+        }
+
+        // Feeding can be denied while a hauler is already carrying the stack.
+        if (!cage.FeedAllowed)
         {
             return;
         }
