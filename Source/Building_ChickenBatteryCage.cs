@@ -1086,7 +1086,9 @@ public class Building_ChickenBatteryCage : Building
         };
         yield return penSystemGizmo;
 
-        if (Prefs.DevMode)
+        // The stress tools are destructive, so they need both the game's dev
+        // mode and God mode turned on.
+        if (Prefs.DevMode && DebugSettings.godMode)
         {
             Command_Action devGizmo = new Command_Action
             {
