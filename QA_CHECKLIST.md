@@ -176,11 +176,12 @@ style terrain improvement, and virtualized Toxic Buildup.*
       **eight days**, or every **four days** in rain or snow. Indoors it does
       not dissolve on its own, even on rough cave stone. On a constructed floor
       or a shelf it does not dissolve. Freezing stops the outdoor clock.
-- [ ] A grower spreads an indoor pack on natural ground after sowing, including
-      an underground cave floor. An outdoor pack is never taken up on its own.
-      Right-click that pack and choose **spread fertilizer** to order it.
-      Packs on a floor or a shelf are not offered. The work takes a few seconds
-      and improves the ground the same way the outdoor clock does.
+- [ ] A grower spreads an outdoor stack on natural ground after sowing, the
+      whole stack at once. An indoor pack, including one on an underground
+      cave floor, is never taken up on its own. Right-click that pack and
+      choose **spread fertilizer** to order it. Packs on a floor or a shelf
+      are not offered. The work takes a few seconds and improves the ground
+      for every pack in the stack, the same way the outdoor clock does for one.
 - [ ] Deterioration matches a wastepack (rate 4, 100 hit points). Destroying
       the stack by wear or any other damage fertilizes the ground for every
       pack still in it, then the stack is gone.

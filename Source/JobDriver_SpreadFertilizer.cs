@@ -17,21 +17,22 @@ using Verse.AI;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * A grower walks to a fertilizer pack on natural ground and spreads one pack
- * into the soil immediately, instead of leaving the eight-day clock to do it.
+ * A grower walks to a fertilizer pack on natural ground and spreads the whole
+ * stack into the soil immediately, instead of leaving the eight-day clock to
+ * dissolve it one pack at a time.
  */
 public class JobDriver_SpreadFertilizer : JobDriver
 {
     public const TargetIndex PackInd = TargetIndex.A;
 
-    /// Work at normal plant speed. A stack of five is a short task, not a day.
+    /// One short wait for the whole stack. Five packs is a few seconds, not a day.
     public const int SpreadWorkTicks = 300;
 
     Thing Pack => job.GetTarget(PackInd).Thing;
 
     public override bool TryMakePreToilReservations(bool errorOnFailed)
     {
-        return Pack != null && pawn.Reserve(Pack, job, 1, 1, null, errorOnFailed);
+        return Pack != null && pawn.Reserve(Pack, job, 1, -1, null, errorOnFailed);
     }
 
     protected override IEnumerable<Toil> MakeNewToils()
@@ -55,9 +56,9 @@ public class JobDriver_SpreadFertilizer : JobDriver
         apply.initAction = delegate
         {
             CompFertilizerDissolution comp = Pack?.TryGetComp<CompFertilizerDissolution>();
-            if (comp != null && comp.CanBeSpread)
+            if (comp != null && comp.CanBeSpread && Pack.stackCount > 0)
             {
-                comp.TriggerDissolution(1);
+                comp.TriggerDissolution(Pack.stackCount);
             }
         };
         apply.defaultCompleteMode = ToilCompleteMode.Instant;

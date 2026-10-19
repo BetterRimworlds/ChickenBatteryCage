@@ -17,9 +17,9 @@ using Verse.AI;
 namespace BetterRimworlds.ChickenBatteryCage;
 
 /**
- * Offers a fertilizer pack on natural ground so a grower can spread one pack.
- * Packs on a floor or a shelf are storage and are never offered. An outdoor
- * pack is left for the weather unless the player orders the work by hand.
+ * Offers a fertilizer pack on natural ground so a grower can spread the whole
+ * stack. Packs on a floor or a shelf are storage and are never offered. An
+ * indoor pack is left alone unless the player orders the work by hand.
  */
 public class WorkGiver_SpreadFertilizer : WorkGiver_Scanner
 {
@@ -46,7 +46,7 @@ public class WorkGiver_SpreadFertilizer : WorkGiver_Scanner
         for (int i = 0; i < packs.Count; i++)
         {
             CompFertilizerDissolution comp = packs[i].TryGetComp<CompFertilizerDissolution>();
-            if (comp != null && comp.CanBeSpread && !comp.IsOutdoors)
+            if (comp != null && comp.CanBeSpread && comp.IsOutdoors)
             {
                 return false;
             }
@@ -68,14 +68,16 @@ public class WorkGiver_SpreadFertilizer : WorkGiver_Scanner
             return false;
         }
 
-        // Outdoor packs dissolve on their own. A colonist spreads one only when
-        // the player selects the order.
-        if (!forced && comp.IsOutdoors)
+        // Indoor packs do not dissolve on their own. A colonist spreads one
+        // only when the player selects the order.
+        if (!forced && !comp.IsOutdoors)
         {
             return false;
         }
 
-        if (t.IsForbidden(pawn) || !pawn.CanReserve(t, 1, 1))
+        // The job consumes the whole stack, so the reservation has to cover
+        // every pack in it.
+        if (t.IsForbidden(pawn) || !pawn.CanReserve(t, 1, -1))
         {
             return false;
         }
@@ -96,6 +98,8 @@ public class WorkGiver_SpreadFertilizer : WorkGiver_Scanner
             return null;
         }
 
-        return JobMaker.MakeJob(ChickenBatteryCageDefOf.CBC_SpreadFertilizer, t);
+        Job job = JobMaker.MakeJob(ChickenBatteryCageDefOf.CBC_SpreadFertilizer, t);
+        job.count = t.stackCount;
+        return job;
     }
 }

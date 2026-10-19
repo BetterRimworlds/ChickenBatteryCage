@@ -24,7 +24,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * that uses the outdoor temperature, and only on natural ground. One pack
  * leaves the stack every eight days, or every four days in rain or snow. A
  * constructed floor or a shelf never starts it. An underground base is indoors,
- * so a pack there waits until a grower spreads it. At freezing or below the
+ * so a pack there waits until a grower is ordered to spread it. At freezing or below the
  * clock also waits. There is no food-rot timer. Hit-point deterioration is the
  * wastepack's own rate, and any damage that destroys the stack — wear, fire, a
  * smash — improves the ground for every pack still in it, then lets the damage

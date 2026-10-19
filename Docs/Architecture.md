@@ -132,9 +132,9 @@ only while the pack's room uses the outdoor temperature and the pack sits on
 terrain the spread can grow from: eight days, or four in rain or snow (the
 weather rain rate above 0.1). Indoors the clock does not advance.
 `WorkGiver_SpreadFertilizer` lets a grower spend a short Growing job to
-dissolve one indoor pack on natural ground immediately, including under a
-mountain roof. An outdoor pack is offered only when the player orders the
-work. A constructed floor or a shelf does not advance the clock and is not a
+dissolve a whole outdoor stack on natural ground immediately. An indoor pack,
+including one under a mountain roof, is offered only when the player orders
+the work. A constructed floor or a shelf does not advance the clock and is not a
 work target, so stored packs are not consumed. At or below 0°C the clock pauses. The def's deterioration rate is 4,
 with the default 100 hit points, so vanilla wear can still destroy the stack;
 lethal damage improves the ground for every pack left in it and then lets the

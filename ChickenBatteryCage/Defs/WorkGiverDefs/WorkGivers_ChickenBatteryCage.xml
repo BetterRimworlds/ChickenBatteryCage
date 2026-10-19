@@ -62,8 +62,9 @@
 		<workType>Growing</workType>
 		<verb>spread</verb>
 		<gerund>spreading fertilizer</gerund>
-		<!-- Below sowing (50). Automatic work is indoor natural ground only.
-		     An outdoor pack is spread only when the player orders it. -->
+		<!-- Below sowing (50). Automatic work is outdoor natural ground only.
+		     An indoor pack is spread only when the player orders it. The job
+		     spreads the whole stack. -->
 		<priorityInType>40</priorityInType>
 		<requiredCapacities>
 			<li>Manipulation</li>
