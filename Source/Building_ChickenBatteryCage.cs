@@ -632,9 +632,10 @@ public class Building_ChickenBatteryCage : Building
         }
     }
 
-    /// Whole Fertilizer Packs a cleaning now would yield.
+    /// Whole Fertilizer Packs available versus the cluster's cleaning threshold.
     protected virtual string FertilizerInspectValue => "ChickenBatteryCage.Fertilizer.Yield".Translate(
-        CageWasteMath.WholePacks(ClusterWastePacks));
+        CageWasteMath.WholePacks(ClusterWastePacks),
+        Mathf.CeilToInt(ClusterCleaningThreshold));
 
     /// Virtual Toxic Buildup severity and which way it is moving.
     protected virtual string ToxicityInspectValue

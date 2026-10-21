@@ -65,7 +65,7 @@
 	<ChickenBatteryCage.Cleaning.Clean>clean</ChickenBatteryCage.Cleaning.Clean>
 	<ChickenBatteryCage.Cleaning.NeedsCleaning>needs cleaning</ChickenBatteryCage.Cleaning.NeedsCleaning>
 	<ChickenBatteryCage.Cleaning.Critical>critical</ChickenBatteryCage.Cleaning.Critical>
-	<ChickenBatteryCage.Fertilizer.Yield>{0} packs if cleaned now</ChickenBatteryCage.Fertilizer.Yield>
+	<ChickenBatteryCage.Fertilizer.Yield>{0} / {1} packs</ChickenBatteryCage.Fertilizer.Yield>
 	<ChickenBatteryCage.Fertilizer.Frozen>Frozen. It will not dissolve until it thaws.</ChickenBatteryCage.Fertilizer.Frozen>
 	<ChickenBatteryCage.Fertilizer.DissolvesEvery>One fertilizer pack dissolves every {0}</ChickenBatteryCage.Fertilizer.DissolvesEvery>
 	<ChickenBatteryCage.Fertilizer.Indoors>Indoors. It will not dissolve on its own.</ChickenBatteryCage.Fertilizer.Indoors>
