@@ -36,6 +36,13 @@ public class FertilizerDissolutionTests
     }
 
     [Test]
+    public void ConfiguredCellsPerPackIsHonoured()
+    {
+        Assert.AreEqual(4, CageWasteMath.CellsImprovedByPacks(2, 2));
+        Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(2, 0));
+    }
+
+    [Test]
     public void NegativeOrEmptyStacksImproveNothing()
     {
         Assert.AreEqual(0, CageWasteMath.CellsImprovedByPacks(-3));

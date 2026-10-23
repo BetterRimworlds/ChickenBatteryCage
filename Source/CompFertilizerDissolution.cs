@@ -196,7 +196,7 @@ public class CompFertilizerDissolution : ThingComp
         return FertilizerSpread.GrowAt(
             parent.PositionHeld,
             parent.MapHeld,
-            CageWasteMath.CellsImprovedByPacks(packs));
+            CageWasteMath.CellsImprovedByPacks(packs, Props.cellsImprovedPerPack));
     }
 
     public override void PostPreApplyDamage(ref DamageInfo dinfo, out bool absorbed)

@@ -319,12 +319,12 @@ public static class CageWasteMath
         return MaxToxicDailyChance * fraction;
     }
 
-    /// Cells a dissolving stack strikes: six per pack it holds. The whole stack
-    /// rots away at once, exactly as a stack of food does. Striking a cell is
-    /// not the same as transforming it; that takes three strikes.
-    public static int CellsImprovedByPacks(int packs)
+    /// Cells a dissolving stack strikes: six per pack by default. The whole
+    /// stack rots away at once, exactly as a stack of food does. Striking a
+    /// cell is not the same as transforming it; that takes three strikes.
+    public static int CellsImprovedByPacks(int packs, int cellsPerPack = CellsImprovedPerPack)
     {
-        return packs <= 0 ? 0 : packs * CellsImprovedPerPack;
+        return packs <= 0 || cellsPerPack <= 0 ? 0 : packs * cellsPerPack;
     }
 
     /// Days until the next whole pack accrues, for the inspection readout.
