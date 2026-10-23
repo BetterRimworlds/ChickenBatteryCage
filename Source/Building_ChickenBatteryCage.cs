@@ -1903,6 +1903,12 @@ public class Building_ChickenBatteryCage : Building
                 record.BiologicalAgeTicksAt(start), lifeExpectancy,
                 starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
                 now - start);
+
+            // Toxic exposure is integrated over each settlement interval too,
+            // so cleaning or recovering mid-window cannot re-rate the whole
+            // mortality window from its final severity.
+            record.mortalityExposure += CageWasteMath.ToxicExposureOverTicks(
+                toxicBuildup, now - start);
         }
     }
 
@@ -2159,21 +2165,16 @@ public class Building_ChickenBatteryCage : Building
 
         int died = 0;
 
-        // A dirty cage adds its own hazard on top of age and starvation. It is
-        // a whole-cage condition, so its chance is resolved once for the
-        // evaluation and folded into every bird's survival roll.
-        float toxicChance = CageMortalityMath.ChanceOverTicks(
-            CageWasteMath.ToxicDailyChance(toxicBuildup),
-            elapsed);
-
+        // Toxic exposure was folded into each bird's accumulated exposure at
+        // settlement, alongside age and starvation, so this roll uses the
+        // hazards the flock actually lived through rather than re-rating the
+        // whole interval from the final toxicity value.
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
             CagedChickenRecord record = chickens[i];
-            float baseChance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
+            float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
             record.mortalityExposure = 0.0;
 
-            // Combine independent causes so neither is double-counted.
-            float chance = 1f - (1f - baseChance) * (1f - toxicChance);
             if (!Rand.Chance(chance))
             {
                 continue;

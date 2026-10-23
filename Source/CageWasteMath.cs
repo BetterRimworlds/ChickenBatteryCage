@@ -319,6 +319,14 @@ public static class CageWasteMath
         return MaxToxicDailyChance * fraction;
     }
 
+    /// Integrated toxic exposure over a window spent at this severity. Charging
+    /// each settlement interval separately keeps a later recovery from
+    /// re-rating time the flock spent dirty.
+    public static double ToxicExposureOverTicks(float severity, int ticks)
+    {
+        return CageMortalityMath.ExposureOverTicks(ToxicDailyChance(severity), ticks);
+    }
+
     /// Cells a dissolving stack strikes: six per pack by default. The whole
     /// stack rots away at once, exactly as a stack of food does. Striking a
     /// cell is not the same as transforming it; that takes three strikes.

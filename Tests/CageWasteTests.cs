@@ -249,6 +249,21 @@ public class CageWasteTests
     }
 
     [Test]
+    public void ToxicExposureChargesEachIntervalAtItsOwnSeverity()
+    {
+        // Half a day very dirty followed by half a day recovered must charge
+        // more than judging the whole day by the final, lower severity.
+        int halfDay = Day / 2;
+        double dirtyThenRecovered =
+            CageWasteMath.ToxicExposureOverTicks(0.8f, halfDay)
+            + CageWasteMath.ToxicExposureOverTicks(0.3f, halfDay);
+        double finalRateOnly = CageWasteMath.ToxicExposureOverTicks(0.3f, Day);
+
+        Assert.Greater(dirtyThenRecovered, finalRateOnly);
+        Assert.AreEqual(0.0, CageWasteMath.ToxicExposureOverTicks(0.1f, Day));
+    }
+
+    [Test]
     public void EstimatedTimesUseTheFlockRate()
     {
         // A hundred hens, no waste, produce a pack every half day, and reach
