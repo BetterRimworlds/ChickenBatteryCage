@@ -701,7 +701,9 @@ public class Building_ChickenBatteryCage : Building
         CageNetwork.Invalidate(map);
         if (!respawningAfterLoad)
         {
-            CageNetwork.CopyFeedFilterAcross(CageNetwork.Cluster(this));
+            IReadOnlyList<Building_ChickenBatteryCage> joined = CageNetwork.Cluster(this);
+            CageNetwork.CopyFeedFilterAcross(joined);
+            CageNetwork.SetFeedAllowed(joined, CageNetwork.FeedAllowed(joined));
         }
     }
 
