@@ -27,6 +27,10 @@ public class WorkGiver_UnloadBatteryCages : WorkGiver_Scanner
 {
     public override PathEndMode PathEndMode => PathEndMode.Touch;
 
+    // The scanner must see interior cages even when the owning cage itself is
+    // sealed in: FindServiceCage picks a reachable neighbour from the network.
+    public override bool AllowUnreachable => true;
+
     public override IEnumerable<Thing> PotentialWorkThingsGlobal(Pawn pawn)
     {
         return pawn.Map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>();
