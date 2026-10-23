@@ -23,7 +23,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
  * living in the filth, so the accumulated condition is real and visible.
  *
  * The severity band is vanilla's own: ToxicBuildup.lethalSeverity, which the
- * mod clamps to when the def is readable.
+ * mod repairs into when the def is readable.
  */
 public static class CageToxicBuildup
 {
@@ -36,7 +36,7 @@ public static class CageToxicBuildup
     /**
      * Applies the accumulated severity to a freshly materialized bird. A
      * severity at or below zero does nothing. A value at or above lethal would
-     * kill the bird, so it is clamped just below lethal: the flock's mortality
+     * kill the bird, so it is held just below lethal: the flock's mortality
      * has already been dealing with poisoned birds, and a bird leaving a dirty
      * cage should emerge gravely ill, not drop dead on the spot.
      */
@@ -48,15 +48,15 @@ public static class CageToxicBuildup
         }
 
         float lethal = LethalSeverity;
-        float clamped = CageWasteMath.ClampSeverity(severity, lethal);
-        if (clamped <= 0f)
+        float repaired = CageWasteMath.RepairSeverity(severity, lethal);
+        if (repaired <= 0f)
         {
             return;
         }
 
-        if (clamped >= lethal)
+        if (repaired >= lethal)
         {
-            clamped = lethal * 0.99f;
+            repaired = lethal * 0.99f;
         }
 
         HediffDef def = HediffDefOf.ToxicBuildup;
@@ -71,7 +71,7 @@ public static class CageToxicBuildup
             return;
         }
 
-        hediff.Severity = clamped;
+        hediff.Severity = repaired;
         chicken.health.AddHediff(hediff);
     }
 }

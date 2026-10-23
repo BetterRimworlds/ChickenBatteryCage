@@ -787,7 +787,7 @@ public static class CageNetwork
         int birds,
         int elapsed)
     {
-        if (birds <= 0 || elapsed <= 0)
+        if (elapsed <= 0)
         {
             return;
         }

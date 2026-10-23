@@ -210,11 +210,20 @@ public class CageWasteTests
     }
 
     [Test]
-    public void ToxicBuildupIsClampedIntoTheVanillaBand()
+    public void ToxicBuildupIsRepairedIntoTheVanillaBand()
     {
-        Assert.AreEqual(0f, CageWasteMath.ClampSeverity(-3f));
-        Assert.AreEqual(1f, CageWasteMath.ClampSeverity(5f));
-        Assert.AreEqual(0f, CageWasteMath.ClampSeverity(float.NaN));
+        Assert.AreEqual(0f, CageWasteMath.RepairSeverity(-3f));
+        Assert.AreEqual(1f, CageWasteMath.RepairSeverity(5f));
+        Assert.AreEqual(0f, CageWasteMath.RepairSeverity(float.NaN));
+    }
+
+    [Test]
+    public void ToxicBuildupIsForgottenWhenTheFlockIsEmpty()
+    {
+        // A departed flock's exposure must not pass to the next birds placed
+        // in the cage, even before any elapsed time is settled.
+        Assert.AreEqual(0f, CageWasteMath.ToxicBuildupAfter(0.8f, 20f, 0, Day), Epsilon);
+        Assert.AreEqual(0f, CageWasteMath.ToxicBuildupAfter(0.8f, 20f, 0, 0), Epsilon);
     }
 
     [Test]

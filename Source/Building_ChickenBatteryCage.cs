@@ -354,6 +354,16 @@ public class Building_ChickenBatteryCage : Building
         set => toxicBuildup = value;
     }
 
+    /// Forgets the flock's exposure once no bird remains, so a later flock
+    /// starts clean instead of inheriting the departed one's Toxic Buildup.
+    void ForgetToxicBuildupIfEmpty()
+    {
+        if (chickens == null || chickens.Count == 0)
+        {
+            toxicBuildup = 0f;
+        }
+    }
+
     /// Bills this cage's own flock for the elapsed interval. No per-hen work
     /// runs; the sum is a pure function of hen count and time.
     internal void AccrueManure(int elapsed)
@@ -947,7 +957,7 @@ public class Building_ChickenBatteryCage : Building
 
     /**
      * Repairs or drops malformed loaded state so a single bad number cannot
-     * brick the save. Cheap fields are clamped; only an impossible chicken
+     * brick the save. Cheap fields are repaired; only an impossible chicken
      * record is dropped, and even then the rest of the cage is kept.
      */
     void SanitizeLoadedState()
@@ -959,13 +969,13 @@ public class Building_ChickenBatteryCage : Building
         nutritionStored = CagedChickenValidation.RepairStored(nutritionStored, NutritionCapacity);
         eggProgress = CagedChickenValidation.RepairEggProgress(eggProgress);
 
-        // A corrupt waste total is clamped into a sane band: non-finite or
+        // A corrupt waste total is repaired into a sane band: non-finite or
         // negative becomes nothing, an absurd value is capped rather than
         // allowed to poison the cleaning and toxicity math.
         wastePacks = CagedChickenValidation.RepairStored(wastePacks, CageWasteMath.MaxWastePacks);
 
-        // A severity outside the vanilla band is impossible; clamp it.
-        toxicBuildup = CageWasteMath.ClampSeverity(toxicBuildup, CageWasteMath.LethalSeverity);
+        // A severity outside the vanilla band is impossible; repair it.
+        toxicBuildup = CageWasteMath.RepairSeverity(toxicBuildup, CageWasteMath.LethalSeverity);
 
         if (starvingTicks < 0)
         {
@@ -1010,6 +1020,8 @@ public class Building_ChickenBatteryCage : Building
                 dropped++;
             }
         }
+
+        ForgetToxicBuildupIfEmpty();
 
         // A dropped bird can leave an unload mark with nothing left to satisfy
         // it. Prune the queue exactly as a death does, so a stale mark cannot
@@ -1655,6 +1667,7 @@ public class Building_ChickenBatteryCage : Building
         }
 
         chickens.RemoveAt(index);
+        ForgetToxicBuildupIfEmpty();
 
         // Turn the cluster's intake off: the bird just set down must not be
         // roped straight back into a cage. The player turns it back on with
@@ -2171,6 +2184,8 @@ public class Building_ChickenBatteryCage : Building
             }
             died++;
         }
+
+        ForgetToxicBuildupIfEmpty();
 
         if (died == 0 || simulating)
         {

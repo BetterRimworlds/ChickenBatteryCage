@@ -71,7 +71,7 @@ public static class CageWasteMath
     public const float ToxicRecoveryPerDay = 0.08f;
 
     /// Severity at which vanilla Toxic Buildup is lethal. Read from the def
-    /// where possible; this is the fallback and the clamp.
+    /// where possible; this is the fallback and the safe maximum.
     public const float LethalSeverity = 1f;
 
     /// Severity below which a dirty cage adds nothing to mortality. Vanilla's
@@ -84,7 +84,7 @@ public static class CageWasteMath
     public const float MaxToxicDailyChance = 0.2f;
 
     /// A safely absurd ceiling for a persisted waste total. Real values are a
-    /// few times the capacity gauge; anything past this is corrupt and clamped.
+    /// few times the capacity gauge; anything past this is corrupt and repaired.
     public const float MaxWastePacks = 1000000f;
 
     /// How well cleaned a cage is, in ascending order of neglect.
@@ -206,9 +206,9 @@ public static class CageWasteMath
         return ClassifyCleaning(wastePacks, hens) != CleaningStatus.Clean;
     }
 
-    /// Clamps a virtual severity into the valid band. A non-finite value is
+    /// Repairs a virtual severity into the valid band. A non-finite value is
     /// corrupt and becomes zero.
-    public static float ClampSeverity(float severity, float lethal = LethalSeverity)
+    public static float RepairSeverity(float severity, float lethal = LethalSeverity)
     {
         if (float.IsNaN(severity) || float.IsInfinity(severity))
         {
@@ -239,9 +239,16 @@ public static class CageWasteMath
         int elapsedTicks,
         float lethal = LethalSeverity)
     {
-        if (hens <= 0 || elapsedTicks <= 0)
+        if (hens <= 0)
         {
-            return ClampSeverity(severity, lethal);
+            // A flock that no longer exists cannot carry exposure. Keeping the
+            // old number would hand it to the next birds placed in the cage.
+            return 0f;
+        }
+
+        if (elapsedTicks <= 0)
+        {
+            return RepairSeverity(severity, lethal);
         }
 
         double elapsedDays = elapsedTicks / (double)CagedChickenMath.TicksPerDay;
@@ -272,7 +279,7 @@ public static class CageWasteMath
 
         double daysBelow = elapsedDays - daysAbove;
         double change = ToxicGainPerDay * daysAbove - ToxicRecoveryPerDay * daysBelow;
-        return ClampSeverity((float)(severity + change), lethal);
+        return RepairSeverity((float)(severity + change), lethal);
     }
 
     /// Which way the flock's exposure is currently heading, for the inspection
