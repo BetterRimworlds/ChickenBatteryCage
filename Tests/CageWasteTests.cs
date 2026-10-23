@@ -126,6 +126,15 @@ public class CageWasteTests
     }
 
     [Test]
+    public void CleaningThresholdNeverFallsBelowOneCollectiblePack()
+    {
+        // A lone hen would otherwise request cleaning at 0.1 packs, but a
+        // cleaning cannot remove less than one whole pack.
+        Assert.AreEqual(1f, CageWasteMath.CleaningThresholdPacks(1), Epsilon);
+        Assert.AreEqual(1f, CageWasteMath.CleaningThresholdPacks(5), Epsilon);
+    }
+
+    [Test]
     public void CleaningStatusFollowsTheGraceBand()
     {
         // Clean below the threshold, needs cleaning up to the safe level,
@@ -139,6 +148,28 @@ public class CageWasteTests
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Critical,
             CageWasteMath.ClassifyCleaning(25f, 100));
+    }
+
+    [Test]
+    public void CleaningIsNotAdvertisedWithoutAWholePack()
+    {
+        // One hen's waste passes its safe band at 0.2 packs, but there is still
+        // nothing a cleaner could collect until a whole pack has accrued.
+        Assert.AreEqual(
+            CageWasteMath.CleaningStatus.Clean,
+            CageWasteMath.ClassifyCleaning(0.9f, 1));
+        Assert.AreEqual(
+            CageWasteMath.CleaningStatus.Critical,
+            CageWasteMath.ClassifyCleaning(1f, 1));
+
+        // A cage emptied of hens keeps its leftover manure, but again only a
+        // whole pack is worth a service visit.
+        Assert.AreEqual(
+            CageWasteMath.CleaningStatus.Clean,
+            CageWasteMath.ClassifyCleaning(0.5f, 0));
+        Assert.AreEqual(
+            CageWasteMath.CleaningStatus.NeedsCleaning,
+            CageWasteMath.ClassifyCleaning(1.5f, 0));
     }
 
     [Test]

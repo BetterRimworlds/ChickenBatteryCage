@@ -128,10 +128,13 @@ public static class CageWasteMath
         return perDay <= 0f ? 0f : wastePacks / perDay;
     }
 
-    /// Pack-equivalents stored when a cage starts asking to be cleaned.
+    /// Pack-equivalents stored when a cage starts asking to be cleaned. Never
+    /// below one whole pack: a cleaning only removes whole packs, so advertising
+    /// a visit before one has accrued would send handlers to a no-op job.
     public static float CleaningThresholdPacks(int hens)
     {
-        return PacksPerDay(hens) * CleaningIntervalDays;
+        float threshold = PacksPerDay(hens) * CleaningIntervalDays;
+        return threshold < 1f ? 1f : threshold;
     }
 
     /// Pack-equivalents that still carry no serious toxic effect.
@@ -168,6 +171,14 @@ public static class CageWasteMath
     public static CleaningStatus ClassifyCleaning(float wastePacks, int hens)
     {
         if (wastePacks <= 0f)
+        {
+            return CleaningStatus.Clean;
+        }
+
+        // A cleaning only removes whole packs. Advertising a visit before one
+        // has accrued would leave the job eligible after every no-op cleaning,
+        // so the cage stays clean until its waste is worth collecting.
+        if (WholePacks(wastePacks) <= 0)
         {
             return CleaningStatus.Clean;
         }
