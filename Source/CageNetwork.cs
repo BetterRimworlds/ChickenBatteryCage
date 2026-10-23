@@ -41,6 +41,13 @@ public static class CageNetwork
 
     static readonly Dictionary<Map, int> clusterCacheTick = new Dictionary<Map, int>();
 
+    /// Cached cleaning verdict per cluster. Every member of a cluster shares one
+    /// list instance, so a work scan across a packed network measures the pooled
+    /// waste and flock once instead of once per member. Entries are dropped
+    /// whenever the layout, the pooled waste, or the flock size changes.
+    static readonly Dictionary<Map, Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>>
+        cleaningStatusCache = new Dictionary<Map, Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>>();
+
     static readonly List<Building_ChickenBatteryCage> emptyCluster = new List<Building_ChickenBatteryCage>();
 
     /// Every battery cage on the map, regardless of adjacency. Used by the
@@ -108,6 +115,10 @@ public static class CageNetwork
     {
         PruneDeadMaps();
 
+        // The rebuild replaces every cluster instance, so verdicts remembered
+        // against the old instances go with them.
+        cleaningStatusCache.Remove(map);
+
         var byCage = new Dictionary<Building_ChickenBatteryCage, List<Building_ChickenBatteryCage>>();
         var all = new List<Building_ChickenBatteryCage>(Cages(map));
         var assigned = new HashSet<Building_ChickenBatteryCage>();
@@ -170,6 +181,42 @@ public static class CageNetwork
 
         clusterCache.Remove(map);
         clusterCacheTick.Remove(map);
+        cleaningStatusCache.Remove(map);
+    }
+
+    /**
+     * Drops a map's remembered cleaning verdicts. Every change to a cluster's
+     * pooled waste or flock size must call this, or the work giver acts on a
+     * stale answer until the layout cache expires.
+     */
+    public static void InvalidateCleaning(Map map)
+    {
+        if (map == null)
+        {
+            return;
+        }
+
+        cleaningStatusCache.Remove(map);
+    }
+
+    /// Drops a cluster's remembered verdict through whichever member still
+    /// knows its map, for callers that only hold the cluster itself.
+    static void InvalidateCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        if (cluster == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < cluster.Count; i++)
+        {
+            Map map = cluster[i]?.Map;
+            if (map != null)
+            {
+                InvalidateCleaning(map);
+                return;
+            }
+        }
     }
 
     /// Drops cluster caches for maps that have gone away, so static state does
@@ -199,6 +246,7 @@ public static class CageNetwork
         {
             clusterCache.Remove(map);
             clusterCacheTick.Remove(map);
+            cleaningStatusCache.Remove(map);
         }
     }
 
@@ -722,9 +770,54 @@ public static class CageNetwork
         return CageWasteMath.ClassifyCleaning(WastePacks(cluster), ChickenCount(cluster));
     }
 
+    /**
+     * The cluster's cleaning verdict, remembered per layout so a work scan
+     * across a packed network measures the pooled waste and flock once instead
+     * of once per member.
+     *
+     * Callers must pass a <see cref="Cluster"/> result: that is the one instance
+     * every member of the cluster receives, and it is the cache key. The entry
+     * is dropped when the layout is rebuilt or the pooled waste or flock size
+     * changes, so a stale verdict is never served.
+     */
+    public static CageWasteMath.CleaningStatus CleaningStatus(
+        Map map,
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        if (map == null || cluster == null || cluster.Count == 0)
+        {
+            return CageWasteMath.CleaningStatus.Clean;
+        }
+
+        if (cleaningStatusCache.TryGetValue(map, out var byCluster)
+            && byCluster.TryGetValue(cluster, out CageWasteMath.CleaningStatus cached))
+        {
+            return cached;
+        }
+
+        CageWasteMath.CleaningStatus status = CleaningStatus(cluster);
+        if (!cleaningStatusCache.TryGetValue(map, out byCluster))
+        {
+            byCluster = new Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>();
+            cleaningStatusCache[map] = byCluster;
+        }
+
+        byCluster[cluster] = status;
+        return status;
+    }
+
     public static bool NeedsCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         return CleaningStatus(cluster) != CageWasteMath.CleaningStatus.Clean;
+    }
+
+    /// Cached form of <see cref="NeedsCleaning(IReadOnlyList{Building_ChickenBatteryCage})"/>
+    /// for callers that hold the cage's map.
+    public static bool NeedsCleaning(
+        Map map,
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CleaningStatus(map, cluster) != CageWasteMath.CleaningStatus.Clean;
     }
 
     /**
@@ -776,6 +869,8 @@ public static class CageNetwork
                 cage.AccrueManure(elapsed);
             }
         }
+
+        InvalidateCleaning(cluster);
     }
 
     /// Advances the flock's virtual Toxic Buildup from the pooled density and

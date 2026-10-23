@@ -288,7 +288,7 @@ public class Building_ChickenBatteryCage : Building
 
     /// Clean, needs cleaning, or critical, derived from the pooled waste.
     public CageWasteMath.CleaningStatus ClusterCleaningStatus =>
-        CageNetwork.CleaningStatus(CageNetwork.Cluster(this));
+        CageNetwork.CleaningStatus(Map, CageNetwork.Cluster(this));
 
     /// Stable, increasing, or recovering, derived from the pooled waste and
     /// the flock's current severity.
@@ -298,7 +298,7 @@ public class Building_ChickenBatteryCage : Building
         CageNetwork.ChickenCount(CageNetwork.Cluster(this)));
 
     /// True while the cluster's waste is worth a cleaner's visit.
-    public bool NeedsCleaning => CageNetwork.NeedsCleaning(CageNetwork.Cluster(this));
+    public bool NeedsCleaning => CageNetwork.NeedsCleaning(Map, CageNetwork.Cluster(this));
 
     /// The cluster's daily manure output, for the inspection estimates.
     public float ClusterManurePacksPerDay =>
@@ -345,7 +345,14 @@ public class Building_ChickenBatteryCage : Building
     internal float WastePacksValue
     {
         get => wastePacks;
-        set => wastePacks = value;
+        set
+        {
+            wastePacks = value;
+
+            // The pooled waste just moved, so any remembered cleaning verdict
+            // for the clusters on this map is out of date.
+            CageNetwork.InvalidateCleaning(Map);
+        }
     }
 
     internal float ToxicBuildupValue
@@ -362,6 +369,14 @@ public class Building_ChickenBatteryCage : Building
         {
             toxicBuildup = 0f;
         }
+    }
+
+    /// The cluster's cleaning threshold is scaled by its flock size, so a bird
+    /// joining or leaving changes the answer the work giver would get. Drop any
+    /// remembered verdict for the map.
+    void NotifyFlockSizeChanged()
+    {
+        CageNetwork.InvalidateCleaning(Map);
     }
 
     /// Bills this cage's own flock for the elapsed interval. No per-hen work
@@ -819,6 +834,7 @@ public class Building_ChickenBatteryCage : Building
         }
 
         ClearPendingUnloads();
+        NotifyFlockSizeChanged();
 
         if (released > 0)
         {
@@ -1024,6 +1040,11 @@ public class Building_ChickenBatteryCage : Building
         }
 
         ForgetToxicBuildupIfEmpty();
+
+        if (dropped > 0)
+        {
+            NotifyFlockSizeChanged();
+        }
 
         // A dropped bird can leave an unload mark with nothing left to satisfy
         // it. Prune the queue exactly as a death does, so a stale mark cannot
@@ -1310,9 +1331,22 @@ public class Building_ChickenBatteryCage : Building
             return false;
         }
 
+        // A cluster answers from its pooled waste and flock, not from any one
+        // member, so each connected network must only be asked once. Every
+        // member receives the same cluster instance, which makes it a natural
+        // identity for the dedupe; without it a packed network of N cages would
+        // be summed N times over.
+        var checkedClusters = new HashSet<IReadOnlyList<Building_ChickenBatteryCage>>();
+
         foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (cage.NeedsCleaning)
+            IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(cage);
+            if (!checkedClusters.Add(cluster))
+            {
+                continue;
+            }
+
+            if (CageNetwork.NeedsCleaning(map, cluster))
             {
                 return true;
             }
@@ -1560,6 +1594,7 @@ public class Building_ChickenBatteryCage : Building
         // Bill the outgoing population before the newcomer joins.
         SettleNutrition();
         chickens.Add(record);
+        NotifyFlockSizeChanged();
     }
 
     /**
@@ -1670,6 +1705,7 @@ public class Building_ChickenBatteryCage : Building
 
         chickens.RemoveAt(index);
         ForgetToxicBuildupIfEmpty();
+        NotifyFlockSizeChanged();
 
         // Turn the cluster's intake off: the bird just set down must not be
         // roped straight back into a cage. The player turns it back on with
@@ -2186,6 +2222,11 @@ public class Building_ChickenBatteryCage : Building
                 DropCorpse(record);
             }
             died++;
+        }
+
+        if (died > 0)
+        {
+            NotifyFlockSizeChanged();
         }
 
         ForgetToxicBuildupIfEmpty();
