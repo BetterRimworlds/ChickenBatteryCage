@@ -64,9 +64,9 @@ function sync_mod() {
     cp README.md /rimworld/1.6/Mods/${MOD}
     unix2dos /rimworld/1.6/Mods/${MOD}/README.md
 
-    rm -rf /rimworld/1.6-steam/Mods/${MOD}
+    rm -rf /rimworld/1.7-steam/Mods/${MOD}
 
-    cp -af /rimworld/1.6/Mods/${MOD} /rimworld/1.6-steam/Mods
+    cp -af /rimworld/1.6/Mods/${MOD} /rimworld/1.7-steam/Mods
 }
 
 function build() {
@@ -89,6 +89,15 @@ function build() {
         echo "One or more builds failed. Aborting sync."
         return 1
     fi
+
+    # Release v1.7 targets net10.0, so it needs its own restore: the assets file
+    # written for net48 by the restore above has no net10.0 target. Build it
+    # after the parallel --no-restore jobs, never inside that loop.
+    echo "Building for configuration: v1.7"
+    dotnet build "$solutionPath" --configuration "Release v1.7" "${build_props[@]}" || {
+        echo "1.7 build failed. Aborting sync."
+        return 1
+    }
 
     # Run the unit tests when a test project exists; failures abort the sync.
     local testProject="Tests/${MOD}.Tests.csproj"
