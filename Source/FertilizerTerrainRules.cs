@@ -22,11 +22,13 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *
  *     SoftSand -> Sand -> Gravel -> MossyTerrain -> Soil -> SoilRich
  *     MarshyTerrain -> Gravel
- *     every rough natural cave stone -> Gravel
+ *     every rough natural stone -> Gravel
  *
- * Nothing constructed — floors, bridges, roads, water, or buildings — is ever
- * touched; those are simply absent from the table, so the spread can neither
- * see nor replace them.
+ * Any other natural ground also qualifies. A terrain with its own driesTo
+ * target follows that (mud dries to soil); anything else becomes stony soil and
+ * joins the normal progression. Only floors — smoothed or built — water,
+ * foundations, and buildings are left alone. Natural rock walls and player
+ * structures still block the spread.
  *
  * The table keys on defName so it is easy to extend with future progressions
  * without touching the spread algorithm. A rough stone terrain is recognized by
@@ -111,37 +113,65 @@ public static class FertilizerTerrainRules
     }
 
     /**
-     * True when a pack sitting on this terrain can start or continue a fertile
-     * patch. Rough cave stone counts, so an underground floor can be fertilized.
-     * Constructed floors, water, and ice do not, so a pack stored on them waits.
+     * The terrain a convertible cell becomes. Unlisted natural ground follows
+     * its own driesTo target when it has one; otherwise it becomes stony soil
+     * and joins the normal progression.
      */
-    public static bool AnchorsSpread(string defName)
+    public static string TargetForConvertible(string defName, string driesTo)
     {
-        return TargetFor(defName) != null || IsImproved(defName);
+        string target = TargetFor(defName);
+        if (target != null)
+        {
+            return target;
+        }
+
+        if (IsImproved(defName))
+        {
+            return null;
+        }
+
+        return string.IsNullOrEmpty(driesTo) ? Gravel : driesTo;
     }
 
     /**
      * True when the spread may replace this terrain.
      *
-     * Natural ground qualifies. So does the game's generated rough-hewn cave
+     * All natural ground qualifies, plus the game's generated rough-hewn cave
      * stone: RimWorld leaves TerrainDef.natural unset on every *_RoughHewn
      * terrain even though it is the stone floor a mined-out wall leaves behind,
      * so testing that flag alone would reject the most common underground
-     * floor. Constructed terrain stays excluded because it is absent from the
-     * table in the first place, and water, foundations, and ice never qualify.
+     * floor. Floors — smoothed or built — water, and foundations never qualify,
+     * so a pack stored on them waits.
      */
-    public static bool IsEligible(
+    public static bool CanConvert(
         string defName,
         bool natural,
         bool isWater,
-        bool isFoundation)
+        bool isFoundation,
+        bool isFloor)
     {
-        if (isWater || isFoundation || TargetFor(defName) == null)
+        if (isWater || isFoundation || isFloor || IsImproved(defName))
         {
             return false;
         }
 
         return natural || IsRoughStone(defName);
+    }
+
+    /**
+     * True when a pack sitting on this terrain can start or continue a fertile
+     * patch. Finished ground anchors a patch too, so the spread can flood
+     * through it to reach poorer ground beyond.
+     */
+    public static bool AnchorsSpread(
+        string defName,
+        bool natural,
+        bool isWater,
+        bool isFoundation,
+        bool isFloor)
+    {
+        return IsImproved(defName)
+            || CanConvert(defName, natural, isWater, isFoundation, isFloor);
     }
 
     /// True when a terrain defName is one of the game's generated rough-stone

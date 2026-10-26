@@ -96,9 +96,9 @@ public static class FertilizerSpread
     }
 
     /**
-     * True when a cell is natural, unconstructed ground the table knows how to
-     * improve. Mined-out rough-hewn stone also qualifies even though vanilla
-     * leaves its natural flag unset. Constructed floors, bridges, roads, water,
+     * True when a cell is natural, unconstructed ground fertilizer may replace.
+     * Mined-out rough-hewn stone also qualifies even though vanilla leaves its
+     * natural flag unset. Smoothed floors, built floors, bridges, roads, water,
      * and every building — including natural rock walls — fail this test, so
      * the spread can neither see nor replace them, mirroring how a natural rock
      * wall blocks vanilla pollution.
@@ -112,11 +112,12 @@ public static class FertilizerSpread
 
         TerrainDef terrain = cell.GetTerrain(map);
         if (terrain == null
-            || !FertilizerTerrainRules.IsEligible(
+            || !FertilizerTerrainRules.CanConvert(
                 terrain.defName,
                 terrain.natural,
                 terrain.IsWater,
-                terrain.isFoundation))
+                terrain.isFoundation,
+                terrain.IsFloor))
         {
             return false;
         }
@@ -130,7 +131,11 @@ public static class FertilizerSpread
     static TerrainDef TerrainTargetAt(IntVec3 cell, Map map)
     {
         TerrainDef terrain = cell.GetTerrain(map);
-        string targetName = terrain == null ? null : FertilizerTerrainRules.TargetFor(terrain.defName);
+        string targetName = terrain == null
+            ? null
+            : FertilizerTerrainRules.TargetForConvertible(
+                terrain.defName,
+                terrain.driesTo?.defName);
         if (targetName == null)
         {
             return null;

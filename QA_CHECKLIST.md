@@ -196,7 +196,9 @@ style terrain improvement, and virtualized Toxic Buildup.*
       soil, marshy soil → stony soil, lichen-covered soil → soil, and soil →
       rich soil; the resulting patch is comparable in size and raggedness to the
       pollution patch the same number of wastepacks would make.
-- [ ] Constructed floors, bridges, roads, water, and buildings are never
+- [ ] Any other natural ground converts too: mud → soil directly, and natural
+      ground with no succession of its own → stony soil first.
+- [ ] Smoothed floors, built floors, bridges, water, and buildings are never
       replaced; natural rock walls block the spread exactly as they block
       pollution.
 - [ ] Ground that is already rich soil or riverbank is left alone rather than

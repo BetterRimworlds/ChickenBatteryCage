@@ -157,9 +157,11 @@ counts as improved and is never re-selected.
 `FertilizerTerrainRules` is the pure table. It runs a progression from the
 barren grounds up toward rich soil — soft sand to sand to stony soil to
 lichen-covered soil to soil to rich soil, marshy soil to stony soil, and the
-game's own generated rough-stone terrains to stony soil. Constructed terrain
-and water are simply absent. Any building edifice — natural rock wall or player
-structure — blocks the spread.
+game's own generated rough stone to stony soil. Any other natural ground is
+convertible too, following its own `driesTo` target when it has one (mud dries
+to soil) and otherwise becoming stony soil first. Smoothed floors, built
+floors, bridges, and water are excluded, and any building edifice — natural
+rock wall or player structure — blocks the spread.
 
 ### Toxic Buildup
 

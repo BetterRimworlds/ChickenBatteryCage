@@ -90,7 +90,13 @@ public class CompFertilizerDissolution : ThingComp
             }
 
             TerrainDef terrain = parent.PositionHeld.GetTerrain(map);
-            return terrain != null && FertilizerTerrainRules.AnchorsSpread(terrain.defName);
+            return terrain != null
+                && FertilizerTerrainRules.AnchorsSpread(
+                    terrain.defName,
+                    terrain.natural,
+                    terrain.IsWater,
+                    terrain.isFoundation,
+                    terrain.IsFloor);
         }
     }
 
