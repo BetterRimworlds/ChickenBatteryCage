@@ -120,6 +120,30 @@ public static class FertilizerTerrainRules
         return TargetFor(defName) != null || IsImproved(defName);
     }
 
+    /**
+     * True when the spread may replace this terrain.
+     *
+     * Natural ground qualifies. So does the game's generated rough-hewn cave
+     * stone: RimWorld leaves TerrainDef.natural unset on every *_RoughHewn
+     * terrain even though it is the stone floor a mined-out wall leaves behind,
+     * so testing that flag alone would reject the most common underground
+     * floor. Constructed terrain stays excluded because it is absent from the
+     * table in the first place, and water, foundations, and ice never qualify.
+     */
+    public static bool IsEligible(
+        string defName,
+        bool natural,
+        bool isWater,
+        bool isFoundation)
+    {
+        if (isWater || isFoundation || TargetFor(defName) == null)
+        {
+            return false;
+        }
+
+        return natural || IsRoughStone(defName);
+    }
+
     /// True when a terrain defName is one of the game's generated rough-stone
     /// cave-floor terrains (for example "Granite_Rough").
     public static bool IsRoughStone(string defName)

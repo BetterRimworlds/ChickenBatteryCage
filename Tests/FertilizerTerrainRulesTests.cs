@@ -64,6 +64,48 @@ public class FertilizerTerrainRulesTests
     }
 
     [Test]
+    public void MinedOutRoughHewnStoneQualifiesEvenThoughVanillaLeavesNaturalUnset()
+    {
+        // TerrainDefGenerator_Stone only sets natural on *_Rough; every
+        // *_RoughHewn terrain keeps the default false.
+        Assert.IsTrue(FertilizerTerrainRules.IsEligible(
+            "Sandstone_RoughHewn",
+            natural: false,
+            isWater: false,
+            isFoundation: false));
+        Assert.IsTrue(FertilizerTerrainRules.IsEligible(
+            "Granite_Rough",
+            natural: true,
+            isWater: false,
+            isFoundation: false));
+    }
+
+    [Test]
+    public void ConstructedWaterAndFoundationTerrainIsNotEligible()
+    {
+        Assert.IsFalse(FertilizerTerrainRules.IsEligible(
+            "Concrete",
+            natural: false,
+            isWater: false,
+            isFoundation: false));
+        Assert.IsFalse(FertilizerTerrainRules.IsEligible(
+            "Soil",
+            natural: true,
+            isWater: false,
+            isFoundation: true));
+        Assert.IsFalse(FertilizerTerrainRules.IsEligible(
+            "MarshyTerrain",
+            natural: true,
+            isWater: true,
+            isFoundation: false));
+        Assert.IsFalse(FertilizerTerrainRules.IsEligible(
+            "Sandstone_RoughHewn",
+            natural: false,
+            isWater: false,
+            isFoundation: true));
+    }
+
+    [Test]
     public void RichSoilIsAlreadyFinished()
     {
         Assert.IsTrue(FertilizerTerrainRules.IsImproved("SoilRich"));
