@@ -2,6 +2,7 @@
 <LanguageData>
 	<ChickenBatteryCage.MustBeRoofed>Battery cages must be constructed under a roof covering every occupied cell.</ChickenBatteryCage.MustBeRoofed>
 	<ChickenBatteryCage.Inspect.PenSystemOff>Pen system: off — handlers will not load hens.</ChickenBatteryCage.Inspect.PenSystemOff>
+	<ChickenBatteryCage.Inspect.Unroofed>Unroofed:      deteriorating — collapses in about {0} days.</ChickenBatteryCage.Inspect.Unroofed>
 	<ChickenBatteryCage.Inspect.PendingUnload>To unload:      {0}</ChickenBatteryCage.Inspect.PendingUnload>
 	<ChickenBatteryCage.Inspect.Chickens>Hens:           {0} / {1}</ChickenBatteryCage.Inspect.Chickens>
 	<ChickenBatteryCage.Inspect.Network>Linked cages:   {0} / {1} ({2} cages)</ChickenBatteryCage.Inspect.Network>
@@ -25,6 +26,11 @@
 	<ChickenBatteryCage.Gizmo.Capacity>Hens: {0} / {1}</ChickenBatteryCage.Gizmo.Capacity>
 	<ChickenBatteryCage.Gizmo.CapacityDesc>Flock housed across this cluster of touching battery cages.\n\nHens: {0} / {1}\n\nOpen the chicken list to see each bird by life stage and age, and mark which ones to unload.</ChickenBatteryCage.Gizmo.CapacityDesc>
 	<ChickenBatteryCage.Gizmo.AllowDesc>Allow handlers to rope hens into this cluster of touching battery cages. Toggling this applies to every cage in the cluster at once. Unloading marks are still worked and the hens already housed are unaffected.</ChickenBatteryCage.Gizmo.AllowDesc>
+	<ChickenBatteryCage.Gizmo.FeedFilter>Allowed feed</ChickenBatteryCage.Gizmo.FeedFilter>
+	<ChickenBatteryCage.Gizmo.FeedFilterDesc>Choose which foods haulers may bring to this cluster of touching battery cages. Hay, kibble, and raw plant food are allowed by default. Every cage in the cluster shares the selection because they share one feed store.</ChickenBatteryCage.Gizmo.FeedFilterDesc>
+	<ChickenBatteryCage.Gizmo.FeedAllowed>Allow feeding</ChickenBatteryCage.Gizmo.FeedAllowed>
+	<ChickenBatteryCage.Gizmo.FeedAllowedDesc>Allow haulers to bring food to this cluster of touching battery cages. Toggling this applies to every cage in the cluster at once. With feeding denied, the housed hens eat only what is already in the shared store; allowing it again resumes the feeding work.</ChickenBatteryCage.Gizmo.FeedAllowedDesc>
+	<ChickenBatteryCage.FeedFilter.Title>Allowed feed</ChickenBatteryCage.FeedFilter.Title>
 	<ChickenBatteryCage.Gizmo.UnloadEmpty>There are no caged chickens to unload.</ChickenBatteryCage.Gizmo.UnloadEmpty>
 	<ChickenBatteryCage.Picker.Title>Unload chickens</ChickenBatteryCage.Picker.Title>
 	<ChickenBatteryCage.Picker.Heading>Chickens: {0} / {1}</ChickenBatteryCage.Picker.Heading>
@@ -51,4 +57,22 @@
 	<ChickenBatteryCage.Message.ReleasedOnDeconstruct>A deconstructed battery cage released {0} chickens.</ChickenBatteryCage.Message.ReleasedOnDeconstruct>
 	<ChickenBatteryCage.Message.ReleasedInjured>A destroyed battery cage spilled out {0} injured chickens.</ChickenBatteryCage.Message.ReleasedInjured>
 	<ChickenBatteryCage.Message.StrandedReleased>Freed {0} more chickens that were trapped when a battery cage was destroyed.</ChickenBatteryCage.Message.StrandedReleased>
+	<ChickenBatteryCage.Inspect.Waste>Waste:         {0}</ChickenBatteryCage.Inspect.Waste>
+	<ChickenBatteryCage.Inspect.Cleaning>Cleaning:      {0}</ChickenBatteryCage.Inspect.Cleaning>
+	<ChickenBatteryCage.Inspect.FertilizerYield>Fertilizer:    {0}</ChickenBatteryCage.Inspect.FertilizerYield>
+	<ChickenBatteryCage.Inspect.Toxicity>Toxic buildup: {0}</ChickenBatteryCage.Inspect.Toxicity>
+	<ChickenBatteryCage.Waste.Status>{0} / {1} packs</ChickenBatteryCage.Waste.Status>
+	<ChickenBatteryCage.Cleaning.Clean>clean</ChickenBatteryCage.Cleaning.Clean>
+	<ChickenBatteryCage.Cleaning.NeedsCleaning>needs cleaning</ChickenBatteryCage.Cleaning.NeedsCleaning>
+	<ChickenBatteryCage.Cleaning.Critical>critical</ChickenBatteryCage.Cleaning.Critical>
+	<ChickenBatteryCage.Fertilizer.Yield>{0} / {1} packs</ChickenBatteryCage.Fertilizer.Yield>
+	<ChickenBatteryCage.Fertilizer.Frozen>Frozen. It will not dissolve until it thaws.</ChickenBatteryCage.Fertilizer.Frozen>
+	<ChickenBatteryCage.Fertilizer.DissolvesEvery>One fertilizer pack dissolves every {0}</ChickenBatteryCage.Fertilizer.DissolvesEvery>
+	<ChickenBatteryCage.Fertilizer.Indoors>Indoors. It will not dissolve on its own.</ChickenBatteryCage.Fertilizer.Indoors>
+	<ChickenBatteryCage.Fertilizer.Stored>Stored. It will not dissolve until placed on natural ground.</ChickenBatteryCage.Fertilizer.Stored>
+	<ChickenBatteryCage.Fertilizer.Rain>raining</ChickenBatteryCage.Fertilizer.Rain>
+	<ChickenBatteryCage.Toxic.Status>{0} ({1})</ChickenBatteryCage.Toxic.Status>
+	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>
+	<ChickenBatteryCage.Toxic.Increasing>increasing</ChickenBatteryCage.Toxic.Increasing>
+	<ChickenBatteryCage.Toxic.Recovering>recovering</ChickenBatteryCage.Toxic.Recovering>
 </LanguageData>

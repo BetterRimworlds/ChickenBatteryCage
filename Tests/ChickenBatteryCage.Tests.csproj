@@ -17,12 +17,18 @@
     <Compile Include="..\Source\CageClusterMath.cs" Link="CageClusterMath.cs" />
     <Compile Include="..\Source\CageFeedMath.cs" Link="CageFeedMath.cs" />
     <Compile Include="..\Source\CageMortalityMath.cs" Link="CageMortalityMath.cs" />
+    <Compile Include="..\Source\CageDegradationMath.cs" Link="CageDegradationMath.cs" />
     <Compile Include="..\Source\CageUnloadMath.cs" Link="CageUnloadMath.cs" />
     <Compile Include="..\Source\CageEggMath.cs" Link="CageEggMath.cs" />
     <Compile Include="..\Source\CagedChickenFields.cs" Link="CagedChickenFields.cs" />
     <Compile Include="..\Source\CageSaveSize.cs" Link="CageSaveSize.cs" />
     <Compile Include="..\Source\CagedChickenValidation.cs" Link="CagedChickenValidation.cs" />
     <Compile Include="..\Source\DairyFeedRules.cs" Link="DairyFeedRules.cs" />
+    <Compile Include="..\Source\CageWasteMath.cs" Link="CageWasteMath.cs" />
+    <Compile Include="..\Source\FertilizerTerrainRules.cs" Link="FertilizerTerrainRules.cs" />
+    <Compile Include="..\Source\FertilizerSpreadMath.cs" Link="FertilizerSpreadMath.cs" />
+    <Compile Include="..\Source\FertilizerDissolutionMath.cs" Link="FertilizerDissolutionMath.cs" />
+    <Compile Include="..\Source\FertilizerChargeMath.cs" Link="FertilizerChargeMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

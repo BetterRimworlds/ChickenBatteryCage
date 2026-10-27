@@ -125,6 +125,49 @@ public class CageMortalityTests
     }
 
     [Test]
+    public void HensUnderTwoYearsKeepAQuarterOfTheAgeHazard()
+    {
+        Assert.AreEqual(0.25f, CageMortalityMath.HazardFactorForAge(0.2f));
+        Assert.AreEqual(0.25f, CageMortalityMath.HazardFactorForAge(1.5f));
+        Assert.AreEqual(0.25f, CageMortalityMath.HazardFactorForAge(1.999f));
+        AssertYouthCutPreservesTheCurve(1.5f, 6f);
+    }
+
+    [Test]
+    public void HensFromTwoUntilThreeKeepHalfTheAgeHazard()
+    {
+        Assert.AreEqual(0.5f, CageMortalityMath.HazardFactorForAge(2f));
+        Assert.AreEqual(0.5f, CageMortalityMath.HazardFactorForAge(2.5f));
+        Assert.AreEqual(0.5f, CageMortalityMath.HazardFactorForAge(2.999f));
+        AssertYouthCutPreservesTheCurve(2.5f, 6f);
+    }
+
+    [Test]
+    public void HensFromThreeYearsKeepTheFullAgeHazard()
+    {
+        Assert.AreEqual(1f, CageMortalityMath.HazardFactorForAge(3f));
+        Assert.AreEqual(1f, CageMortalityMath.HazardFactorForAge(6f));
+        Assert.AreEqual(1f, CageMortalityMath.HazardFactorForAge(10f));
+        Assert.AreEqual(
+            CageMortalityMath.NaturalDailyChanceAtLifeExpectancy,
+            CageMortalityMath.NaturalDailyChance(6f, 6f),
+            0.0000001f);
+    }
+
+    /// Dividing out the youth factor leaves the same exponential curve, so the
+    /// cut is a multiplier and does not bend the age slope.
+    static void AssertYouthCutPreservesTheCurve(float ageYears, float expectancy)
+    {
+        float young = CageMortalityMath.NaturalDailyChance(ageYears, expectancy);
+        float adult = CageMortalityMath.NaturalDailyChance(expectancy, expectancy);
+        double youngCurve = young / CageMortalityMath.HazardFactorForAge(ageYears);
+        double adultCurve = adult / CageMortalityMath.HazardFactorForAge(expectancy);
+        double growth = Math.Log(adultCurve / youngCurve) / (expectancy - ageYears);
+
+        Assert.AreEqual(CageMortalityMath.NaturalChanceGrowth / expectancy, growth, 0.00001);
+    }
+
+    [Test]
     public void HazardClimbsWithAgeWithoutEverBeingCertain()
     {
         float six = CageMortalityMath.NaturalDailyChance(6f, 6f);

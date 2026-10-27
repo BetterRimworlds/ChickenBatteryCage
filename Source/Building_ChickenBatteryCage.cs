@@ -52,6 +52,15 @@ public class Building_ChickenBatteryCage : Building
     /// the flock up instead of sipping at it every time a unit is eaten.
     protected bool feedTopUpRequested;
 
+    /// Which foods haulers may bring to this cage. Persisted per cage and, like
+    /// the shared feed pool, resolved once for the whole cluster by
+    /// <see cref="ClusterFeedFilter"/>.
+    protected ThingFilter feedFilter;
+
+    /// Whether haulers may bring any food to this cage. On by default; the
+    /// allow/deny gizmo turns it off for the whole cluster at once.
+    protected bool feedAllowed = true;
+
     /// Fraction of capacity below which a cluster asks to be refilled.
     public const float FeedLowWaterFraction = 0.5f;
 
@@ -61,6 +70,11 @@ public class Building_ChickenBatteryCage : Building
 
     /// Absolute tick at which mortality was last rolled.
     protected int mortalityCheckedAtTick;
+
+    /// Fractional exposure damage not yet handed to the building, kept below
+    /// one hit point. A slow drip is accumulated here so it becomes whole hit
+    /// points at a steady rate instead of being rounded away every rare tick.
+    protected float degradationDamageCarry;
 
     /// Developer-simulation clock offset. Never persisted, and always zero
     /// outside a run; the dev simulator advances it to age the flock quickly
@@ -87,6 +101,16 @@ public class Building_ChickenBatteryCage : Building
 
     /// Absolute tick at which egg output was last settled.
     protected int eggCheckedAtTick;
+
+    /// Manure accumulated by the flock, in whole and fractional Fertilizer
+    /// Pack-equivalents. It is accrued from hen count and elapsed time, never
+    /// from spawned waste Things, and only whole packs are ever cleaned away.
+    protected float wastePacks;
+
+    /// The flock's virtual Toxic Buildup severity, in the same band as vanilla
+    /// ToxicBuildup. It is a cage-level number while the birds are serialized
+    /// and becomes a real Hediff on the Pawn when a bird is unloaded.
+    protected float toxicBuildup;
 
     /// The smallest egg stack a cage releases. A lone cage holds at most ten
     /// hens, each laying no more than one egg a day at her prime, so this floor
@@ -135,8 +159,10 @@ public class Building_ChickenBatteryCage : Building
 
     /// True while this cage should be offered to haulers as a feeding target.
     /// The decision is shared across the cluster's pool: a member is only a
-    /// target while the flock needs feed and the pool is still filling.
-    public bool NeedsFeeding => chickens.Count > 0
+    /// target while feeding is allowed, the flock needs feed, and the pool is
+    /// still filling.
+    public bool NeedsFeeding => feedAllowed
+        && chickens.Count > 0
         && feedTopUpRequested;
 
     /// The persisted per-member copy of the cluster's refill request. The
@@ -204,6 +230,80 @@ public class Building_ChickenBatteryCage : Building
     /// Fed, hungry, or starving, derived from the cluster's shared pool.
     public CageNutritionState ClusterNutritionState => CageNetwork.NutritionState(CageNetwork.Cluster(this));
 
+    /// The feed selector for this cage's whole cluster. Touching cages share
+    /// one feed store, so they must also share the list of foods allowed into
+    /// it. The network picks one member's selector as the effective one.
+    public ThingFilter ClusterFeedFilter => CageNetwork.FeedFilter(CageNetwork.Cluster(this));
+
+    /// Whether haulers may bring food to this cage at all.
+    public bool FeedAllowed => feedAllowed;
+
+    /// Internal hook the cluster toggle uses to write the setting across every
+    /// member.
+    internal void SetFeedAllowed(bool allowed)
+    {
+        feedAllowed = allowed;
+    }
+
+    /// This cage's own persisted selector, created with the default staples
+    /// the first time it is needed.
+    public ThingFilter FeedFilter
+    {
+        get
+        {
+            if (feedFilter == null)
+            {
+                feedFilter = CageFeed.CreateDefaultFilter();
+            }
+
+            return feedFilter;
+        }
+    }
+
+    /// Replaces this cage's selector with a copy of another member's, so a cage
+    /// joining or outliving a cluster keeps the player's choice.
+    internal void CopyFeedFilterFrom(ThingFilter source)
+    {
+        if (source == null || source == FeedFilter)
+        {
+            return;
+        }
+
+        FeedFilter.CopyAllowancesFrom(source);
+    }
+
+    /// Manure stored across this cage's whole cluster, in whole and fractional
+    /// Fertilizer Pack-equivalents.
+    public float ClusterWastePacks => CageNetwork.WastePacks(CageNetwork.Cluster(this));
+
+    /// The cluster's waste gauge full mark, scaled to its flock size.
+    public float ClusterWasteCapacity => CageNetwork.WasteCapacity(CageNetwork.Cluster(this));
+
+    /// Pack-equivalents at which the cluster asks to be cleaned.
+    public float ClusterCleaningThreshold =>
+        CageNetwork.CleaningThresholdPacks(CageNetwork.Cluster(this));
+
+    /// The flock's virtual Toxic Buildup severity, mirrored across the cluster.
+    public float ClusterToxicBuildup => CageNetwork.ToxicBuildup(CageNetwork.Cluster(this));
+
+    /// Clean, needs cleaning, or critical, derived from the pooled waste.
+    public CageWasteMath.CleaningStatus ClusterCleaningStatus =>
+        CageNetwork.CleaningStatus(Map, CageNetwork.Cluster(this));
+
+    /// Stable, increasing, or recovering, derived from the pooled waste and
+    /// the flock's current severity.
+    public CageWasteMath.ToxicTrend ClusterToxicTrend => CageWasteMath.ClassifyTrend(
+        ClusterToxicBuildup,
+        ClusterWastePacks,
+        CageNetwork.ChickenCount(CageNetwork.Cluster(this)));
+
+    /// True while the cluster's waste is worth a cleaner's visit.
+    public bool NeedsCleaning => CageNetwork.NeedsCleaning(Map, CageNetwork.Cluster(this));
+
+    /// The cluster's daily manure output, for the inspection estimates.
+    public float ClusterManurePacksPerDay =>
+        CageWasteMath.PacksPerDay(CageNetwork.ChickenCount(CageNetwork.Cluster(this)));
+
     /**
      * Internal hooks the cluster settlement uses to write its single result
      * back into each member's own persisted store. A cage's store therefore
@@ -231,6 +331,73 @@ public class Building_ChickenBatteryCage : Building
     internal void SetEggProgress(float value)
     {
         eggProgress = value;
+    }
+
+    /// The cage's own persisted manure, read as an aggregate by the network.
+    public float WastePacks => wastePacks;
+
+    /// The cage's own persisted virtual Toxic Buildup severity.
+    public float ToxicBuildup => toxicBuildup;
+
+    /// Internal hooks the networked settlement uses to write its single result
+    /// back into each member's own persisted field, so the state stays per-cage
+    /// on disk even though it is settled as a cluster.
+    internal float WastePacksValue
+    {
+        get => wastePacks;
+        set
+        {
+            wastePacks = value;
+
+            // The pooled waste just moved, so any remembered cleaning verdict
+            // for the clusters on this map is out of date.
+            CageNetwork.InvalidateCleaning(Map);
+        }
+    }
+
+    internal float ToxicBuildupValue
+    {
+        get => toxicBuildup;
+        set => toxicBuildup = value;
+    }
+
+    /// Forgets the flock's exposure once no bird remains, so a later flock
+    /// starts clean instead of inheriting the departed one's Toxic Buildup.
+    void ForgetToxicBuildupIfEmpty()
+    {
+        if (chickens == null || chickens.Count == 0)
+        {
+            toxicBuildup = 0f;
+        }
+    }
+
+    /// The cluster's cleaning threshold is scaled by its flock size, so a bird
+    /// joining or leaving changes the answer the work giver would get. Drop any
+    /// remembered verdict for the map.
+    void NotifyFlockSizeChanged()
+    {
+        CageNetwork.InvalidateCleaning(Map);
+    }
+
+    /// Bills this cage's own flock for the elapsed interval. No per-hen work
+    /// runs; the sum is a pure function of hen count and time.
+    internal void AccrueManure(int elapsed)
+    {
+        if (elapsed <= 0 || chickens == null || chickens.Count == 0)
+        {
+            return;
+        }
+
+        wastePacks += CageWasteMath.PacksOverTicks(chickens.Count, elapsed);
+
+        if (float.IsNaN(wastePacks) || float.IsInfinity(wastePacks) || wastePacks < 0f)
+        {
+            wastePacks = 0f;
+        }
+        else if (wastePacks > CageWasteMath.MaxWastePacks)
+        {
+            wastePacks = CageWasteMath.MaxWastePacks;
+        }
     }
 
     /// Summed daily demand of every bird currently housed.
@@ -468,6 +635,58 @@ public class Building_ChickenBatteryCage : Building
         }
     }
 
+    /// Waste stored and the cluster's gauge, for the inspection panel.
+    protected virtual string WasteInspectValue => "ChickenBatteryCage.Waste.Status".Translate(
+        ClusterWastePacks.ToString("0.0"),
+        ClusterWasteCapacity.ToString("0.0"));
+
+    /// Clean, needs cleaning, or critical.
+    protected virtual string CleaningInspectValue
+    {
+        get
+        {
+            switch (ClusterCleaningStatus)
+            {
+                case CageWasteMath.CleaningStatus.NeedsCleaning:
+                    return "ChickenBatteryCage.Cleaning.NeedsCleaning".Translate();
+                case CageWasteMath.CleaningStatus.Critical:
+                    return "ChickenBatteryCage.Cleaning.Critical".Translate();
+                default:
+                    return "ChickenBatteryCage.Cleaning.Clean".Translate();
+            }
+        }
+    }
+
+    /// Whole Fertilizer Packs available versus the cluster's cleaning threshold.
+    protected virtual string FertilizerInspectValue => "ChickenBatteryCage.Fertilizer.Yield".Translate(
+        CageWasteMath.WholePacks(ClusterWastePacks),
+        Mathf.CeilToInt(ClusterCleaningThreshold));
+
+    /// Virtual Toxic Buildup severity and which way it is moving.
+    protected virtual string ToxicityInspectValue
+    {
+        get
+        {
+            string trend;
+            switch (ClusterToxicTrend)
+            {
+                case CageWasteMath.ToxicTrend.Increasing:
+                    trend = "ChickenBatteryCage.Toxic.Increasing".Translate();
+                    break;
+                case CageWasteMath.ToxicTrend.Recovering:
+                    trend = "ChickenBatteryCage.Toxic.Recovering".Translate();
+                    break;
+                default:
+                    trend = "ChickenBatteryCage.Toxic.Stable".Translate();
+                    break;
+            }
+
+            return "ChickenBatteryCage.Toxic.Status".Translate(
+                ClusterToxicBuildup.ToString("0.00"),
+                trend);
+        }
+    }
+
     public static bool IsChicken(Pawn pawn)
     {
         return pawn != null
@@ -492,8 +711,15 @@ public class Building_ChickenBatteryCage : Building
         }
 
         // A new cage changes which cages touch; rebuild the clusters now so the
-        // just-built cage immediately joins its neighbours.
+        // just-built cage immediately joins its neighbours and inherits their
+        // feed selector rather than starting with fresh defaults.
         CageNetwork.Invalidate(map);
+        if (!respawningAfterLoad)
+        {
+            IReadOnlyList<Building_ChickenBatteryCage> joined = CageNetwork.Cluster(this);
+            CageNetwork.CopyFeedFilterAcross(joined);
+            CageNetwork.SetFeedAllowed(joined, CageNetwork.FeedAllowed(joined));
+        }
     }
 
     public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
@@ -518,6 +744,10 @@ public class Building_ChickenBatteryCage : Building
     /// holds it past the building's destruction and retries the release.
     public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
     {
+        // Hand the cluster's effective selector to the cages that will outlive
+        // this one, so the player's feed choice is not lost with the leader.
+        CageNetwork.CopyFeedFilterAcross(CageNetwork.Cluster(this));
+
         // Capture the network's surviving cages while this cage is still a live
         // member: after base.Destroy the building is gone and its cluster can no
         // longer be discovered from here. Every bird released below must not be
@@ -588,7 +818,7 @@ public class Building_ChickenBatteryCage : Building
         int released = 0;
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
-            Pawn chicken = CageChickenFactory.Generate(chickens[i], map, near);
+            Pawn chicken = CageChickenFactory.Generate(chickens[i], map, near, toxicBuildup);
             if (chicken == null)
             {
                 continue;
@@ -604,6 +834,7 @@ public class Building_ChickenBatteryCage : Building
         }
 
         ClearPendingUnloads();
+        NotifyFlockSizeChanged();
 
         if (released > 0)
         {
@@ -655,7 +886,7 @@ public class Building_ChickenBatteryCage : Building
         int preserved = chickens.Count;
         foreach (CagedChickenRecord record in chickens)
         {
-            rescue.Preserve(record, near, injured, origin);
+            rescue.Preserve(record, near, injured, origin, toxicBuildup);
         }
 
         chickens.Clear();
@@ -675,9 +906,14 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
         Scribe_Values.Look(ref feedTopUpRequested, "feedTopUpRequested", false);
+        Scribe_Values.Look(ref feedAllowed, "feedAllowed", true);
+        Scribe_Deep.Look(ref feedFilter, "feedFilter");
         Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
         Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
+        Scribe_Values.Look(ref wastePacks, "wastePacks", 0f);
+        Scribe_Values.Look(ref toxicBuildup, "toxicBuildup", 0f);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
+        Scribe_Values.Look(ref degradationDamageCarry, "degradationDamageCarry", 0f);
         Scribe_Collections.Look(ref chickens, "chickens", LookMode.Deep);
 
         // The queue is saved as positions in "chickens", not deep copies:
@@ -726,13 +962,20 @@ public class Building_ChickenBatteryCage : Building
                 pendingUnloads = new List<CagedChickenRecord>();
             }
 
+            // Saves made before the feed selector existed start with the
+            // familiar staples instead of an empty (nothing allowed) filter.
+            if (feedFilter == null)
+            {
+                feedFilter = CageFeed.CreateDefaultFilter();
+            }
+
             SanitizeLoadedState();
         }
     }
 
     /**
      * Repairs or drops malformed loaded state so a single bad number cannot
-     * brick the save. Cheap fields are clamped; only an impossible chicken
+     * brick the save. Cheap fields are repaired; only an impossible chicken
      * record is dropped, and even then the rest of the cage is kept.
      */
     void SanitizeLoadedState()
@@ -744,9 +987,27 @@ public class Building_ChickenBatteryCage : Building
         nutritionStored = CagedChickenValidation.RepairStored(nutritionStored, NutritionCapacity);
         eggProgress = CagedChickenValidation.RepairEggProgress(eggProgress);
 
+        // A corrupt waste total is repaired into a sane band: non-finite or
+        // negative becomes nothing, an absurd value is capped rather than
+        // allowed to poison the cleaning and toxicity math.
+        wastePacks = CagedChickenValidation.RepairStored(wastePacks, CageWasteMath.MaxWastePacks);
+
+        // A severity outside the vanilla band is impossible; repair it.
+        toxicBuildup = CageWasteMath.RepairSeverity(toxicBuildup, CageWasteMath.LethalSeverity);
+
         if (starvingTicks < 0)
         {
             starvingTicks = 0;
+        }
+
+        // The degradation carry is only ever a fraction of one hit point. A
+        // corrupt value could otherwise dump a huge damage load on the cage in
+        // a single tick, so keep it inside [0, 1).
+        if (degradationDamageCarry < 0f
+            || degradationDamageCarry >= 1f
+            || float.IsNaN(degradationDamageCarry))
+        {
+            degradationDamageCarry = 0f;
         }
 
         // A tick marker that is future-dated or a corrupt negative loses no
@@ -776,6 +1037,13 @@ public class Building_ChickenBatteryCage : Building
                 chickens.RemoveAt(i);
                 dropped++;
             }
+        }
+
+        ForgetToxicBuildupIfEmpty();
+
+        if (dropped > 0)
+        {
+            NotifyFlockSizeChanged();
         }
 
         // A dropped bird can leave an unload mark with nothing left to satisfy
@@ -829,6 +1097,12 @@ public class Building_ChickenBatteryCage : Building
             sb.AppendLine("ChickenBatteryCage.Inspect.PenSystemOff".Translate());
         }
 
+        if (Spawned && Map != null && !IsFullyRoofed())
+        {
+            int daysLeft = (int)Math.Round(DaysUntilDegradation());
+            sb.AppendLine("ChickenBatteryCage.Inspect.Unroofed".Translate(daysLeft));
+        }
+
         int clusterChickens = CageNetwork.ChickenCount(cluster);
         sb.AppendLine("ChickenBatteryCage.Inspect.Chickens".Translate(
             clusterChickens,
@@ -858,7 +1132,11 @@ public class Building_ChickenBatteryCage : Building
         }
 
         sb.AppendLine("ChickenBatteryCage.Inspect.Feed".Translate(FeedInspectValue));
-        sb.Append("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Eggs".Translate(EggsInspectValue));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Waste".Translate(WasteInspectValue));
+        sb.AppendLine("ChickenBatteryCage.Inspect.Cleaning".Translate(CleaningInspectValue));
+        sb.AppendLine("ChickenBatteryCage.Inspect.FertilizerYield".Translate(FertilizerInspectValue));
+        sb.Append("ChickenBatteryCage.Inspect.Toxicity".Translate(ToxicityInspectValue));
 
         return sb.ToString().TrimEnd();
     }
@@ -915,7 +1193,35 @@ public class Building_ChickenBatteryCage : Building
         };
         yield return penSystemGizmo;
 
-        if (Prefs.DevMode)
+        Command_Toggle feedAllowedGizmo = new Command_Toggle
+        {
+            defaultLabel = "ChickenBatteryCage.Gizmo.FeedAllowed".Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.FeedAllowedDesc".Translate(),
+            icon = CageNetwork.FeedAllowed(cluster) ? TexCommand.ForbidOff : TexCommand.ForbidOn,
+            isActive = () => CageNetwork.FeedAllowed(CageNetwork.Cluster(this)),
+            toggleAction = delegate
+            {
+                IReadOnlyList<Building_ChickenBatteryCage> current = CageNetwork.Cluster(this);
+                CageNetwork.SetFeedAllowed(current, !CageNetwork.FeedAllowed(current));
+            },
+        };
+        yield return feedAllowedGizmo;
+
+        Command_Action feedFilterGizmo = new Command_Action
+        {
+            defaultLabel = "ChickenBatteryCage.Gizmo.FeedFilter".Translate(),
+            defaultDesc = "ChickenBatteryCage.Gizmo.FeedFilterDesc".Translate(),
+            icon = ThingDefOf.Hay.uiIcon,
+            action = delegate
+            {
+                Find.WindowStack.Add(new Window_CageFeedFilter(this));
+            },
+        };
+        yield return feedFilterGizmo;
+
+        // The stress tools are destructive, so they need both the game's dev
+        // mode and God mode turned on.
+        if (Prefs.DevMode && DebugSettings.godMode)
         {
             Command_Action devGizmo = new Command_Action
             {
@@ -943,7 +1249,18 @@ public class Building_ChickenBatteryCage : Building
             new FloatMenuOption("Spawn 500 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 500); }),
             new FloatMenuOption("Spawn 2,000 free-range chickens", delegate { CageDevTools.SpawnFreeRangeChickens(map, 2000); }),
             new FloatMenuOption("Generate 10,000 eggs", delegate { CageDevTools.SpawnEggStacks(map, 10000); }),
+            new FloatMenuOption("Add 1 fertilizer pack", delegate { CageDevTools.SpawnFertilizerPacks(map, 1); }),
+            new FloatMenuOption("Add 5 fertilizer packs", delegate { CageDevTools.SpawnFertilizerPacks(map, 5); }),
+            new FloatMenuOption("Add 45 fertilizer packs", delegate { CageDevTools.SpawnFertilizerPacks(map, 45); }),
+            new FloatMenuOption("Advance fertilizer decomposition", delegate { CageDevTools.AdvanceFertilizerDecomposition(map); }),
+            new FloatMenuOption("Fill this cage's waste", delegate { CageDevTools.FillCageWaste(this); }),
+            new FloatMenuOption("Clean this cage instantly", delegate { CageDevTools.CleanCageInstantly(this); }),
+            new FloatMenuOption("Force toxic buildup", delegate { CageDevTools.ForceToxicProgression(this); }),
+            new FloatMenuOption("Force toxic recovery", delegate { CageDevTools.ForceToxicRecovery(this); }),
             new FloatMenuOption("Log population report", delegate { CageDevTools.LogPopulationReport(map, "manual"); }),
+            new FloatMenuOption("Simulate 10 days (all cages)", delegate { DebugSimulateAllCages(map, 10); }),
+            new FloatMenuOption("Simulate 60 days (all cages)", delegate { DebugSimulateAllCages(map, 60); }),
+            new FloatMenuOption("Simulate 600 days (all cages)", delegate { DebugSimulateAllCages(map, 600); }),
             new FloatMenuOption("Simulate 1 year (all cages)", delegate { DebugSimulateAllCages(map, 60); }),
             new FloatMenuOption("Simulate 5 years (all cages)", delegate { DebugSimulateAllCages(map, 300); }),
         };
@@ -1004,6 +1321,40 @@ public class Building_ChickenBatteryCage : Building
         return false;
     }
 
+    /// True while any cage on the map belongs to a cluster asking for a
+    /// cleaning, so the work giver can skip the map entirely when every flock
+    /// is tidy.
+    public static bool AnyCageNeedingCleaning(Map map)
+    {
+        if (map == null)
+        {
+            return false;
+        }
+
+        // A cluster answers from its pooled waste and flock, not from any one
+        // member, so each connected network must only be asked once. Every
+        // member receives the same cluster instance, which makes it a natural
+        // identity for the dedupe; without it a packed network of N cages would
+        // be summed N times over.
+        var checkedClusters = new HashSet<IReadOnlyList<Building_ChickenBatteryCage>>();
+
+        foreach (Building_ChickenBatteryCage cage in map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
+        {
+            IReadOnlyList<Building_ChickenBatteryCage> cluster = CageNetwork.Cluster(cage);
+            if (!checkedClusters.Add(cluster))
+            {
+                continue;
+            }
+
+            if (CageNetwork.NeedsCleaning(map, cluster))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static bool AnyAcceptingCage(Map map)
     {
         if (map == null)
@@ -1054,23 +1405,35 @@ public class Building_ChickenBatteryCage : Building
         return "ChickenBatteryCage.FloatMenu.Full".Translate();
     }
 
-    public static Building_ChickenBatteryCage FindAcceptingCage(Pawn hen, Pawn handler)
+    /**
+     * Finds a cage that can accept the chicken and a cage in the same network
+     * the handler can actually walk to.
+     *
+     * Usually both are the same cage. When the accepting cage is buried inside
+     * a tightly packed network, the service cage is a reachable neighbour and
+     * the chicken is still filed into the accepting cage: the flock is shared
+     * across the network, so the handler does not need to stand on the exact
+     * cage that owns the record.
+     */
+    public static bool TryFindAcceptingCage(
+        Pawn chicken,
+        Pawn handler,
+        out Building_ChickenBatteryCage target,
+        out Building_ChickenBatteryCage service)
     {
-        if (hen?.Map == null || handler == null)
+        target = null;
+        service = null;
+        if (chicken?.Map == null || handler == null)
         {
-            return null;
+            return false;
         }
 
-        Building_ChickenBatteryCage best = null;
+        Building_ChickenBatteryCage bestTarget = null;
+        Building_ChickenBatteryCage bestService = null;
         int bestDist = int.MaxValue;
-        foreach (Building_ChickenBatteryCage cage in hen.Map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
+        foreach (Building_ChickenBatteryCage cage in chicken.Map.listerBuildings.AllBuildingsColonistOfClass<Building_ChickenBatteryCage>())
         {
-            if (!cage.CanAcceptChicken(hen) || cage.IsForbidden(handler))
-            {
-                continue;
-            }
-
-            if (!handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly))
+            if (!cage.CanAcceptChicken(chicken) || cage.IsForbidden(handler))
             {
                 continue;
             }
@@ -1084,15 +1447,64 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            // Also check that the handler can reserve a stand cell in this cage.
-            // Without this, a nearest cage may have all stand cells reserved,
-            // causing the job to fail even when another cage has availability.
-            if (!HasAvailableStandCell(cage, handler))
+            Building_ChickenBatteryCage candidateService = FindServiceCage(cage, handler);
+            if (candidateService == null)
             {
                 continue;
             }
 
-            int dist = hen.Position.DistanceToSquared(cage.Position);
+            // The handler walks to the service cage, so distance is measured
+            // there rather than at the accepting cage.
+            int dist = chicken.Position.DistanceToSquared(candidateService.Position);
+            if (dist < bestDist)
+            {
+                bestTarget = cage;
+                bestService = candidateService;
+                bestDist = dist;
+            }
+        }
+
+        target = bestTarget;
+        service = bestService;
+        return target != null;
+    }
+
+    /**
+     * The cage in <paramref name="owner"/>'s network a handler should walk to.
+     * The owner itself is preferred; otherwise the nearest live member with a
+     * free, reachable stand cell that the handler can reserve. Returns null
+     * when the whole network is sealed off, in which case neither loading nor
+     * unloading can be serviced.
+     */
+    public static Building_ChickenBatteryCage FindServiceCage(
+        Building_ChickenBatteryCage owner,
+        Pawn handler)
+    {
+        if (owner == null || handler == null || owner.Map == null)
+        {
+            return null;
+        }
+
+        if (IsServiceable(owner, handler))
+        {
+            return owner;
+        }
+
+        Building_ChickenBatteryCage best = null;
+        int bestDist = int.MaxValue;
+        foreach (Building_ChickenBatteryCage cage in CageNetwork.Cluster(owner))
+        {
+            if (cage == null || cage == owner || cage.Destroyed)
+            {
+                continue;
+            }
+
+            if (!IsServiceable(cage, handler))
+            {
+                continue;
+            }
+
+            int dist = owner.Position.DistanceToSquared(cage.Position);
             if (dist < bestDist)
             {
                 best = cage;
@@ -1101,6 +1513,16 @@ public class Building_ChickenBatteryCage : Building
         }
 
         return best;
+    }
+
+    /// True when a handler can reserve this cage, stand beside it, and work
+    /// from it.
+    static bool IsServiceable(Building_ChickenBatteryCage cage, Pawn handler)
+    {
+        return !cage.IsForbidden(handler)
+            && handler.CanReserve(cage, 1, -1)
+            && handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly)
+            && HasAvailableStandCell(cage, handler);
     }
 
     private static bool HasAvailableStandCell(Building_ChickenBatteryCage cage, Pawn handler)
@@ -1172,6 +1594,7 @@ public class Building_ChickenBatteryCage : Building
         // Bill the outgoing population before the newcomer joins.
         SettleNutrition();
         chickens.Add(record);
+        NotifyFlockSizeChanged();
     }
 
     /**
@@ -1210,8 +1633,10 @@ public class Building_ChickenBatteryCage : Building
 
     /// Resolves the front of the unload queue. Discards a mark whose bird is
     /// no longer housed and stops without losing a mark if the bird could not
-    /// be materialized.
-    public bool TryUnloadNext()
+    /// be materialized. <paramref name="serviceCage"/> is the network member the
+    /// handler actually reached; the bird is placed beside it, which lets an
+    /// inaccessible interior cage be unloaded from a reachable neighbour.
+    public bool TryUnloadNext(Building_ChickenBatteryCage serviceCage = null)
     {
         while (pendingUnloads.Count > 0)
         {
@@ -1230,7 +1655,7 @@ public class Building_ChickenBatteryCage : Building
             // queue. A death during settlement can satisfy this request too.
             pendingUnloads.RemoveAt(0);
 
-            if (!ReleaseRecordAt(index))
+            if (!ReleaseRecordAt(index, serviceCage))
             {
                 // Generation failed; keep the record and its mark.
                 pendingUnloads.Insert(0, target);
@@ -1244,8 +1669,10 @@ public class Building_ChickenBatteryCage : Building
         return false;
     }
 
-    /// Materializes and releases the record at the given index.
-    public bool ReleaseRecordAt(int index)
+    /// Materializes and releases the record at the given index, placing it
+    /// beside <paramref name="serviceCage"/> when the handler serviced the
+    /// network from a different member than the one holding the record.
+    public bool ReleaseRecordAt(int index, Building_ChickenBatteryCage serviceCage = null)
     {
         if (index < 0 || index >= chickens.Count)
         {
@@ -1266,8 +1693,10 @@ public class Building_ChickenBatteryCage : Building
         }
 
         CagedChickenRecord record = chickens[index];
-        IntVec3 near = FindDropCell();
-        Pawn released = CageChickenFactory.Generate(record, Map, near);
+        IntVec3 near = serviceCage != null && serviceCage.Spawned && serviceCage.Map == Map
+            ? serviceCage.FindDropCell()
+            : FindDropCell();
+        Pawn released = CageChickenFactory.Generate(record, Map, near, toxicBuildup);
         if (released == null)
         {
             // The record is retained so the bird is not lost.
@@ -1275,6 +1704,8 @@ public class Building_ChickenBatteryCage : Building
         }
 
         chickens.RemoveAt(index);
+        ForgetToxicBuildupIfEmpty();
+        NotifyFlockSizeChanged();
 
         // Turn the cluster's intake off: the bird just set down must not be
         // roped straight back into a cage. The player turns it back on with
@@ -1421,6 +1852,80 @@ public class Building_ChickenBatteryCage : Building
         EvaluateEggProduction();
         SettleNutrition();
         EvaluateMortality();
+        EvaluateDegradation();
+    }
+
+    /**
+     * An unroofed cage is open to the sky and falls apart: it takes damage on a
+     * fixed clock so that, from full health, it fails after about thirty days
+     * for wood or steel and sixty days for any other material. A roof covering
+     * every occupied cell shelters the cage and stops the damage, but damage
+     * already suffered is not undone — the player must repair it. Bad weather
+     * rots the exposed cage four times as fast; fair weather does not pause the
+     * clock, so it still rots even when the sky is merely clear and dry.
+     */
+    void EvaluateDegradation()
+    {
+        if (Destroyed || !Spawned || Map == null || IsFullyRoofed())
+        {
+            return;
+        }
+
+        float exposureDays = CageDegradationMath.ExposureDays(
+            CageDegradationMath.IsWoodOrSteel(Stuff?.defName));
+        float damage = CageDegradationMath.DamageOverTicks(
+            MaxHitPoints,
+            exposureDays,
+            GenTicks.TickRareInterval,
+            CageDegradationMath.WeatherMultiplier(IsBadWeather()));
+
+        degradationDamageCarry += damage;
+
+        int whole = (int)degradationDamageCarry;
+        if (whole <= 0)
+        {
+            return;
+        }
+
+        degradationDamageCarry -= whole;
+        TakeDamage(new DamageInfo(DamageDefOf.Deterioration, whole));
+    }
+
+    /// True while the current weather is one of the game's flagged bad
+    /// weathers — rain, fog, snow, a thunderstorm — which rots an unroofed cage
+    /// four times as fast.
+    bool IsBadWeather()
+    {
+        WeatherDef weather = Map?.weatherManager?.curWeather;
+        return weather != null && weather.isBad;
+    }
+
+    /// True while every cell the cage occupies is under a roof. A single bare
+    /// cell is enough to expose the whole cage.
+    bool IsFullyRoofed()
+    {
+        foreach (IntVec3 cell in GenAdj.OccupiedRect(this))
+        {
+            if (!Map.roofGrid.Roofed(cell))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// Days left before this cage, if it stays unroofed, would fail. Used by
+    /// the inspection readout so a player can see the exposure clock running.
+    float DaysUntilDegradation()
+    {
+        float exposureDays = CageDegradationMath.ExposureDays(
+            CageDegradationMath.IsWoodOrSteel(Stuff?.defName));
+        return CageDegradationMath.DaysUntilFailure(
+            HitPoints,
+            MaxHitPoints,
+            exposureDays,
+            CageDegradationMath.WeatherMultiplier(IsBadWeather()));
     }
 
     /// Accrues exposure before nutrition settlement or population changes.
@@ -1434,6 +1939,12 @@ public class Building_ChickenBatteryCage : Building
                 record.BiologicalAgeTicksAt(start), lifeExpectancy,
                 starvingDaysAtStart + (start - fromTick) / (double)CagedChickenMath.TicksPerDay,
                 now - start);
+
+            // Toxic exposure is integrated over each settlement interval too,
+            // so cleaning or recovering mid-window cannot re-rate the whole
+            // mortality window from its final severity.
+            record.mortalityExposure += CageWasteMath.ToxicExposureOverTicks(
+                toxicBuildup, now - start);
         }
     }
 
@@ -1689,11 +2200,17 @@ public class Building_ChickenBatteryCage : Building
         }
 
         int died = 0;
+
+        // Toxic exposure was folded into each bird's accumulated exposure at
+        // settlement, alongside age and starvation, so this roll uses the
+        // hazards the flock actually lived through rather than re-rating the
+        // whole interval from the final toxicity value.
         for (int i = chickens.Count - 1; i >= 0; i--)
         {
             CagedChickenRecord record = chickens[i];
             float chance = CageMortalityMath.ChanceFromExposure(record.mortalityExposure);
             record.mortalityExposure = 0.0;
+
             if (!Rand.Chance(chance))
             {
                 continue;
@@ -1706,6 +2223,13 @@ public class Building_ChickenBatteryCage : Building
             }
             died++;
         }
+
+        if (died > 0)
+        {
+            NotifyFlockSizeChanged();
+        }
+
+        ForgetToxicBuildupIfEmpty();
 
         if (died == 0 || simulating)
         {
@@ -1890,6 +2414,10 @@ public class Building_ChickenBatteryCage : Building
             return;
         }
 
+        // The def declares no fixed interaction spot, so InteractionCell is
+        // resolved at runtime to a standable cell beside the cage (or the
+        // cage's own cell). That keeps corpses off the footprint without a
+        // hard-coded offset blocking odd-shaped cage networks.
         IntVec3 near = InteractionCell.IsValid ? InteractionCell : Position;
         int diedAtTick = GenTicks.TicksAbs;
         Corpse corpse = CageChickenFactory.GenerateCorpse(record, Map, diedAtTick);

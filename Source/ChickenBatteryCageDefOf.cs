@@ -23,6 +23,13 @@ public static class ChickenBatteryCageDefOf
 
     public static JobDef CBC_FeedBatteryCage;
 
+    public static JobDef CBC_CleanBatteryCage;
+
+    public static JobDef CBC_SpreadFertilizer;
+
+    /// The Fertilizer Pack the cages produce when cleaned.
+    public static ThingDef CBC_FertilizerPack;
+
     /// The vanilla chicken pawn kind, used both to recognize birds and to
     /// regenerate them on release.
     public static PawnKindDef Chicken;

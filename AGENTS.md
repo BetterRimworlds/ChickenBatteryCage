@@ -112,7 +112,7 @@ ChickenBatteryCage/
     Languages/English/Keyed/
     Patches/
     Textures/
-  build.sh                 builds RimWorld 1.6, then syncs into /rimworld/1.6*/Mods
+  build.sh                 builds RimWorld 1.6 and 1.7, then syncs into /rimworld/1.6*/Mods
   release.sh               zips the 1.6 Mods copy
 ```
 
@@ -120,7 +120,7 @@ ChickenBatteryCage/
 not from `Source/`.
 
 Assemblies are compiled into `/rimworld/1.6/Mods/<identity>/<version>/Assemblies`,
-then `build.sh` copies that whole mod folder to the `1.6-steam` install. XML and
+then `build.sh` copies that whole mod folder to the `1.7-steam` install. XML and
 textures live unversioned under the inner pack folder in git.
 
 ## C# conventions

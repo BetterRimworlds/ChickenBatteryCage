@@ -29,7 +29,8 @@ warnings.
 - [ ] The store caps at **3.3 nutrition per bird (33 for a full ten-hen cage)** across the whole cluster; surplus food stays in the stockpile rather than being wasted.
 - [ ] When nutrition hits zero, hens pass through **hungry** and **starving** states — no starving pawns are spawned.
 - [ ] Starving birds recover once feed is hauled in.
-- [ ] **Unroofed cages keep running.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving; the inspection panel no longer marks the cage inoperable or mentions the roof.
+- [ ] **Unroofed cages keep running — then fall apart.** If a roof is removed after construction, feed still drains and the flock still cycles through hungry/starving, but the inspection panel now warns that the cage is unroofed and deteriorating. The exposed cage loses hit points and collapses after about **30 days if made of wood or steel**, or **60 days for any other material**. It rots whether or not the sky is clear, but **bad weather — rain, fog, or snow — makes it rot four times as fast**.
+- [ ] Re-roofing an unroofed cage before it collapses stops the damage; already-lost hit points are **not** restored automatically and must be repaired.
 - [ ] Save + reload preserves the cage's nutrition value exactly.
 
 **Touching cages — one giant cage:**
@@ -141,10 +142,98 @@ warnings.
 
 ---
 
+## Realistic manure, fertilizer, and cage sanitation (`pr11-realism`)
+
+*Virtual waste accumulation, batch cleaning into fertilizer packs, pollution-
+style terrain improvement, and virtualized Toxic Buildup.*
+
+**Production and accumulation**
+
+- [ ] With 50 caged hens, waste reads about **1 pack a day**; 10 hens about 0.2
+      packs a day; 100 hens about 2 packs a day; 200 hens about 4 packs a day.
+- [ ] Waste accrues while the game is unpaused and from elapsed time, not from
+      inspection: a cage left alone overnight shows the same total on return.
+- [ ] No manure `Thing` and no per-hen waste object ever appears; the cage
+      inspect panel simply reports a larger stored figure.
+- [ ] Fractional progress accumulates across rare ticks and survives a
+      save/reload without rounding to zero or duplicating.
+
+**Cleaning**
+
+- [ ] A clean cage offers no cleaning job.
+- [ ] Once the cluster passes its threshold (about 10 packs for 100 hens), a
+      handler cleans it; the job empties every whole pack and drops that many
+      `fertilizer pack` stacks beside the cage.
+- [ ] The fractional remainder stays in the cage after a service.
+- [ ] Touching cages are cleaned as one cluster: the pooled waste is drained
+      once, and the fractional remainder is spread across members.
+
+**Fertilizer packs**
+
+- [ ] A `fertilizer pack` stacks five to a tile, is haulable and stockpilable,
+      and uses a distinct custom texture rather than vanilla art.
+- [ ] Outdoors, a pack dissolves one at a time on natural ground: every
+      **eight days**, or every **four days** in rain or snow. Indoors it does
+      not dissolve on its own, even on rough cave stone. On a constructed floor
+      or a shelf it does not dissolve. Freezing stops the outdoor clock.
+- [ ] A grower spreads an outdoor stack on natural ground after sowing, the
+      whole stack at once. An indoor pack, including one on an underground
+      cave floor, is never taken up on its own. Right-click that pack and
+      choose **spread fertilizer** to order it. Packs on a floor or a shelf
+      are not offered. The work takes a few seconds and improves the ground
+      for every pack in the stack, the same way the outdoor clock does for one.
+- [ ] Deterioration matches a wastepack (rate 4, 100 hit points). Destroying
+      the stack by wear or any other damage fertilizes the ground for every
+      pack still in it, then the stack is gone.
+- [ ] The inspect line says how long until the next pack, and notes rain when
+      it applies. An indoor pack says it will not dissolve on its own. A pack
+      on a floor or shelf says it is stored. A frozen outdoor pack on natural
+      ground says it will not dissolve.
+- [ ] Each pack the stack held improves **six** nearby natural cells, growing an
+      irregular patch outward from the pack, not six cells chosen independently.
+- [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand
+      and rough natural cave stone → stony soil, stony soil → lichen-covered
+      soil, marshy soil → stony soil, lichen-covered soil → soil, and soil →
+      rich soil; the resulting patch is comparable in size and raggedness to the
+      pollution patch the same number of wastepacks would make.
+- [ ] Any other natural ground converts too: mud → soil directly, and natural
+      ground with no succession of its own → stony soil first.
+- [ ] Smoothed floors, built floors, bridges, water, and buildings are never
+      replaced; natural rock walls block the spread exactly as they block
+      pollution.
+- [ ] Ground that is already rich soil or riverbank is left alone rather than
+      re-improved.
+- [ ] Fertilizer never creates pollution, tox gas, or wastepack infestations.
+
+**Toxic buildup**
+
+- [ ] A cage below its safe waste band adds no toxic buildup.
+- [ ] Neglecting a cage past the safe band raises the flock's virtual Toxic
+      Buildup at vanilla's polluted-ground rate; cleaning lets it recover at
+      vanilla's natural rate instead of resetting instantly.
+- [ ] Prolonged neglect produces the full range of vanilla Toxic Buildup
+      severity stages and eventually costs birds.
+- [ ] Unloading a hen from a dirty cage gives her the real `Toxic Buildup`
+      Hediff at the stored severity, without spawning pawns to hold it while she
+      was caged.
+
+**Inspection and dev tools**
+
+- [ ] A cage's inspect panel shows waste stored / capacity, cleaning status
+      (clean / needs cleaning / critical), fertilizer yield if cleaned now, and
+      Toxic Buildup severity with a stable / increasing / recovering trend.
+- [ ] For a touching cluster, the panel shows cluster totals.
+- [ ] Dev mode offers: add 1 / 5 / 45 fertilizer packs, advance fertilizer
+      decomposition, fill a cage's waste, clean a cage instantly, force toxic
+      progression / recovery, and simulate 10 / 60 / 600 days.
+
+---
+
 ## Cross-cutting regression sweep (final build, `pr11-feed-hopper-dairy`)
 
 - [ ] Full PR 4→11 flow in one continuous colony: research → build → fill → feed → starve → recover → lay → build a touching cage and watch it join the cluster → pick birds → refuse dairy → 5-year run.
 - [ ] **Cluster topology sweep:** build a row of three touching cages plus one detached cage; the three share hen count/feed/picker/toggle, the detached one stays independent; deconstruct the middle cage and confirm the survivors split without losing feed or birds.
+- [ ] **Packed-network access:** build a fully packed grid (such as 3×3 of the 2×2 cages) and mark birds in the centre cages for unloading; a handler walks to a reachable outside cage, the marked bird is released outside the grid, and loading a hen into a centre cage with space also works from the outside. No cage needs to be passable.
 - [ ] Combined save/load at every stage; one save carried through the entire session.
 - [ ] Load order / mod-compat smoke test with Harmony only, then with two or three common animal mods (no duplicate defNames, no patches double-applying).
 - [ ] Every commit GPG-signed (`git log --format='%h %G?'` all `G`) across the `pr4` → `pr11` stack ahead of `trunk`.

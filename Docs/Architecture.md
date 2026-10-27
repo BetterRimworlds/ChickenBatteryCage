@@ -37,6 +37,7 @@ per-bird work:
 | Nutrition | `nutritionStored`, `starvingTicks` | summed flock demand × elapsed time |
 | Laying | `eggProgress` | eligible-hen age curve × elapsed time × feed modifiers |
 | Mortality | death tallies | age hazard (hinged on species life expectancy) plus starvation hazard, rolled per evaluation interval |
+| Deterioration | hit points | unroofed cage takes damage so it fails in 30 days (wood/steel) or 60 (other materials); bad weather quadruples the rate |
 
 Nutrition settles through `CageNetwork.SettleCluster`, which drains the cluster's
 shared store and accrues starvation exposure in a single call. Laying and
@@ -72,6 +73,16 @@ one member tops up the whole cluster. Because the state stays per-cage
 on disk, no save migration is needed and a cage leaving the cluster keeps only
 its own share.
 
+Loading and unloading are network-aware about access as well as state. A
+handler normally works at the cage that owns the record, but a tightly packed
+network can bury a cage so that none of its neighbouring cells are standable.
+`FindServiceCage` then picks a reachable member of the same cluster: the
+handler walks to that service cage, while `PutHenInCage` still files the bird
+into the accepting cage and `TryUnloadNext` still drains the owning cage's
+queue. The released bird is placed beside the service cage. This keeps the per-
+cage records and capacity limits intact while letting the network be serviced
+from whichever outside face is actually reachable.
+
 The egg box is pooled the same way. Each cage banks its own fractional
 `eggProgress`, but release is decided on the cluster total: whenever the sum
 reaches a whole stack — one full day of the whole network's laying, never fewer
@@ -93,6 +104,77 @@ the whole network's laying when the cluster's combined output is higher, matchin
 the release threshold described above. The pooled pull-out keeps every member's
 fractions summing to the same total, so no fractional egg is lost at a cluster
 boundary.
+
+## Manure, fertilizer, and sanitation
+
+Manure follows the same elapsed-time rule as feed, laying, and mortality:
+
+| Subsystem | State | Rule |
+|---|---|---|
+| Manure | `wastePacks` | hen count × elapsed time × one pack per fifty hen-days |
+| Cleaning | `NeedsCleaning` | cluster waste past its flock-scaled threshold yields whole packs |
+| Toxicity | `toxicBuildup` | vanilla polluted-ground gain above the safe band, vanilla recovery below |
+
+No per-chicken waste object exists. `CageNetwork.SettleCluster` bills each
+member's own flock for the elapsed interval in the same call that drains feed
+and accrues mortality, so waste is measured once per cluster and summing the
+members never double counts. The persisted total is per cage, so the cluster is
+an aggregate on read and cleaning, exactly like the feed pool and egg box.
+
+Cleaning removes only whole packs and scales the remainder back across the
+members (`CageNetwork.WithdrawWaste` via `CageClusterMath.ScaleToTotal`), so the
+fraction survives a service on any member. Each whole pack becomes one
+real `CBC_FertilizerPack` stack on the ground.
+
+A Fertilizer Pack is a real spawned `Thing` on the toxic-wastepack clock. It
+does not rot. `CompFertilizerDissolution` dissolves one pack per interval
+only while the pack's room uses the outdoor temperature and the pack sits on
+terrain the spread can grow from: eight days, or four in rain or snow (the
+weather rain rate above 0.1). Indoors the clock does not advance.
+`WorkGiver_SpreadFertilizer` lets a grower spend a short Growing job to
+dissolve a whole outdoor stack on natural ground immediately. An indoor pack,
+including one under a mountain roof, is offered only when the player orders
+the work. A constructed floor or a shelf does not advance the clock and is not a
+work target, so stored packs are not consumed. At or below 0°C the clock pauses. The def's deterioration rate is 4,
+with the default 100 hit points, so vanilla wear can still destroy the stack;
+lethal damage improves the ground for every pack left in it and then lets the
+damage remove the thing. Each dissolved pack improves six cells. There is no
+tox gas, no goodwill loss, and no wastepack infestation.
+
+### Fertilizer spread
+
+The spread is a faithful reproduction of `PollutionUtility.GrowPollutionAt`,
+because the vanilla routine is hard wired to `map.pollutionGrid` and cannot be
+pointed at terrain. The mechanics live in the Verse-free
+`FertilizerSpreadMath.GrowAt`: improve the root, flood-fill the already-improved
+ground reachable from it, seed a best-first queue with the improvable frontier,
+then repeatedly take the most attractive cell and push its neighbours. The
+map-facing `FertilizerSpread` supplies the same Perlin-noise comparator vanilla
+uses, so the blob is as ragged as a pollution patch, and the flood/patch are
+encoded in the terrain itself rather than a per-cell dictionary: finished ground
+counts as improved and is never re-selected.
+
+`FertilizerTerrainRules` is the pure table. It runs a progression from the
+barren grounds up toward rich soil — soft sand to sand to stony soil to
+lichen-covered soil to soil to rich soil, marshy soil to stony soil, and the
+game's own generated rough stone to stony soil. Any other natural ground is
+convertible too, following its own `driesTo` target when it has one (mud dries
+to soil) and otherwise becoming stony soil first. Smoothed floors, built
+floors, bridges, and water are excluded, and any building edifice — natural
+rock wall or player structure — blocks the spread.
+
+### Toxic Buildup
+
+While a chicken is confined the condition is a single cage-level severity.
+`CageWasteMath.ToxicBuildupAfter` integrates it over the elapsed interval,
+splitting exactly at the safe-waste crossing so a long settlement equals several
+short ones. The gain (0.4/day) and recovery (0.08/day) are vanilla's own
+numbers, and the lethal threshold is read from `ToxicBuildup.lethalSeverity`.
+Above the onset severity the cage adds a capped daily death chance, folded into
+the existing mortality roll, so a poisoned flock dies off gradually. When a hen
+is materialized, `CageToxicBuildup.Apply` gives her the real `ToxicBuildup`
+Hediff at the stored severity, so the virtual condition becomes visible on the
+map.
 
 ## Safety
 

@@ -36,6 +36,11 @@ public class StrandedCagedChicken : IExposable
     public IntVec3 near;
     public bool injured;
 
+    /// The releasing cage's virtual Toxic Buildup severity at the moment the
+    /// bird was stranded, so the eventual materialization can still hand her
+    /// the condition she accumulated.
+    public float toxicBuildup;
+
     /// The connected cages that housed this bird when its own cage was
     /// destroyed. Empty for a dead entry, where recapture does not apply.
     public List<Building_ChickenBatteryCage> originNetwork;
@@ -61,11 +66,12 @@ public class StrandedCagedChicken : IExposable
     }
 
     public StrandedCagedChicken(CagedChickenRecord record, IntVec3 near, bool injured,
-        IReadOnlyList<Building_ChickenBatteryCage> originNetwork = null)
+        IReadOnlyList<Building_ChickenBatteryCage> originNetwork = null, float toxicBuildup = 0f)
     {
         this.record = record;
         this.near = near;
         this.injured = injured;
+        this.toxicBuildup = toxicBuildup;
         CaptureOriginNetwork(originNetwork);
     }
 
@@ -96,6 +102,7 @@ public class StrandedCagedChicken : IExposable
         Scribe_Deep.Look(ref record, "record");
         Scribe_Values.Look(ref near, "near");
         Scribe_Values.Look(ref injured, "injured", false);
+        Scribe_Values.Look(ref toxicBuildup, "toxicBuildup", 0f);
         Scribe_Collections.Look(ref originNetwork, "originNetwork", LookMode.Reference);
         Scribe_Values.Look(ref diedAtTick, "diedAtTick", NotDead);
         Scribe_Deep.Look(ref corpse, "corpse");

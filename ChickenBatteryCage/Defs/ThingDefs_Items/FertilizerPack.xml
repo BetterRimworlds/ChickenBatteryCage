@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<!-- A compacted pack of processed chicken manure. It is the beneficial
+	     inverse of a vanilla toxic wastepack: the same dissolution clock and
+	     the same deterioration rate, and fertile ground instead of pollution.
+	     One pack dissolves at a time. A cell changes only after three packs
+	     have struck it. It produces no pollution, no tox gas, and no infestation. -->
+	<ThingDef ParentName="ResourceBase">
+		<defName>CBC_FertilizerPack</defName>
+		<label>fertilizer pack</label>
+		<description>A compacted package of processed chicken manure that will slowly dissolve if not frozen. Left on natural ground, each pack that dissolves builds a layer of fertile soil over the land around it, reclaiming barren ground step by step: soft sand into sand, sand and bare cave stone into stony soil, stony soil into lichen-covered soil, lichen-covered soil into soil, and soil into ground crops grow best in, while other natural ground follows its own succession or becomes stony soil first. Unlike toxic wastepacks, fertilizer packs release no pollution and no poison gas.\n\nA grower spreads an outdoor stack on natural ground, the whole stack at once. An indoor pack, including one on the rough stone of an underground base, is left alone unless someone is ordered to spread it. Left alone outdoors, one pack dissolves every eight days on natural ground, or every four days in the rain or snow. Indoors it does not dissolve on its own. On a constructed floor or a shelf it does not dissolve, and growers will not spread it. Freezing stops the clock. If the stack deteriorates or is otherwise destroyed, every pack left in it improves the ground at once. Each pack strikes about six cells. A cell takes one step along that progression only after three packs have struck it.</description>
+		<graphicData>
+			<texPath>Things/Item/Resource/FertilizerPack</texPath>
+			<graphicClass>Graphic_StackCount</graphicClass>
+		</graphicData>
+		<soundInteract>Standard_Drop</soundInteract>
+		<soundDrop>Standard_Drop</soundDrop>
+		<stackLimit>5</stackLimit>
+		<statBases>
+			<Beauty>-8</Beauty>
+			<MarketValue>0</MarketValue>
+			<Mass>5</Mass>
+			<Flammability>0.5</Flammability>
+			<!-- Same deterioration rate as a toxic wastepack. Max hit points
+			     stay at the resource default of 100. -->
+			<DeteriorationRate>4</DeteriorationRate>
+		</statBases>
+		<thingCategories>
+			<li>ItemsMisc</li>
+		</thingCategories>
+		<comps>
+			<li Class="BetterRimworlds.ChickenBatteryCage.CompProperties_FertilizerDissolution">
+				<dissolutionAfterDays>8</dissolutionAfterDays>
+				<dissolutionFactorRain>2</dissolutionFactorRain>
+				<cellsImprovedPerPack>6</cellsImprovedPerPack>
+			</li>
+		</comps>
+		<tickerType>Normal</tickerType>
+	</ThingDef>
+</Defs>
