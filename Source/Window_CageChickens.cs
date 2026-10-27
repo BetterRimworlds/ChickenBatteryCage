@@ -68,7 +68,9 @@ public class Window_CageChickens : Window
         absorbInputAroundWindow = false;
         closeOnClickedOutside = false;
         preventCameraMotion = false;
-        draggable = true;
+        // The picker stays where it opens so it cannot drift away from the cage
+        // the player is inspecting.
+        draggable = false;
         resizeable = true;
         // One picker at a time: it always shows a whole cluster, so a second
         // window would be a duplicate view of the same flock.
