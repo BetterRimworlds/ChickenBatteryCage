@@ -55,6 +55,14 @@ public static class CageCleaning
             // Remove only what actually landed, so a crowded map never swallows
             // manure. The fractional remainder is preserved.
             CageNetwork.WithdrawWaste(cluster, placed);
+
+            // Restart the 24-hour countdown only after a service that placed
+            // every whole pack, so neither a no-op visit nor a partial
+            // placement can postpone the next one.
+            if (placed == whole)
+            {
+                CageNetwork.MarkCleaned(cluster, GenTicks.TicksAbs);
+            }
         }
 
         return placed;

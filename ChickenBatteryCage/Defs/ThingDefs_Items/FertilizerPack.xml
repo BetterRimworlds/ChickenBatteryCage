@@ -15,7 +15,9 @@
 		</graphicData>
 		<soundInteract>Standard_Drop</soundInteract>
 		<soundDrop>Standard_Drop</soundDrop>
-		<stackLimit>5</stackLimit>
+		<!-- A daily service from a standard hundred-hen installation is about
+		     fifty packs, so one stack holds more than a day's output. -->
+		<stackLimit>75</stackLimit>
 		<statBases>
 			<Beauty>-8</Beauty>
 			<MarketValue>0</MarketValue>

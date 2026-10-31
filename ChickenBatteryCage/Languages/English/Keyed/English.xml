@@ -63,6 +63,7 @@
 	<ChickenBatteryCage.Inspect.Toxicity>Toxic buildup: {0}</ChickenBatteryCage.Inspect.Toxicity>
 	<ChickenBatteryCage.Waste.Status>{0} / {1} packs</ChickenBatteryCage.Waste.Status>
 	<ChickenBatteryCage.Cleaning.Clean>clean</ChickenBatteryCage.Cleaning.Clean>
+	<ChickenBatteryCage.Cleaning.CleanCountdown>clean, next visit in {0}h</ChickenBatteryCage.Cleaning.CleanCountdown>
 	<ChickenBatteryCage.Cleaning.NeedsCleaning>needs cleaning</ChickenBatteryCage.Cleaning.NeedsCleaning>
 	<ChickenBatteryCage.Cleaning.Critical>critical</ChickenBatteryCage.Cleaning.Critical>
 	<ChickenBatteryCage.Fertilizer.Yield>{0} / {1} packs</ChickenBatteryCage.Fertilizer.Yield>

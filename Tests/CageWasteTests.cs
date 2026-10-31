@@ -24,23 +24,113 @@ public class CageWasteTests
     const int Day = CagedChickenMath.TicksPerDay;
     const float Epsilon = 0.0001f;
 
-    [Test]
-    public void FiftyHensMakeOnePackPerDay()
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(4)]
+    public void MaintainedSmallFlocksCanBeCleanedBeforeToxicExposure(int hens)
     {
-        Assert.AreEqual(1f, CageWasteMath.PacksOverTicks(50, Day), Epsilon);
+        // Exercise both production extremes, including the fractional waste
+        // carried between visits when a whole pack is not yet collectible.
+        foreach (float rate in new[] {
+            CageWasteMath.MinPacksPerHenPerDay,
+            CageWasteMath.MaxPacksPerHenPerDay })
+        {
+            float waste = 0f;
+            int ticksSinceCleaning = 0;
+            int visits = 0;
+            for (int day = 0; day < 60; day++)
+            {
+                waste += hens * rate;
+                ticksSinceCleaning += Day;
+                Assert.Less(waste, CageWasteMath.SafeWastePacks(hens),
+                    "daily maintenance must remain below toxic exposure");
+                Assert.AreEqual(CageWasteMath.ToxicTrend.Stable,
+                    CageWasteMath.ClassifyTrend(0f, waste, hens));
+
+                if (CageWasteMath.NeedsCleaning(waste, hens, ticksSinceCleaning))
+                {
+                    Assert.Greater(CageWasteMath.WholePacks(waste), 0);
+                    waste = CageWasteMath.FractionalPacks(waste);
+                    ticksSinceCleaning = 0;
+                    visits++;
+                }
+            }
+
+            Assert.Greater(visits, 0, "small flocks must allow productive cleaning");
+        }
     }
 
     [Test]
-    public void TenHensMakeOnePackPerFiveDays()
+    public void FiftyHensMakeTwentySixAndAQuarterPacksPerDayOnAverage()
     {
-        Assert.AreEqual(0.2f, CageWasteMath.PacksOverTicks(10, Day), Epsilon);
-        Assert.AreEqual(1f, CageWasteMath.PacksOverTicks(10, 5 * Day), Epsilon);
+        Assert.AreEqual(26.25f, CageWasteMath.PacksOverTicks(50, Day), Epsilon);
     }
 
     [Test]
-    public void HundredHensMakeTwoPacksPerDay()
+    public void TenHensMakeFiveAndAQuarterPacksPerDayOnAverage()
     {
-        Assert.AreEqual(2f, CageWasteMath.PacksOverTicks(100, Day), Epsilon);
+        Assert.AreEqual(5.25f, CageWasteMath.PacksOverTicks(10, Day), Epsilon);
+        Assert.AreEqual(26.25f, CageWasteMath.PacksOverTicks(10, 5 * Day), Epsilon);
+    }
+
+    [Test]
+    public void HundredHensMakeFiftyTwoAndAHalfPacksPerDayOnAverage()
+    {
+        Assert.AreEqual(52.5f, CageWasteMath.PacksOverTicks(100, Day), Epsilon);
+    }
+
+    [Test]
+    public void DailyProductionVariesWithinTheSuperchickenBand()
+    {
+        const uint seed = 424242u;
+        bool sawLow = false;
+        bool sawHigh = false;
+        float previous = -1f;
+
+        for (int day = 0; day < 30; day++)
+        {
+            float packs = CageWasteMath.PacksOverTicks(100, day * Day, Day, seed);
+
+            Assert.GreaterOrEqual(packs, 25f - Epsilon);
+            Assert.LessOrEqual(packs, 80f + Epsilon);
+            sawLow |= packs < 40f;
+            sawHigh |= packs > 65f;
+            Assert.IsTrue(day == 0
+                || System.Math.Abs(packs - previous) > Epsilon);
+            previous = packs;
+        }
+
+        Assert.IsTrue(sawLow, "the band must actually roll low days");
+        Assert.IsTrue(sawHigh, "the band must actually roll high days");
+    }
+
+    [Test]
+    public void RandomProductionSplitsCleanlyAtDayBoundaries()
+    {
+        const uint seed = 90210u;
+        const int start = 12345;
+        int cut = Day - start;
+
+        float whole = CageWasteMath.PacksOverTicks(100, start, 2 * Day, seed);
+        float first = CageWasteMath.PacksOverTicks(100, start, cut, seed);
+        float second = CageWasteMath.PacksOverTicks(100, start + cut, 2 * Day - cut, seed);
+
+        Assert.AreEqual(whole, first + second, 0.001f);
+    }
+
+    [Test]
+    public void TheDailyRollIsStableForASeedAndDay()
+    {
+        Assert.AreEqual(
+            CageWasteMath.RateForDay(7u, 42),
+            CageWasteMath.RateForDay(7u, 42),
+            Epsilon);
+        Assert.That(
+            System.Math.Abs(
+                CageWasteMath.RateForDay(7u, 42)
+                - CageWasteMath.RateForDay(7u, 43)),
+            Is.GreaterThan(Epsilon));
     }
 
     [Test]
@@ -52,11 +142,12 @@ public class CageWasteTests
     [Test]
     public void FractionalManureAccumulatesWithoutRoundingAway()
     {
-        float first = CageWasteMath.PacksOverTicks(10, Day);
-        float second = CageWasteMath.PacksOverTicks(10, Day);
+        float first = CageWasteMath.PacksOverTicks(1, Day);
+        float second = CageWasteMath.PacksOverTicks(1, Day);
 
-        Assert.AreEqual(0.4f, first + second, Epsilon);
-        Assert.AreEqual(0, CageWasteMath.WholePacks(first + second));
+        Assert.AreEqual(0.525f, first, Epsilon);
+        Assert.AreEqual(1.05f, first + second, Epsilon);
+        Assert.AreEqual(0, CageWasteMath.WholePacks(first));
     }
 
     [Test]
@@ -94,10 +185,10 @@ public class CageWasteTests
     {
         // A stored total survives a save untouched; adding a later interval
         // must build on it, not restart from zero.
-        float stored = CageWasteMath.PacksOverTicks(10, Day);
-        float afterReload = stored + CageWasteMath.PacksOverTicks(10, Day);
+        float stored = CageWasteMath.PacksOverTicks(1, Day);
+        float afterReload = stored + CageWasteMath.PacksOverTicks(1, Day);
 
-        Assert.AreEqual(0.4f, afterReload, Epsilon);
+        Assert.AreEqual(1.05f, afterReload, Epsilon);
     }
 
     [Test]
@@ -119,57 +210,76 @@ public class CageWasteTests
     [Test]
     public void CleaningThresholdScalesToTheFlock()
     {
-        // A hundred hens make two packs a day, so the five-day threshold is ten
-        // packs, exactly the intended service interval.
-        Assert.AreEqual(10f, CageWasteMath.CleaningThresholdPacks(100), Epsilon);
-        Assert.AreEqual(1f, CageWasteMath.CleaningThresholdPacks(10), Epsilon);
+        // The reference daily output is the mean of the 25-80 band.
+        Assert.AreEqual(52.5f, CageWasteMath.CleaningThresholdPacks(100), Epsilon);
+        Assert.AreEqual(5.25f, CageWasteMath.CleaningThresholdPacks(10), Epsilon);
     }
 
     [Test]
     public void CleaningThresholdNeverFallsBelowOneCollectiblePack()
     {
-        // A lone hen would otherwise request cleaning at 0.1 packs, but a
-        // cleaning cannot remove less than one whole pack.
+        // A lone hen would otherwise reference 0.525 packs, but a cleaning
+        // cannot remove less than one whole pack.
         Assert.AreEqual(1f, CageWasteMath.CleaningThresholdPacks(1), Epsilon);
-        Assert.AreEqual(1f, CageWasteMath.CleaningThresholdPacks(5), Epsilon);
+        Assert.AreEqual(1.05f, CageWasteMath.CleaningThresholdPacks(2), Epsilon);
     }
 
     [Test]
-    public void CleaningStatusFollowsTheGraceBand()
+    public void CleaningStatusFollowsTheDailyClockAndTheGraceBand()
     {
-        // Clean below the threshold, needs cleaning up to the safe level,
-        // critical beyond it.
+        const int due = CageWasteMath.CleaningIntervalTicks;
+
+        // Clean while the 24-hour clock is still running.
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Clean,
-            CageWasteMath.ClassifyCleaning(4f, 100));
+            CageWasteMath.ClassifyCleaning(60f, 100, due - 1));
+
+        // Due once a full day has passed.
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.NeedsCleaning,
-            CageWasteMath.ClassifyCleaning(12f, 100));
+            CageWasteMath.ClassifyCleaning(60f, 100, due));
+
+        // Toxic filth outranks the clock.
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Critical,
-            CageWasteMath.ClassifyCleaning(25f, 100));
+            CageWasteMath.ClassifyCleaning(525f, 100, 0));
     }
 
     [Test]
     public void CleaningIsNotAdvertisedWithoutAWholePack()
     {
-        // One hen's waste passes its safe band at 0.2 packs, but there is still
-        // nothing a cleaner could collect until a whole pack has accrued.
+        const int due = CageWasteMath.CleaningIntervalTicks;
+
+        // One hen's waste reaches its one-pack threshold after two days, but
+        // there is still nothing a cleaner could collect before then.
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Clean,
-            CageWasteMath.ClassifyCleaning(0.9f, 1));
+            CageWasteMath.ClassifyCleaning(0.9f, 1, due));
+        Assert.AreEqual(
+            CageWasteMath.CleaningStatus.NeedsCleaning,
+            CageWasteMath.ClassifyCleaning(1f, 1, due));
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Critical,
-            CageWasteMath.ClassifyCleaning(1f, 1));
+            CageWasteMath.ClassifyCleaning(5.25f, 1, due));
 
         // A cage emptied of hens keeps its leftover manure, but again only a
         // whole pack is worth a service visit.
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.Clean,
-            CageWasteMath.ClassifyCleaning(0.5f, 0));
+            CageWasteMath.ClassifyCleaning(0.5f, 0, due));
         Assert.AreEqual(
             CageWasteMath.CleaningStatus.NeedsCleaning,
-            CageWasteMath.ClassifyCleaning(1.5f, 0));
+            CageWasteMath.ClassifyCleaning(1.5f, 0, due));
+    }
+
+    [Test]
+    public void CleaningWaitsForTheFullDailyCountdown()
+    {
+        const int due = CageWasteMath.CleaningIntervalTicks;
+
+        Assert.AreEqual(24f, CageWasteMath.HoursUntilCleaning(0), Epsilon);
+        Assert.AreEqual(12f, CageWasteMath.HoursUntilCleaning(due / 2), Epsilon);
+        Assert.AreEqual(0f, CageWasteMath.HoursUntilCleaning(due), Epsilon);
     }
 
     [Test]
@@ -266,9 +376,9 @@ public class CageWasteTests
     [Test]
     public void EstimatedTimesUseTheFlockRate()
     {
-        // A hundred hens, no waste, produce a pack every half day, and reach
-        // the ten-pack cleaning threshold in five days.
-        Assert.AreEqual(0.5f, CageWasteMath.DaysUntilNextPack(0f, 100), Epsilon);
-        Assert.AreEqual(5f, CageWasteMath.DaysUntilCleaningThreshold(0f, 100), Epsilon);
+        // A hundred hens, no waste, average a pack every 1/52.5 days, and the
+        // daily cleaning countdown is one full day.
+        Assert.AreEqual(1f / 52.5f, CageWasteMath.DaysUntilNextPack(0f, 100), Epsilon);
+        Assert.AreEqual(24f, CageWasteMath.HoursUntilCleaning(0), Epsilon);
     }
 }

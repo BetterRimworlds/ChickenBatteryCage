@@ -149,8 +149,12 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 **Production and accumulation**
 
-- [ ] With 50 caged hens, waste reads about **1 pack a day**; 10 hens about 0.2
-      packs a day; 100 hens about 2 packs a day; 200 hens about 4 packs a day.
+- [ ] With 50 caged hens, waste accrues at **12.5–40 packs a day**; 10 hens
+      about 2.5–8; 100 hens about 25–80; 200 hens about 50–160.
+- [ ] The daily rate is random, but a save/reload on the same game day keeps the
+      same amount, and every cage in one cluster gets the same roll.
+- [ ] A cage's inspect panel shows a **24-hour countdown** to the next
+      cleaning, restarting after each service.
 - [ ] Waste accrues while the game is unpaused and from elapsed time, not from
       inspection: a cage left alone overnight shows the same total on return.
 - [ ] No manure `Thing` and no per-hen waste object ever appears; the cage
@@ -161,7 +165,7 @@ style terrain improvement, and virtualized Toxic Buildup.*
 **Cleaning**
 
 - [ ] A clean cage offers no cleaning job.
-- [ ] Once the cluster passes its threshold (about 10 packs for 100 hens), a
+- [ ] Once the cluster's 24-hour countdown elapses and it holds a whole pack, a
       handler cleans it; the job empties every whole pack and drops that many
       `fertilizer pack` stacks beside the cage.
 - [ ] The fractional remainder stays in the cage after a service.
@@ -170,7 +174,7 @@ style terrain improvement, and virtualized Toxic Buildup.*
 
 **Fertilizer packs**
 
-- [ ] A `fertilizer pack` stacks five to a tile, is haulable and stockpilable,
+- [ ] A `fertilizer pack` stacks **75** to a tile, is haulable and stockpilable,
       and uses a distinct custom texture rather than vanilla art.
 - [ ] Outdoors, a pack dissolves one at a time on natural ground: every
       **eight days**, or every **four days** in rain or snow. Indoors it does
@@ -189,8 +193,10 @@ style terrain improvement, and virtualized Toxic Buildup.*
       it applies. An indoor pack says it will not dissolve on its own. A pack
       on a floor or shelf says it is stored. A frozen outdoor pack on natural
       ground says it will not dissolve.
-- [ ] Each pack the stack held improves **six** nearby natural cells, growing an
+- [ ] Each dissolved pack **strikes six** nearby natural cells, growing an
       irregular patch outward from the pack, not six cells chosen independently.
+      A cell changes only after three strikes, so a pack nets about two
+      improved cells.
 - [ ] Fertilizer works a progression toward **rich soil**: soft sand → sand, sand
       and rough natural cave stone → stony soil, stony soil → lichen-covered
       soil, marshy soil → stony soil, lichen-covered soil → soil, and soil →

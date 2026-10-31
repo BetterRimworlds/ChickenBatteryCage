@@ -50,36 +50,42 @@ A caged flock produces manure the same way it eats and lays: as a pure function
 of hen count and elapsed game time, never as a spawned waste `Thing` or a
 per-bird need.
 
-The abstraction is grounded in real numbers. A laying hen drops roughly **0.1 kg
-of fresh manure a day**, so fifty hens make about 5 kg a day. One **fertilizer
-pack** stands for roughly that 5 kg of collected, compacted manure, which makes
-the production rate **one pack per fifty hen-days**:
+RimWorld chickens are **superchickens**, so the rate scales with what the game
+actually shows rather than with a Terran hen. A vanilla chicken sprite is about
+six times the volume of a real hen, and a vanilla chicken egg is 0.15 kg — about
+two and a half large eggs. Accordingly a caged flock rolls a fresh production
+rate every day: **0.25–0.8 packs per hen**, or **25–80 packs a day for a
+standard hundred-hen installation**. The roll is seeded by the cage cluster and
+the absolute game day, so it is stable across save/reload and every cage in a
+cluster shares the same rate.
 
 | Hens | Packs/day |
 |---:|---:|
-| 1 | 0.02 |
-| 10 | 0.2 |
-| 50 | 1 |
-| 100 | 2 |
-| 200 | 4 |
+| 1 | 0.25–0.8 |
+| 10 | 2.5–8 |
+| 50 | 12.5–40 |
+| 100 | 25–80 |
+| 200 | 50–160 |
 
-A standard 100-hen installation therefore makes about **2 packs a day**, or
-about **120 packs a RimWorld year**.
+A standard 100-hen installation therefore makes **25–80 packs a day** — about
+**53 on average**, or roughly **3,150 packs a RimWorld year**.
 
 ### Cleaning
 
-Manure accumulates in the cage, and the flock is serviced in batches rather than
-continuously. Once a **touching cage cluster** has stored roughly five days of
-output — about **10 packs for 100 hens** — a handler cleans the cage. One
-service empties every whole pack the cluster holds, drops them beside the cage
-as ordinary haulable **fertilizer packs**, and leaves the fractional remainder
-behind, so no manure is lost between visits.
+The flock is serviced on a **daily** schedule. A cage becomes serviceable
+twenty-four hours after its last cleaning, so the inspect panel carries a
+**24-hour countdown** that restarts after every visit. A handler empties every
+whole pack the cluster holds, drops them beside the cage as ordinary haulable
+**fertilizer packs**, and leaves the fractional remainder behind, so no manure
+is lost between visits. With the default stack limit of **75**, one stack holds
+a typical day's output from a hundred hens; a high roll may need a second
+stack.
 
 ### Fertilizer packs
 
 Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
-use the same dissolution clock and the same deterioration rate, and they stack
-five to a tile. **One pack dissolves at a time** on natural ground: every
+use the same dissolution clock and the same deterioration rate, and each pack
+stacks **75 to a tile**. **One pack dissolves at a time** on natural ground: every
 eight days on natural ground, or every four days in the rain or snow. Indoors
 it does not dissolve on its own. A grower spreads an outdoor stack on natural
 ground after sowing, the whole stack at once. An indoor pack, including one
@@ -91,9 +97,10 @@ infestations.
 
 If the stack deteriorates or is otherwise destroyed, every pack still in it
 improves the ground at once, the same way a destroyed wastepack pollutes for
-every pack it held. Each dissolved pack improves **six cells of
-natural ground**, using the same irregular, outward-creeping cell selection that
-vanilla pollution uses. Repeated dissolution grows the fertile patch outward the
+every pack it held. Each dissolved pack **strikes six cells of natural ground**,
+using the same irregular, outward-creeping cell selection that vanilla pollution
+uses; a cell changes only after **three strikes**, so a pack nets about two
+improved cells. Repeated dissolution grows the fertile patch outward the
 same way repeated wastepack dissolution grows a polluted one. Fertilizer works
 a progression up toward rich **soil**: soft sand becomes sand, sand and rough
 natural cave stone become stony soil, stony soil becomes lichen-covered soil,
@@ -103,9 +110,9 @@ soil, and ground with no succession of its own becomes stony soil first. Only
 smoothed floors, built floors, bridges, water, and buildings are never touched,
 and natural rock walls block the spread exactly as they block pollution.
 
-For scale, a hundred hens make enough fertilizer in a year to improve roughly
-**720 cells**: a genuine terraforming project for desert, sandy, underground, or
-otherwise poor colonies.
+For scale, a hundred hens make enough fertilizer in a year — about 3,150 packs
+on average — to improve roughly **6,300 cells**: a genuine terraforming project
+for desert, sandy, underground, or otherwise poor colonies.
 
 ### Dirty cages and toxic buildup
 
@@ -126,7 +133,7 @@ Selecting a cage reports, for the whole touching cluster:
 
 ```text
 Waste:         {stored} / {capacity} packs
-Cleaning:      clean / needs cleaning / critical
+Cleaning:      clean, next visit in {hours}h
 Fertilizer:    {n} packs if cleaned now
 Toxic buildup: {severity} (stable / increasing / recovering)
 ```

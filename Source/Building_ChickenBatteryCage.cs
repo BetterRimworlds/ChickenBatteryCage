@@ -107,6 +107,10 @@ public class Building_ChickenBatteryCage : Building
     /// from spawned waste Things, and only whole packs are ever cleaned away.
     protected float wastePacks;
 
+    /// Absolute tick of the last completed cleaning. The flock is serviceable
+    /// again one day later, and the inspect panel counts that down.
+    protected int cleanedAtTick;
+
     /// The flock's virtual Toxic Buildup severity, in the same band as vanilla
     /// ToxicBuildup. It is a cage-level number while the birds are serialized
     /// and becomes a real Hediff on the Pawn when a bird is unloaded.
@@ -304,6 +308,11 @@ public class Building_ChickenBatteryCage : Building
     public float ClusterManurePacksPerDay =>
         CageWasteMath.PacksPerDay(CageNetwork.ChickenCount(CageNetwork.Cluster(this)));
 
+    /// Hours until the cluster's next scheduled cleaning, for the countdown.
+    /// Zero once the daily cycle has elapsed.
+    public float ClusterCleaningCountdownHours => CageWasteMath.HoursUntilCleaning(
+        CageNetwork.TicksSinceCleaning(CageNetwork.Cluster(this), GenTicks.TicksAbs));
+
     /**
      * Internal hooks the cluster settlement uses to write its single result
      * back into each member's own persisted store. A cage's store therefore
@@ -335,6 +344,16 @@ public class Building_ChickenBatteryCage : Building
 
     /// The cage's own persisted manure, read as an aggregate by the network.
     public float WastePacks => wastePacks;
+
+    /// The cage's own persisted last-cleaning tick.
+    public int CleanedAtTick => cleanedAtTick;
+
+    /// Internal hook used when the cluster stamps a completed service.
+    internal int CleanedAtTickValue
+    {
+        get => cleanedAtTick;
+        set => cleanedAtTick = value;
+    }
 
     /// The cage's own persisted virtual Toxic Buildup severity.
     public float ToxicBuildup => toxicBuildup;
@@ -380,15 +399,16 @@ public class Building_ChickenBatteryCage : Building
     }
 
     /// Bills this cage's own flock for the elapsed interval. No per-hen work
-    /// runs; the sum is a pure function of hen count and time.
-    internal void AccrueManure(int elapsed)
+    /// runs; the sum is a pure function of hen count, time, and the cluster's
+    /// daily random seed.
+    internal void AccrueManure(int startTick, int elapsed, uint seed)
     {
         if (elapsed <= 0 || chickens == null || chickens.Count == 0)
         {
             return;
         }
 
-        wastePacks += CageWasteMath.PacksOverTicks(chickens.Count, elapsed);
+        wastePacks += CageWasteMath.PacksOverTicks(chickens.Count, startTick, elapsed, seed);
 
         if (float.IsNaN(wastePacks) || float.IsInfinity(wastePacks) || wastePacks < 0f)
         {
@@ -640,7 +660,8 @@ public class Building_ChickenBatteryCage : Building
         ClusterWastePacks.ToString("0.0"),
         ClusterWasteCapacity.ToString("0.0"));
 
-    /// Clean, needs cleaning, or critical.
+    /// Clean, needs cleaning, or critical, with the 24-hour countdown to the
+    /// next scheduled service while the cage is still clean.
     protected virtual string CleaningInspectValue
     {
         get
@@ -652,7 +673,14 @@ public class Building_ChickenBatteryCage : Building
                 case CageWasteMath.CleaningStatus.Critical:
                     return "ChickenBatteryCage.Cleaning.Critical".Translate();
                 default:
-                    return "ChickenBatteryCage.Cleaning.Clean".Translate();
+                    float hours = ClusterCleaningCountdownHours;
+                    if (hours <= 0f)
+                    {
+                        return "ChickenBatteryCage.Cleaning.Clean".Translate();
+                    }
+
+                    return "ChickenBatteryCage.Cleaning.CleanCountdown".Translate(
+                        Mathf.Max(1, Mathf.CeilToInt(hours)));
             }
         }
     }
@@ -708,6 +736,13 @@ public class Building_ChickenBatteryCage : Building
         if (chickens == null)
         {
             chickens = new List<CagedChickenRecord>();
+        }
+
+        // A fresh cage starts its daily cleaning countdown now. On load the
+        // persisted tick is kept, and a missing one is repaired below.
+        if (!respawningAfterLoad)
+        {
+            cleanedAtTick = GenTicks.TicksAbs;
         }
 
         // A new cage changes which cages touch; rebuild the clusters now so the
@@ -911,6 +946,7 @@ public class Building_ChickenBatteryCage : Building
         Scribe_Values.Look(ref eggProgress, "eggProgress", 0f);
         Scribe_Values.Look(ref eggCheckedAtTick, "eggCheckedAtTick", 0);
         Scribe_Values.Look(ref wastePacks, "wastePacks", 0f);
+        Scribe_Values.Look(ref cleanedAtTick, "cleanedAtTick", 0);
         Scribe_Values.Look(ref toxicBuildup, "toxicBuildup", 0f);
         Scribe_Values.Look(ref mortalityCheckedAtTick, "mortalityCheckedAtTick", 0);
         Scribe_Values.Look(ref degradationDamageCarry, "degradationDamageCarry", 0f);
@@ -1026,6 +1062,14 @@ public class Building_ChickenBatteryCage : Building
         if (CagedChickenMath.IsImpossibleTick(mortalityCheckedAtTick, now))
         {
             mortalityCheckedAtTick = now;
+        }
+
+        // A save made before the daily cleaning clock existed has no value to
+        // read. Start its countdown now rather than treating tick zero as an
+        // ancient cleaning that would demand service immediately.
+        if (cleanedAtTick == 0 || CagedChickenMath.IsImpossibleTick(cleanedAtTick, now))
+        {
+            cleanedAtTick = now;
         }
 
         int dropped = 0;

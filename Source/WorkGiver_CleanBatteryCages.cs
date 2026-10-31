@@ -19,9 +19,9 @@ namespace BetterRimworlds.ChickenBatteryCage;
 /**
  * Servicing work that empties a dirty battery cage into Fertilizer Packs.
  *
- * A cage only becomes a work target once its cluster's accumulated manure
- * reaches the cleaning threshold, so ordinary accumulation sits unattended and
- * a large installation is serviced in infrequent batches instead of every day.
+ * A cage only becomes a work target once its 24-hour cleaning countdown has
+ * elapsed, so a hundred-hen installation is serviced once a day and each
+ * service yields that day's random 25-80 pack roll.
  */
 public class WorkGiver_CleanBatteryCages : WorkGiver_Scanner
 {

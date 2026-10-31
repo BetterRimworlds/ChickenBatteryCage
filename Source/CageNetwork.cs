@@ -579,8 +579,10 @@ public static class CageNetwork
 
         // Manure is billed to each cage's own flock over the same elapsed
         // interval, so a member is never counted twice, and the flock's virtual
-        // Toxic Buildup is advanced from the pooled waste density.
-        AccrueManure(cluster, elapsed);
+        // Toxic Buildup is advanced from the pooled waste density. The daily
+        // production roll is seeded from the cluster, so every member gets the
+        // same rate and the cluster moves as one flock.
+        AccrueManure(cluster, last, elapsed);
         UpdateToxicBuildup(cluster, wasteAtStart, birds, elapsed);
     }
 
@@ -742,10 +744,64 @@ public static class CageNetwork
         return CageWasteMath.CapacityPacks(ChickenCount(cluster));
     }
 
-    /// Pack-equivalents at which a cleaner is asked to visit the cluster.
+    /// Pack-equivalents at which a cleaner is asked to visit the cluster. This
+    /// is now a reference daily output for the inspect panel; the actual visit
+    /// is scheduled by the 24-hour countdown.
     public static float CleaningThresholdPacks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         return CageWasteMath.CleaningThresholdPacks(ChickenCount(cluster));
+    }
+
+    /// The oldest cleaning tick among the cluster's live members. Because every
+    /// service stamps the whole cluster, the members normally agree; when a
+    /// cage joins with an older clock, the cluster does not escape the cleaning
+    /// it already owed.
+    public static int CleanedAtTick(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        int oldest = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (!any || CagedChickenMath.IsAfter(oldest, cage.CleanedAtTick))
+            {
+                oldest = cage.CleanedAtTick;
+                any = true;
+            }
+        }
+
+        return oldest;
+    }
+
+    /// Ticks elapsed since the cluster was last cleaned, clamped at zero for a
+    /// future-dated or corrupt marker.
+    public static int TicksSinceCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
+    {
+        if (cluster == null || cluster.Count == 0)
+        {
+            return 0;
+        }
+
+        int elapsed = now - CleanedAtTick(cluster);
+        return elapsed < 0 ? 0 : elapsed;
+    }
+
+    /// Stamps the whole cluster as cleaned, restarting the 24-hour countdown.
+    public static void MarkCleaned(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.CleanedAtTickValue = now;
+            }
+        }
+
+        InvalidateCleaning(cluster);
     }
 
     /// The highest virtual Toxic Buildup severity any member carries. Members
@@ -767,7 +823,10 @@ public static class CageNetwork
     public static CageWasteMath.CleaningStatus CleaningStatus(
         IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
-        return CageWasteMath.ClassifyCleaning(WastePacks(cluster), ChickenCount(cluster));
+        return CageWasteMath.ClassifyCleaning(
+            WastePacks(cluster),
+            ChickenCount(cluster),
+            TicksSinceCleaning(cluster, GenTicks.TicksAbs));
     }
 
     /**
@@ -860,17 +919,42 @@ public static class CageNetwork
 
     /// Bills each member's own flock for the elapsed interval. A cage with no
     /// birds accrues nothing, so summing the members is never double counting.
-    static void AccrueManure(IReadOnlyList<Building_ChickenBatteryCage> cluster, int elapsed)
+    static void AccrueManure(IReadOnlyList<Building_ChickenBatteryCage> cluster, int startTick, int elapsed)
     {
+        uint seed = ManureSeed(cluster);
         foreach (Building_ChickenBatteryCage cage in cluster)
         {
             if (Alive(cage))
             {
-                cage.AccrueManure(elapsed);
+                cage.AccrueManure(startTick, elapsed, seed);
             }
         }
 
         InvalidateCleaning(cluster);
+    }
+
+    /// A stable identity for the cluster's daily production roll. The lowest
+    /// live thing ID is used so every member agrees and the choice survives a
+    /// reload even if the cluster list is rebuilt.
+    static uint ManureSeed(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        int best = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (!any || cage.thingIDNumber < best)
+            {
+                best = cage.thingIDNumber;
+                any = true;
+            }
+        }
+
+        return any ? (uint)best : 0u;
     }
 
     /// Advances the flock's virtual Toxic Buildup from the pooled density and

@@ -111,8 +111,8 @@ Manure follows the same elapsed-time rule as feed, laying, and mortality:
 
 | Subsystem | State | Rule |
 |---|---|---|
-| Manure | `wastePacks` | hen count × elapsed time × one pack per fifty hen-days |
-| Cleaning | `NeedsCleaning` | cluster waste past its flock-scaled threshold yields whole packs |
+| Manure | `wastePacks` | hen count × elapsed time × a random 0.25-0.8 packs per hen-day, rolled once per cluster per game day |
+| Cleaning | `NeedsCleaning` | cluster past its 24-hour countdown, holding at least one whole pack |
 | Toxicity | `toxicBuildup` | vanilla polluted-ground gain above the safe band, vanilla recovery below |
 
 No per-chicken waste object exists. `CageNetwork.SettleCluster` bills each
@@ -120,6 +120,14 @@ member's own flock for the elapsed interval in the same call that drains feed
 and accrues mortality, so waste is measured once per cluster and summing the
 members never double counts. The persisted total is per cage, so the cluster is
 an aggregate on read and cleaning, exactly like the feed pool and egg box.
+
+The daily production rate is a hand-rolled hash of the cluster's lowest live
+`thingIDNumber` and the absolute game day, so it is uniform over 0.25-0.8 packs
+per hen, identical for every member of the cluster, and reproducible after a
+reload. Long settlement windows are split at day boundaries so each day keeps
+its own roll. Cleaning is timer-driven: `cleanedAtTick` is persisted per cage,
+a service stamps the whole cluster, and `NeedsCleaning` waits the full
+`CleaningIntervalTicks` (one day) before offering the job.
 
 Cleaning removes only whole packs and scales the remainder back across the
 members (`CageNetwork.WithdrawWaste` via `CageClusterMath.ScaleToTotal`), so the
@@ -138,7 +146,8 @@ the work. A constructed floor or a shelf does not advance the clock and is not a
 work target, so stored packs are not consumed. At or below 0°C the clock pauses. The def's deterioration rate is 4,
 with the default 100 hit points, so vanilla wear can still destroy the stack;
 lethal damage improves the ground for every pack left in it and then lets the
-damage remove the thing. Each dissolved pack improves six cells. There is no
+damage remove the thing. Each dissolved pack strikes six cells, and a cell
+changes only after three strikes. There is no
 tox gas, no goodwill loss, and no wastepack infestation.
 
 ### Fertilizer spread

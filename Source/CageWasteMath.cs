@@ -20,11 +20,14 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *
  * A caged chicken never becomes a waste Thing and never ticks a poison need.
  * Manure accumulates at the cage level as a fractional pack count derived from
- * hen count and elapsed game time, exactly as feed and eggs already are. The
- * accumulation constants come from a measured real-world figure: a laying hen
- * drops roughly 0.1 kg of fresh manure a day, so fifty hens make about 5 kg a
- * day, which is the mass one Fertilizer Pack represents. The whole unit is
- * therefore one pack per fifty hen-days.
+ * hen count and elapsed game time, exactly as feed and eggs already are.
+ *
+ * RimWorld chickens are superchickens: their sprite is roughly six times the
+ * volume of a Terran hen and a vanilla chicken egg is 0.15 kg, about two and a
+ * half times a large real egg. Manure therefore scales with the sprite rather
+ * than with a real bird, and the flock rolls a fresh rate each day: 0.25-0.8
+ * Fertilizer Packs per hen, which is 25-80 packs a day for a standard
+ * hundred-hen installation and a mean of about 53.
  *
  * Toxic Buildup reuses vanilla's own numbers. A pawn on polluted terrain gains
  * 0.4 severity a day (ToxicUtility) and recovers 0.08 a day when clean
@@ -34,9 +37,16 @@ namespace BetterRimworlds.ChickenBatteryCage;
  */
 public static class CageWasteMath
 {
-    /// One Fertilizer Pack per fifty hen-days. A laying hen makes about 0.1 kg
-    /// of manure a day, and a pack stands for roughly 5 kg of it.
-    public const float PacksPerHenPerDay = 1f / 50f;
+    /// RimWorld's superchickens produce a random amount each day. The band is
+    /// 0.25-0.8 packs per hen, which is 25-80 packs a day for a standard
+    /// hundred-hen installation. The mean is what the gauges, thresholds, and
+    /// estimates use; actual accumulation rolls once per cluster per day.
+    public const float MinPacksPerHenPerDay = 0.25f;
+    public const float MaxPacksPerHenPerDay = 0.8f;
+
+    /// Mean of the daily random band, used for estimates and gauge scaling.
+    public const float PacksPerHenPerDay =
+        (MinPacksPerHenPerDay + MaxPacksPerHenPerDay) * 0.5f;
 
     /// Cells one pack strikes when it dissolves. Deliberately symmetrical with
     /// vanilla pollution: one Toxic Wastepack pollutes six cells, so one
@@ -44,10 +54,13 @@ public static class CageWasteMath
     /// <see cref="FertilizerChargeMath.PacksToTransform"/> packs have struck it.
     public const int CellsImprovedPerPack = 6;
 
-    /// Days of accumulation at which haulers are asked to clean a cage. A
-    /// hundred-hen installation makes two packs a day, so this is the intended
-    /// five-day service interval. Exposed so it can be rebalanced after play.
-    public const float CleaningIntervalDays = 5f;
+    /// Length of the daily cleaning cycle. A cage is serviceable again after
+    /// this many ticks, and the inspect panel counts the remaining hours down.
+    public const int CleaningIntervalTicks = CagedChickenMath.TicksPerDay;
+
+    /// The daily cleaning cycle expressed in days, for the reference threshold
+    /// text. Scheduling itself uses <see cref="CleaningIntervalTicks"/>.
+    public const float CleaningIntervalDays = 1f;
 
     /// Days of accumulation the flock can carry with no serious effect. Below
     /// this the flock merely smells; above it, toxic exposure begins.
@@ -109,8 +122,9 @@ public static class CageWasteMath
         return hens <= 0 ? 0f : hens * PacksPerHenPerDay;
     }
 
-    /// Pack-equivalents accrued over an elapsed window, as a pure function of
-    /// hen count and time. No per-hen tick ever runs.
+    /// Pack-equivalents accrued over an elapsed window at the mean rate, as a
+    /// pure function of hen count and time. Used for estimates and gauges; the
+    /// game's actual accrual uses the seeded per-day roll below.
     public static float PacksOverTicks(int hens, int ticks)
     {
         if (hens <= 0 || ticks <= 0)
@@ -121,6 +135,75 @@ public static class CageWasteMath
         return PacksPerDay(hens) * ticks / CagedChickenMath.TicksPerDay;
     }
 
+    /// Pack-equivalents accrued over an elapsed window with a random rate for
+    /// each calendar day the window touches. The rate is derived from the
+    /// cluster seed and the absolute day, so it is stable across save/reload
+    /// and identical for every cage in one cluster.
+    public static float PacksOverTicks(int hens, int startTick, int ticks, uint seed)
+    {
+        if (hens <= 0 || ticks <= 0)
+        {
+            return 0f;
+        }
+
+        long tick = startTick;
+        int remaining = ticks;
+        float total = 0f;
+
+        while (remaining > 0)
+        {
+            long day = FloorDiv(tick, CagedChickenMath.TicksPerDay);
+            long dayEnd = (day + 1) * CagedChickenMath.TicksPerDay;
+            long available = dayEnd - tick;
+            if (available <= 0 || available > int.MaxValue)
+            {
+                available = remaining;
+            }
+
+            int segment = available > remaining ? remaining : (int)available;
+            total += hens * RateForDay(seed, day) * segment / CagedChickenMath.TicksPerDay;
+
+            tick += segment;
+            remaining -= segment;
+        }
+
+        return total;
+    }
+
+    /// The random production rate for one cluster on one absolute game day.
+    public static float RateForDay(uint seed, long dayIndex)
+    {
+        uint hash = Hash(seed, dayIndex);
+        float unit = (hash & 0xFFFFFFu) / 16777216f;
+        return MinPacksPerHenPerDay
+            + (MaxPacksPerHenPerDay - MinPacksPerHenPerDay) * unit;
+    }
+
+    static long FloorDiv(long value, int divisor)
+    {
+        long quotient = value / divisor;
+        if (value % divisor != 0 && (value < 0) != (divisor < 0))
+        {
+            quotient--;
+        }
+
+        return quotient;
+    }
+
+    /// Stable 32-bit mix. Deliberately hand-rolled so a save behaves the same
+    /// on every platform and runtime, unlike System.Random's implementation.
+    static uint Hash(uint seed, long dayIndex)
+    {
+        ulong x = seed + 0x9E3779B97F4A7C15UL;
+        x ^= (ulong)dayIndex * 0xD1B54A32D192ED03UL;
+        x ^= x >> 30;
+        x *= 0xBF58476D1CE4E5B9UL;
+        x ^= x >> 27;
+        x *= 0x94D049BB133111EBUL;
+        x ^= x >> 31;
+        return (uint)(x >> 32);
+    }
+
     /// Days of manure accumulated at the flock's current production rate.
     public static float AccumulationDays(float wastePacks, int hens)
     {
@@ -128,9 +211,9 @@ public static class CageWasteMath
         return perDay <= 0f ? 0f : wastePacks / perDay;
     }
 
-    /// Pack-equivalents stored when a cage starts asking to be cleaned. Never
-    /// below one whole pack: a cleaning only removes whole packs, so advertising
-    /// a visit before one has accrued would send handlers to a no-op job.
+    /// Reference daily output for the inspect yield line. Cleaning itself is
+    /// scheduled by the 24-hour countdown, not by this amount. Never below one
+    /// whole pack, because a cleaning only removes whole packs.
     public static float CleaningThresholdPacks(int hens)
     {
         float threshold = PacksPerDay(hens) * CleaningIntervalDays;
@@ -168,7 +251,10 @@ public static class CageWasteMath
         return wastePacks <= 0f ? 0f : wastePacks - (float)Math.Floor(wastePacks);
     }
 
-    public static CleaningStatus ClassifyCleaning(float wastePacks, int hens)
+    public static CleaningStatus ClassifyCleaning(
+        float wastePacks,
+        int hens,
+        int ticksSinceCleaning)
     {
         if (wastePacks <= 0f)
         {
@@ -190,20 +276,23 @@ public static class CageWasteMath
             return CleaningStatus.NeedsCleaning;
         }
 
+        // Toxicity outranks the daily clock: a cage left filthy is critical
+        // even if its cleaning timer was somehow reset.
         if (wastePacks >= SafeWastePacks(hens))
         {
             return CleaningStatus.Critical;
         }
 
-        return wastePacks >= CleaningThresholdPacks(hens)
+        return ticksSinceCleaning >= CleaningIntervalTicks
             ? CleaningStatus.NeedsCleaning
             : CleaningStatus.Clean;
     }
 
     /// True while a cage's waste is worth a service visit.
-    public static bool NeedsCleaning(float wastePacks, int hens)
+    public static bool NeedsCleaning(float wastePacks, int hens, int ticksSinceCleaning)
     {
-        return ClassifyCleaning(wastePacks, hens) != CleaningStatus.Clean;
+        return ClassifyCleaning(wastePacks, hens, ticksSinceCleaning)
+            != CleaningStatus.Clean;
     }
 
     /// Repairs a virtual severity into the valid band. A non-finite value is
@@ -347,17 +436,14 @@ public static class CageWasteMath
         return (1f - FractionalPacks(wastePacks)) / perDay;
     }
 
-    /// Days until the cage reaches its cleaning threshold, for the readout.
-    public static float DaysUntilCleaningThreshold(float wastePacks, int hens)
+    /// Hours left in the daily cleaning cycle, for the countdown. A freshly
+    /// cleaned cage is twenty-four hours away; a due cage returns zero.
+    public static float HoursUntilCleaning(int ticksSinceCleaning)
     {
-        float perDay = PacksPerDay(hens);
-        if (perDay <= 0f)
-        {
-            return float.PositiveInfinity;
-        }
-
-        float remaining = CleaningThresholdPacks(hens) - wastePacks;
-        return remaining <= 0f ? 0f : remaining / perDay;
+        int remaining = CleaningIntervalTicks - ticksSinceCleaning;
+        return remaining <= 0
+            ? 0f
+            : remaining * 24f / CagedChickenMath.TicksPerDay;
     }
 
     /// Sums the per-cage waste of a cluster. Kept here, Verse-free, so the
