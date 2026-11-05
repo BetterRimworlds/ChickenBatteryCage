@@ -198,16 +198,11 @@ public class CompFertilizerDissolution : ThingComp
         // packs down as one disjoint patch would never put the three strikes
         // on a cell that a terrain step needs, so a stack spread at once would
         // do nothing at all until the same ground was struck again.
-        int improved = 0;
-        for (int i = 0; i < packs; i++)
-        {
-            improved += FertilizerSpread.GrowAt(
-                parent.PositionHeld,
-                parent.MapHeld,
-                Props.cellsImprovedPerPack);
-        }
-
-        return improved;
+        return FertilizerSpread.GrowStack(
+            parent.PositionHeld,
+            parent.MapHeld,
+            Props.cellsImprovedPerPack,
+            packs);
     }
 
     public override void PostPreApplyDamage(ref DamageInfo dinfo, out bool absorbed)

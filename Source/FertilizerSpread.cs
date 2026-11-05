@@ -19,7 +19,7 @@ namespace BetterRimworlds.ChickenBatteryCage;
 /**
  * Grows fertile terrain outward from a dissolving Fertilizer Pack.
  *
- * This is the map-facing twin of vanilla PollutionUtility.GrowPollutionAt. The
+ * This uses vanilla-inspired noise with distance-and-fertility selection. The
  * cell-selection mechanics live in <see cref="FertilizerSpreadMath"/>; this
  * class supplies the three things that need a live map:
  *
@@ -30,20 +30,14 @@ namespace BetterRimworlds.ChickenBatteryCage;
  *     pollution; and
  *   - the terrain change itself, which a cell earns only on its third strike.
  *
- * Why the algorithm is reproduced rather than reused: GrowPollutionAt is hard
- * wired to map.pollutionGrid and sets a pollution flag on every cell it visits.
- * There is no hook to make it write terrain instead, and fertilizer must never
- * create pollution. The selection behaviour is therefore reproduced as
- * narrowly as possible — same flood-through-saturated step, same best-first
- * frontier, same Perlin score — with the flag swapped for a terrain
- * transformation.
+ * Unlike pollution growth, the search crosses unfinished ground too, so nearby
+ * soil does not hide poorer terrain. Each terrain step adds effective distance,
+ * producing a fertile center and progressively poorer ground toward the edge.
  */
 public static class FertilizerSpread
 {
-    /// Vanilla's noise frequency and shape constants, copied verbatim so the
-    /// fertilizer blobs look like pollution blobs.
+    /// Vanilla-inspired noise frequency and bounded edge variation.
     const float PerlinFrequency = 0.015f;
-    const float NoisyEdgeFactor = 0.25f;
     const float PerlinNoiseFactor = 2f;
 
     /**
@@ -53,7 +47,13 @@ public static class FertilizerSpread
      */
     public static int GrowAt(IntVec3 root, Map map, int cellCount)
     {
-        if (map == null || cellCount <= 0)
+        return GrowStack(root, map, cellCount, 1);
+    }
+
+    /// Reuses connected-ground discovery and noise for every pack in a stack.
+    public static int GrowStack(IntVec3 root, Map map, int cellCount, int packs)
+    {
+        if (map == null || cellCount <= 0 || packs <= 0)
         {
             return 0;
         }
@@ -63,9 +63,10 @@ public static class FertilizerSpread
         var perlin = new Perlin(PerlinFrequency, 2.0, 0.5, 6, map.uniqueID, QualityMode.Medium);
         ModuleBase noise = new ScaleBias(0.5, 0.5, perlin);
 
-        var chosen = FertilizerSpreadMath.GrowAt(
+        var chosen = FertilizerSpreadMath.GrowMany(
             new FertilizerSpreadMath.Cell(root.x, root.z),
             cellCount,
+            packs,
             (x, z) => new IntVec3(x, 0, z).InBounds(map),
             (x, z) => IsImprovedCell(new IntVec3(x, 0, z), map),
             (x, z) => CanImproveCell(new IntVec3(x, 0, z), map),
@@ -190,43 +191,23 @@ public static class FertilizerSpread
     }
 
     /**
-     * The vanilla PollutionCellComparer score, with "polluted" read as
-     * "improved": nearer cells, cells the Perlin field favours, and cells that
-     * already have improved neighbours rank higher, which is what gives the
-     * patch its ragged, cohesive edge. Higher is served first.
+     * Distance dominates globally; poorer terrain wins locally. Bounded noise
+     * gives the gradient an irregular edge without overpowering proximity.
      */
     static float Score(IntVec3 root, Map map, ModuleBase noise, IntVec3 cell)
     {
-        float distance = Distance(root, cell);
-        if (distance <= 0.0001f)
-        {
-            distance = 0.0001f;
-        }
-
-        float value = 1f / distance;
-        value *= 1f + (float)noise.GetValue(cell.x, cell.y, cell.z) * PerlinNoiseFactor;
+        float variation = Math.Max(0f, Math.Min(1f,
+            (float)noise.GetValue(cell.x, cell.y, cell.z)));
+        float value = FertilizerTerrainRules.SpreadScore(
+            Distance(root, cell) + variation * PerlinNoiseFactor,
+            GroundAt(cell, map).defName);
 
         if (MapGenerator.mapBeingGenerated == map)
         {
             value *= Distance(cell, MapGenerator.PlayerStartSpot) / map.Size.LengthHorizontal;
         }
 
-        return value * (1f + AdjacentImprovedCount(cell, map) / 8f * NoisyEdgeFactor);
-    }
-
-    static int AdjacentImprovedCount(IntVec3 cell, Map map)
-    {
-        int count = 0;
-        foreach (IntVec3 offset in GenAdj.AdjacentCells)
-        {
-            IntVec3 neighbour = cell + offset;
-            if (neighbour.InBounds(map) && IsImprovedCell(neighbour, map))
-            {
-                count++;
-            }
-        }
-
-        return count;
+        return value;
     }
 
     /// Horizontal distance between two cells. Computed directly so the spread

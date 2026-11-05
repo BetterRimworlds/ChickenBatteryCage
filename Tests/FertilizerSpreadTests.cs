@@ -70,6 +70,155 @@ public class FertilizerSpreadTests
     }
 
     [Test]
+    public void PoorGroundBeyondOrdinarySoilOutranksTheRoot()
+    {
+        var chosen = FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 1, 1,
+            (x, z) => x >= 0 && x < 5 && z == 0,
+            (x, z) => false,
+            (x, z) => true,
+            (x, z) => -x,
+            priority: (x, z) => x == 4 ? 3 : 0);
+
+        CollectionAssert.AreEqual(new[] { new Cell(4, 0) }, chosen);
+    }
+
+    [Test]
+    public void StackReevaluatesTerrainPriorityAndKeepsHitsDistinctPerPack()
+    {
+        var hits = new Dictionary<Cell, int>();
+        var chosen = FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 2, 3,
+            (x, z) => x >= 0 && x < 4 && z == 0,
+            (x, z) => false,
+            (x, z) => true,
+            (x, z) => -x,
+            cell => hits[cell] = hits.TryGetValue(cell, out int n) ? n + 1 : 1,
+            (x, z) => hits.ContainsKey(new Cell(x, z)) ? 0 : 3);
+
+        Assert.AreEqual(6, chosen.Count);
+        Assert.AreEqual(new Cell(0, 0), chosen[0]);
+        Assert.AreEqual(new Cell(1, 0), chosen[1]);
+        Assert.AreEqual(new Cell(2, 0), chosen[2]);
+        Assert.AreEqual(new Cell(3, 0), chosen[3]);
+        for (int i = 0; i < chosen.Count; i += 2)
+        {
+            Assert.AreNotEqual(chosen[i], chosen[i + 1]);
+        }
+    }
+
+    [Test]
+    public void StackPreservesThreeHitUpgradesAndDiscoversFinishedGroundOnce()
+    {
+        int finishedChecks = 0;
+        int hits = 0;
+        int upgrades = 0;
+        var chosen = FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 6, 75,
+            (x, z) => x >= 0 && x < 100 && z == 0,
+            (x, z) => { finishedChecks++; return x < 99 || upgrades > 0; },
+            (x, z) => x == 99 && upgrades == 0,
+            (x, z) => 0,
+            cell => { if (++hits == 3) upgrades++; });
+
+        Assert.AreEqual(3, chosen.Count);
+        Assert.AreEqual(1, upgrades);
+        Assert.AreEqual(99, finishedChecks,
+            "finished ground should be traversed once, not once per pack");
+    }
+
+    [Test]
+    public void NearbySandReceivesThreeHitsBeforeDistantStone()
+    {
+        var terrain = new string[31];
+        for (int x = 0; x < terrain.Length; x++) terrain[x] = "SoilRich";
+        terrain[1] = "Sand";
+        terrain[2] = "Soil";
+        terrain[30] = "Granite_Rough";
+        var hits = new int[terrain.Length];
+        var chosen = FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 1, 3,
+            (x, z) => x >= 0 && x < terrain.Length && z == 0,
+            (x, z) => FertilizerTerrainRules.IsImproved(terrain[x]),
+            (x, z) => !FertilizerTerrainRules.IsImproved(terrain[x]),
+            (x, z) => FertilizerTerrainRules.SpreadScore(x, terrain[x]),
+            cell =>
+            {
+                if (++hits[cell.X] == 3)
+                {
+                    terrain[cell.X] = FertilizerTerrainRules.TargetFor(terrain[cell.X]);
+                }
+            });
+
+        CollectionAssert.AreEqual(new[] { new Cell(1, 0), new Cell(1, 0), new Cell(1, 0) }, chosen);
+        Assert.AreEqual("Gravel", terrain[1]);
+        Assert.AreEqual(0, hits[30], "remote stone must not steal the nearby sand's treatment");
+    }
+
+    [Test]
+    public void NearbySoilWaitsForPoorGroundAndTwoHitsDoNotTransformSand()
+    {
+        var terrain = new[] { "Soil", "Sand" };
+        int hits = 0;
+        var chosen = FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 1, 2,
+            (x, z) => x >= 0 && x < terrain.Length && z == 0,
+            (x, z) => false,
+            (x, z) => true,
+            (x, z) => FertilizerTerrainRules.SpreadScore(x, terrain[x]),
+            cell =>
+            {
+                if (++hits == 3)
+                {
+                    terrain[cell.X] = FertilizerTerrainRules.TargetFor(terrain[cell.X]);
+                }
+            });
+
+        CollectionAssert.AreEqual(new[] { new Cell(1, 0), new Cell(1, 0) }, chosen);
+        Assert.AreEqual("Sand", terrain[1]);
+        Assert.AreEqual("Soil", terrain[0]);
+    }
+
+    [Test]
+    public void RepeatedPacksCreateAFertileCenterWithoutFinishingAllDistantSand()
+    {
+        var terrain = new string[100];
+        var charges = new int[terrain.Length];
+        for (int x = 0; x < terrain.Length; x++) terrain[x] = "Sand";
+
+        FertilizerSpreadMath.GrowMany(
+            new Cell(0, 0), 1, 150,
+            (x, z) => x >= 0 && x < terrain.Length && z == 0,
+            (x, z) => FertilizerTerrainRules.IsImproved(terrain[x]),
+            (x, z) => !FertilizerTerrainRules.IsImproved(terrain[x]),
+            (x, z) => FertilizerTerrainRules.SpreadScore(x, terrain[x]),
+            cell =>
+            {
+                if (FertilizerChargeMath.ApplyHit(charges[cell.X], out int next))
+                {
+                    terrain[cell.X] = FertilizerTerrainRules.TargetFor(terrain[cell.X]);
+                }
+                charges[cell.X] = next;
+            });
+
+        Assert.AreEqual("SoilRich", terrain[0], "the center must mature despite distant sand");
+        Assert.AreEqual("Sand", terrain[99], "remote sand must not prevent a local gradient");
+        bool hasSoil = false;
+        bool hasGravel = false;
+        for (int x = 1; x < terrain.Length; x++)
+        {
+            hasSoil |= terrain[x] == "Soil";
+            hasGravel |= terrain[x] == "Gravel";
+            Assert.GreaterOrEqual(
+                FertilizerTerrainRules.SpreadScore(0, terrain[x]),
+                FertilizerTerrainRules.SpreadScore(0, terrain[x - 1]),
+                "fertility should decrease outward");
+        }
+        Assert.IsTrue(hasSoil, "the gradient must include ordinary soil");
+        Assert.IsTrue(hasGravel, "the gradient must include poorer intermediate ground");
+    }
+
+    [Test]
     public void OnePackTargetsSixCellsWhenSixAreAvailable()
     {
         var grid = new TestGrid(50, 50);

@@ -17,23 +17,16 @@ namespace BetterRimworlds.ChickenBatteryCage;
 /**
  * The Verse-free core of the fertilizer spread.
  *
- * This reproduces the shape of RimWorld's own PollutionUtility.GrowPollutionAt.
+ * Searches connected natural ground for cells needing rehabilitation.
  * The caller supplies one cell, the number of cells to improve, and three
  * predicates: whether a cell is already improved, whether it can be improved,
  * and how attractive it is. They are the exact analogues of the vanilla
  * pollution grid's IsPolluted, CanPollute, and PollutionCellComparer.
  *
- * The algorithm is deliberately the same, not an approximation:
- *
- *   1. If the root cell can be improved, improve it first.
- *   2. Flood-fill the connected region of already-improved cells reachable
- *      from the root. Vanilla does this with map.floodFiller over polluted
- *      cells; the passable set here is the improved set.
- *   3. Seed a best-first queue with the improvable neighbours of that region.
- *   4. Repeatedly take the most attractive cell, mark it improved, spend one
- *      unit, and push its improvable neighbours. This is what makes the patch
- *      irregular and makes repeated dissolution grow outward instead of
- *      re-selecting cells it has already improved.
+ * Floods through both finished and improvable ground, respecting barriers.
+ * A queue serves the caller's highest distance-and-fertility scores first.
+ * Stack applications reuse this discovery, updating each
+ * struck cell's priority as its terrain changes.
  *
  * Keeping the mechanics here lets the terrain rule be exercised against a
  * synthetic grid without a running game, while the map-facing caller supplies
@@ -103,31 +96,37 @@ public static class FertilizerSpreadMath
         Func<int, int, float> score,
         Action<Cell> onImproved = null)
     {
+        return GrowMany(root, count, 1, inBounds, isImproved, canImprove, score, onImproved);
+    }
+
+    /// Searches connected working ground once, then applies separate pack strikes.
+    /// Larger priority values identify poorer terrain; scores break ties only.
+    public static List<Cell> GrowMany(
+        Cell root,
+        int count,
+        int packs,
+        Func<int, int, bool> inBounds,
+        Func<int, int, bool> isImproved,
+        Func<int, int, bool> canImprove,
+        Func<int, int, float> score,
+        Action<Cell> onImproved = null,
+        Func<int, int, int> priority = null)
+    {
         var chosen = new List<Cell>();
-        if (count <= 0 || inBounds == null || isImproved == null || canImprove == null)
+        if (count <= 0 || packs <= 0 || inBounds == null || isImproved == null || canImprove == null)
         {
             return chosen;
         }
 
-        var chosenSet = new HashSet<Cell>();
         bool InB(Cell c) => inBounds(c.X, c.Z);
-        bool Improved(Cell c) => chosenSet.Contains(c) || isImproved(c.X, c.Z);
-        bool CanImp(Cell c) => !chosenSet.Contains(c) && canImprove(c.X, c.Z);
+        bool CanImp(Cell c) => canImprove(c.X, c.Z);
+        bool Passable(Cell c) => CanImp(c) || isImproved(c.X, c.Z);
 
-        if (InB(root) && CanImp(root))
-        {
-            Choose(root);
-            if (count <= 0)
-            {
-                return chosen;
-            }
-        }
-
-        // Flood-fill the improved region reachable from the root.
-        var improved = new List<Cell>();
+        // Ordinary soil must not hide poorer ground beyond it.
+        var queue = new ScoreQueue(score, priority);
         var visited = new HashSet<Cell>();
         var open = new Queue<Cell>();
-        if (InB(root) && Improved(root))
+        if (InB(root) && Passable(root))
         {
             visited.Add(root);
             open.Enqueue(root);
@@ -136,65 +135,49 @@ public static class FertilizerSpreadMath
         while (open.Count > 0)
         {
             Cell c = open.Dequeue();
-            improved.Add(c);
+            if (CanImp(c))
+            {
+                queue.Push(c);
+            }
             foreach ((int dx, int dz) in Cardinal)
             {
                 var n = new Cell(c.X + dx, c.Z + dz);
-                if (InB(n) && !visited.Contains(n) && Improved(n))
+                if (InB(n) && visited.Add(n) && Passable(n))
                 {
-                    visited.Add(n);
                     open.Enqueue(n);
                 }
             }
         }
 
-        if (improved.Count == 0)
+        var struck = new List<Cell>();
+        for (int pack = 0; pack < packs && queue.Count > 0; pack++)
         {
-            return chosen;
-        }
-
-        var queue = new ScoreQueue(score);
-        var queued = new HashSet<Cell>();
-
-        void PushNeighbours(Cell c)
-        {
-            foreach ((int dx, int dz) in Cardinal)
+            struck.Clear();
+            while (struck.Count < count && queue.Count > 0)
             {
-                var n = new Cell(c.X + dx, c.Z + dz);
-                if (InB(n) && CanImp(n) && queued.Add(n))
+                Cell c = queue.Pop();
+                if (!CanImp(c))
                 {
-                    queue.Push(n);
+                    continue;
+                }
+
+                chosen.Add(c);
+                struck.Add(c);
+                onImproved?.Invoke(c);
+            }
+
+            // Reinsert only after the pack: each cell receives at most one hit
+            // per pack. Recompute priority after any terrain transformation.
+            foreach (Cell c in struck)
+            {
+                if (CanImp(c))
+                {
+                    queue.Push(c);
                 }
             }
         }
 
-        foreach (Cell c in improved)
-        {
-            PushNeighbours(c);
-        }
-
-        while (count > 0 && queue.Count > 0)
-        {
-            Cell c = queue.Pop();
-            queued.Remove(c);
-            if (!CanImp(c))
-            {
-                continue;
-            }
-
-            Choose(c);
-            PushNeighbours(c);
-        }
-
         return chosen;
-
-        void Choose(Cell c)
-        {
-            chosen.Add(c);
-            chosenSet.Add(c);
-            count--;
-            onImproved?.Invoke(c);
-        }
     }
 
     /**
@@ -205,15 +188,17 @@ public static class FertilizerSpreadMath
      */
     sealed class ScoreQueue
     {
-        readonly List<(Cell cell, float score, long order)> heap =
-            new List<(Cell, float, long)>();
+        readonly List<(Cell cell, float score, long order, int priority)> heap =
+            new List<(Cell, float, long, int)>();
 
         readonly Func<int, int, float> score;
+        readonly Func<int, int, int> priority;
         long nextOrder;
 
-        public ScoreQueue(Func<int, int, float> score)
+        public ScoreQueue(Func<int, int, float> score, Func<int, int, int> priority)
         {
             this.score = score ?? ((_, _) => 0f);
+            this.priority = priority ?? ((_, _) => 0);
         }
 
         public int Count => heap.Count;
@@ -221,13 +206,13 @@ public static class FertilizerSpreadMath
         public void Push(Cell cell)
         {
             float value = score(cell.X, cell.Z);
-            heap.Add((cell, value, nextOrder++));
+            heap.Add((cell, value, nextOrder++, priority(cell.X, cell.Z)));
             SiftUp(heap.Count - 1);
         }
 
         public Cell Pop()
         {
-            (Cell cell, float value, long order) top = heap[0];
+            var top = heap[0];
             int last = heap.Count - 1;
             heap[0] = heap[last];
             heap.RemoveAt(last);
@@ -240,8 +225,14 @@ public static class FertilizerSpreadMath
         }
 
         /// Positive when <paramref name="a"/> outranks <paramref name="b"/>.
-        int Rank((Cell cell, float score, long order) a, (Cell cell, float score, long order) b)
+        int Rank((Cell cell, float score, long order, int priority) a,
+            (Cell cell, float score, long order, int priority) b)
         {
+            if (a.priority != b.priority)
+            {
+                return a.priority.CompareTo(b.priority);
+            }
+
             if (a.score > b.score)
             {
                 return 1;

@@ -52,6 +52,24 @@ public static class FertilizerTerrainRules
     /// Sand, the step above soft sand.
     public const string Sand = "Sand";
 
+    /// Each completed terrain step costs six cells of effective distance.
+    /// This spreads treatment outward without preventing the center maturing.
+    public static float SpreadScore(float distance, string defName)
+    {
+        int stage;
+        switch (defName)
+        {
+            case Sand: stage = 1; break;
+            case Gravel: stage = 2; break;
+            case MossyTerrain: stage = 3; break;
+            case Soil: stage = 4; break;
+            case SoilRich: stage = 5; break;
+            default: stage = 0; break;
+        }
+
+        return 1f / (1f + distance + stage * 6f);
+    }
+
     /// Terrains that already count as finished: the spread floods through them
     /// to reach the poor ground beyond, and never tries to improve them again.
     static readonly string[] ImprovedDefNames =
