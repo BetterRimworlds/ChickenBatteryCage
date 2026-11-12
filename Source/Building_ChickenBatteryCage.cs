@@ -27,6 +27,15 @@ public class Building_ChickenBatteryCage : Building
     /// in, but the player can still release hens by hand and the hens already
     /// housed stay exactly as they are.
     protected bool penSystemEnabled = true;
+    // Negative means unrestricted; stored per cage so split networks retain policy.
+    float maximumIntakeAgeYears = -1f;
+
+    public float MaximumIntakeAgeYears => maximumIntakeAgeYears;
+
+    internal void SetMaximumIntakeAgeYears(float years)
+    {
+        maximumIntakeAgeYears = years;
+    }
 
     /// The entire confined flock, stored as compact biological records. No
     /// spawned Pawn is kept here.
@@ -754,6 +763,7 @@ public class Building_ChickenBatteryCage : Building
             IReadOnlyList<Building_ChickenBatteryCage> joined = CageNetwork.Cluster(this);
             CageNetwork.CopyFeedFilterAcross(joined);
             CageNetwork.SetFeedAllowed(joined, CageNetwork.FeedAllowed(joined));
+            CageNetwork.SetMaximumIntakeAgeYears(joined, CageNetwork.MaximumIntakeAgeYears(joined));
         }
     }
 
@@ -937,6 +947,7 @@ public class Building_ChickenBatteryCage : Building
     {
         base.ExposeData();
         Scribe_Values.Look(ref penSystemEnabled, "penSystemEnabled", true);
+        Scribe_Values.Look(ref maximumIntakeAgeYears, "maximumIntakeAgeYears", -1f);
         Scribe_Values.Look(ref nutritionStored, "nutritionStored", 0f);
         Scribe_Values.Look(ref nutritionSettledAtTick, "nutritionSettledAtTick", 0);
         Scribe_Values.Look(ref starvingTicks, "starvingTicks", 0);
@@ -1263,6 +1274,17 @@ public class Building_ChickenBatteryCage : Building
         };
         yield return feedFilterGizmo;
 
+        float maximumAge = CageNetwork.MaximumIntakeAgeYears(cluster);
+        yield return new Command_Action
+        {
+            defaultLabel = maximumAge < 0f
+                ? "ChickenBatteryCage.Intake.AnyLabel".Translate()
+                : "ChickenBatteryCage.Intake.LimitLabel".Translate(maximumAge.ToString("0.##")),
+            defaultDesc = "ChickenBatteryCage.Intake.Description".Translate(),
+            icon = def.uiIcon,
+            action = () => Find.WindowStack.Add(new Window_CageHenIntake(this)),
+        };
+
         // The stress tools are destructive, so they need both the game's dev
         // mode and God mode turned on.
         if (Prefs.DevMode && DebugSettings.godMode)
@@ -1323,7 +1345,14 @@ public class Building_ChickenBatteryCage : Building
     {
         return IsHen(chicken)
             && penSystemEnabled
+            && AcceptsIntakeAge(chicken)
             && !IsFull;
+    }
+
+    bool AcceptsIntakeAge(Pawn chicken)
+    {
+        float maximum = CageNetwork.MaximumIntakeAgeYears(CageNetwork.Cluster(this));
+        return CageIntakeMath.AcceptsAge(chicken.ageTracker.AgeBiologicalTicks, maximum, GenDate.TicksPerYear);
     }
 
     public static bool AnyCageWithPendingUnload(Map map)

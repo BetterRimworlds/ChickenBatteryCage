@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Source\CageIntakeMath.cs" Link="CageIntakeMath.cs" />
     <Compile Include="..\Source\CagedChickenMath.cs" Link="CagedChickenMath.cs" />
     <Compile Include="..\Source\CagedChickenStage.cs" Link="CagedChickenStage.cs" />
     <Compile Include="..\Source\CageNutrition.cs" Link="CageNutrition.cs" />

@@ -76,4 +76,13 @@
 	<ChickenBatteryCage.Toxic.Stable>stable</ChickenBatteryCage.Toxic.Stable>
 	<ChickenBatteryCage.Toxic.Increasing>increasing</ChickenBatteryCage.Toxic.Increasing>
 	<ChickenBatteryCage.Toxic.Recovering>recovering</ChickenBatteryCage.Toxic.Recovering>
+  <ChickenBatteryCage.Intake.Title>Hen intake</ChickenBatteryCage.Intake.Title>
+  <ChickenBatteryCage.Intake.Network>Applies to all connected cages</ChickenBatteryCage.Intake.Network>
+  <ChickenBatteryCage.Intake.Maximum>Maximum biological age</ChickenBatteryCage.Intake.Maximum>
+  <ChickenBatteryCage.Intake.Any>Any age</ChickenBatteryCage.Intake.Any>
+  <ChickenBatteryCage.Intake.AtMost>At most</ChickenBatteryCage.Intake.AtMost>
+  <ChickenBatteryCage.Intake.Years>years</ChickenBatteryCage.Intake.Years>
+  <ChickenBatteryCage.Intake.AnyLabel>Intake: Any age</ChickenBatteryCage.Intake.AnyLabel>
+  <ChickenBatteryCage.Intake.LimitLabel>Intake: ≤ {0} years</ChickenBatteryCage.Intake.LimitLabel>
+  <ChickenBatteryCage.Intake.Description>Only hens within this limit will be loaded. Hens already inside are not removed.</ChickenBatteryCage.Intake.Description>
 </LanguageData>

@@ -1005,6 +1005,29 @@ public static class CageNetwork
 
     /// True only when every cage in the cluster allows feeding; the toggle reads
     /// this so a partially disabled cluster shows as off.
+    // When networks join, retain the strictest admission policy.
+    public static float MaximumIntakeAgeYears(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float maximum = -1f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            float value = cage.MaximumIntakeAgeYears;
+            if (value >= 0f && (maximum < 0f || value < maximum))
+            {
+                maximum = value;
+            }
+        }
+        return maximum;
+    }
+
+    public static void SetMaximumIntakeAgeYears(IReadOnlyList<Building_ChickenBatteryCage> cluster, float years)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            cage.SetMaximumIntakeAgeYears(years);
+        }
+    }
+
     public static bool FeedAllowed(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
         bool any = false;
