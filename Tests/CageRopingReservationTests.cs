@@ -46,6 +46,68 @@ public class CageRopingReservationTests
             "A handler approaching a reserved bird must not compete with another handler, even for forced work.");
     }
 
+    [Test]
+    public void LeadingRouteUsesBirdOriginAndAnimalFenceRestrictions()
+    {
+        string body = MethodBody("JobDriver_RopeHenToBatteryCage.cs", "public static bool CanLeadToCell");
+
+        Assert.That(body, Does.Match(@"CanReach\(animal\.Position,\s*destination,\s*PathEndMode\.OnCell,\s*TraverseParms\.For\(handler\)\.WithFenceblockedOf\(animal\)\)"),
+            "Handler-only reachability allows pickup from pens the chicken cannot leave.");
+    }
+
+    [Test]
+    public void InitialPickupUsesStandCellValidatedDuringCageSearch()
+    {
+        string body = MethodBody("WorkGiver_TakeHensToBatteryCage.cs", "public override Job JobOnThing");
+
+        Assert.That(body, Does.Contain("out IntVec3 standCell"));
+        Assert.That(body, Does.Not.Contain("FindStandCellForHandler"));
+    }
+
+    [Test]
+    public void StandCellSearchChecksLeadingRouteBeforeAcceptingEachCell()
+    {
+        string body = MethodBody("Building_ChickenBatteryCage.cs", "public IntVec3 FindStandCellForHandler");
+
+        Assert.That(body, Does.Contain("foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(this))"));
+        Assert.That(body, Does.Match(@"if\s*\(IsGoodStandCell\(cell, handler\)\s*&&\s*\(chicken == null \|\| JobDriver_RopeHenToBatteryCage\.CanLeadToCell\(handler, chicken, cell\)\)\)\s*\{\s*return cell;"));
+    }
+
+    [Test]
+    public void CageSearchPropagatesHenToServiceAndStandCellSearches()
+    {
+        string selection = MethodBody("Building_ChickenBatteryCage.cs", "public static bool TryFindAcceptingCage");
+        string service = MethodBody("Building_ChickenBatteryCage.cs", "public static Building_ChickenBatteryCage FindServiceCage");
+        string usable = MethodBody("Building_ChickenBatteryCage.cs", "static bool IsServiceable");
+
+        Assert.That(selection, Does.Contain("FindServiceCage(cage, handler, chicken)"));
+        Assert.That(selection, Does.Match(@"if \(candidateService == null\)\s*\{\s*continue;"));
+        Assert.That(selection, Does.Contain("standCell = candidateService.FindStandCellForHandler(handler, chicken)"));
+        Assert.That(service, Does.Contain("IsServiceable(owner, handler, chicken)"));
+        Assert.That(service, Does.Match(@"if \(!IsServiceable\(cage, handler, chicken\)\)\s*\{\s*continue;"));
+        Assert.That(usable, Does.Contain("cage.FindStandCellForHandler(handler, chicken).IsValid"));
+    }
+
+    [Test]
+    public void ExtraPickupsCheckLeadingRouteToJobDestination()
+    {
+        string body = MethodBody("JobDriver_RopeHenToBatteryCage.cs", "protected override bool ShouldOpportunisticallyRopeAnimal");
+
+        Assert.That(body, Does.Contain("&& CanLeadToCell(pawn, animal, job.GetTarget(TargetIndex.B).Cell)"));
+    }
+
+    [Test]
+    public void BlockedRoutesAbortActiveJobForAllLedBirds()
+    {
+        string toils = MethodBody("JobDriver_RopeHenToBatteryCage.cs", "protected override IEnumerable<Toil> MakeNewToils");
+        string check = MethodBody("JobDriver_RopeHenToBatteryCage.cs", "private bool CanLeadRopeesToDestination");
+
+        Assert.That(toils, Does.Contain("this.FailOn(() => !CanLeadRopeesToDestination())"));
+        Assert.That(check, Does.Contain("foreach (Pawn animal in pawn.roping.Ropees)"));
+        Assert.That(check, Does.Match(@"if\s*\(!CanLeadToCell\(pawn, animal, destination\)\)\s*\{\s*return false;"),
+            "If a gate becomes blocked after pickup, abort so the base driver's finish action drops the ropes.");
+    }
+
     private static string MethodBody(string fileName, string method)
     {
         string path = Path.Combine(TestContext.CurrentContext.TestDirectory,

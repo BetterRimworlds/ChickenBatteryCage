@@ -1463,10 +1463,12 @@ public class Building_ChickenBatteryCage : Building
         Pawn chicken,
         Pawn handler,
         out Building_ChickenBatteryCage target,
-        out Building_ChickenBatteryCage service)
+        out Building_ChickenBatteryCage service,
+        out IntVec3 standCell)
     {
         target = null;
         service = null;
+        standCell = IntVec3.Invalid;
         if (chicken?.Map == null || handler == null)
         {
             return false;
@@ -1491,7 +1493,7 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            Building_ChickenBatteryCage candidateService = FindServiceCage(cage, handler);
+            Building_ChickenBatteryCage candidateService = FindServiceCage(cage, handler, chicken);
             if (candidateService == null)
             {
                 continue;
@@ -1504,6 +1506,7 @@ public class Building_ChickenBatteryCage : Building
             {
                 bestTarget = cage;
                 bestService = candidateService;
+                standCell = candidateService.FindStandCellForHandler(handler, chicken);
                 bestDist = dist;
             }
         }
@@ -1522,14 +1525,15 @@ public class Building_ChickenBatteryCage : Building
      */
     public static Building_ChickenBatteryCage FindServiceCage(
         Building_ChickenBatteryCage owner,
-        Pawn handler)
+        Pawn handler,
+        Pawn chicken = null)
     {
         if (owner == null || handler == null || owner.Map == null)
         {
             return null;
         }
 
-        if (IsServiceable(owner, handler))
+        if (IsServiceable(owner, handler, chicken))
         {
             return owner;
         }
@@ -1543,7 +1547,7 @@ public class Building_ChickenBatteryCage : Building
                 continue;
             }
 
-            if (!IsServiceable(cage, handler))
+            if (!IsServiceable(cage, handler, chicken))
             {
                 continue;
             }
@@ -1561,28 +1565,15 @@ public class Building_ChickenBatteryCage : Building
 
     /// True when a handler can reserve this cage, stand beside it, and work
     /// from it.
-    static bool IsServiceable(Building_ChickenBatteryCage cage, Pawn handler)
+    static bool IsServiceable(Building_ChickenBatteryCage cage, Pawn handler, Pawn chicken = null)
     {
         return !cage.IsForbidden(handler)
             && handler.CanReserve(cage, 1, -1)
             && handler.CanReach(cage, PathEndMode.Touch, Danger.Deadly)
-            && HasAvailableStandCell(cage, handler);
+            && cage.FindStandCellForHandler(handler, chicken).IsValid;
     }
 
-    private static bool HasAvailableStandCell(Building_ChickenBatteryCage cage, Pawn handler)
-    {
-        foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(cage))
-        {
-            if (cage.IsGoodStandCell(cell, handler))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public IntVec3 FindStandCellForHandler(Pawn handler)
+    public IntVec3 FindStandCellForHandler(Pawn handler, Pawn chicken = null)
     {
         if (!Spawned || handler == null || Map == null)
         {
@@ -1591,7 +1582,8 @@ public class Building_ChickenBatteryCage : Building
 
         foreach (IntVec3 cell in GenAdj.CellsAdjacent8Way(this))
         {
-            if (IsGoodStandCell(cell, handler))
+            if (IsGoodStandCell(cell, handler)
+                && (chicken == null || JobDriver_RopeHenToBatteryCage.CanLeadToCell(handler, chicken, cell)))
             {
                 return cell;
             }

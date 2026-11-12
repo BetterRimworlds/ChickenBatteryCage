@@ -106,16 +106,10 @@ public class WorkGiver_TakeHensToBatteryCage : WorkGiver_InteractAnimal
                 animal,
                 pawn,
                 out Building_ChickenBatteryCage cage,
-                out Building_ChickenBatteryCage serviceCage))
+                out Building_ChickenBatteryCage serviceCage,
+                out IntVec3 standCell))
         {
             JobFailReason.Is(Building_ChickenBatteryCage.NoAcceptingCageReason(animal.Map));
-            return null;
-        }
-
-        IntVec3 standCell = serviceCage.FindStandCellForHandler(pawn);
-        if (!standCell.IsValid)
-        {
-            JobFailReason.Is("CantRopeAnimalNoSpace".Translate());
             return null;
         }
 
