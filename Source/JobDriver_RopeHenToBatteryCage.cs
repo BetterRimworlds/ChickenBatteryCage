@@ -81,7 +81,10 @@ public class JobDriver_RopeHenToBatteryCage : JobDriver_RopeToDestination
 
     protected override bool ShouldOpportunisticallyRopeAnimal(Pawn animal)
     {
-        if (animal == null || animal.roping.RopedByPawn == pawn)
+        // Never take a bird from another handler, including one who has
+        // reserved her but has not reached her yet. The base driver reserves
+        // each additional animal after this selection succeeds.
+        if (animal == null || animal.roping.RopedByPawn != null || !pawn.CanReserve(animal))
         {
             return false;
         }

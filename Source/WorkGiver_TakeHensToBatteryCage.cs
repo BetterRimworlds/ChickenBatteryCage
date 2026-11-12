@@ -59,6 +59,13 @@ public class WorkGiver_TakeHensToBatteryCage : WorkGiver_InteractAnimal
             return null;
         }
 
+        // Respect handlers already moving this bird, even for forced work.
+        // Otherwise cage intake can compete with both other cages and pens.
+        if (animal.roping.RopedByPawn != null || !pawn.CanReserve(animal))
+        {
+            return null;
+        }
+
         if (animal.MentalStateDef != null && animal.MentalStateDef != MentalStateDefOf.Roaming)
         {
             JobFailReason.Is("CantRopeAnimalMentalState".Translate(animal, animal.MentalStateDef.label));
