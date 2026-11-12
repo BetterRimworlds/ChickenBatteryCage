@@ -85,4 +85,7 @@
   <ChickenBatteryCage.Intake.AnyLabel>Intake: Any age</ChickenBatteryCage.Intake.AnyLabel>
   <ChickenBatteryCage.Intake.LimitLabel>Intake: ≤ {0} years</ChickenBatteryCage.Intake.LimitLabel>
   <ChickenBatteryCage.Intake.Description>Only hens within this limit will be loaded. Hens already inside are not removed.</ChickenBatteryCage.Intake.Description>
+  <ChickenBatteryCage.PenIntake.Button>Intake age limits…</ChickenBatteryCage.PenIntake.Button>
+  <ChickenBatteryCage.PenIntake.Title>Pen intake age limits</ChickenBatteryCage.PenIntake.Title>
+  <ChickenBatteryCage.PenIntake.Description>Applies to all animals allowed by this pen marker. Handlers will not bring in animals above the limit. Animals already inside stay; aging does not trigger relocation. Species permissions still apply.</ChickenBatteryCage.PenIntake.Description>
 </LanguageData>
