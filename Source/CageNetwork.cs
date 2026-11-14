@@ -41,6 +41,13 @@ public static class CageNetwork
 
     static readonly Dictionary<Map, int> clusterCacheTick = new Dictionary<Map, int>();
 
+    /// Cached cleaning verdict per cluster. Every member of a cluster shares one
+    /// list instance, so a work scan across a packed network measures the pooled
+    /// waste and flock once instead of once per member. Entries are dropped
+    /// whenever the layout, the pooled waste, or the flock size changes.
+    static readonly Dictionary<Map, Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>>
+        cleaningStatusCache = new Dictionary<Map, Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>>();
+
     static readonly List<Building_ChickenBatteryCage> emptyCluster = new List<Building_ChickenBatteryCage>();
 
     /// Every battery cage on the map, regardless of adjacency. Used by the
@@ -108,6 +115,10 @@ public static class CageNetwork
     {
         PruneDeadMaps();
 
+        // The rebuild replaces every cluster instance, so verdicts remembered
+        // against the old instances go with them.
+        cleaningStatusCache.Remove(map);
+
         var byCage = new Dictionary<Building_ChickenBatteryCage, List<Building_ChickenBatteryCage>>();
         var all = new List<Building_ChickenBatteryCage>(Cages(map));
         var assigned = new HashSet<Building_ChickenBatteryCage>();
@@ -170,6 +181,42 @@ public static class CageNetwork
 
         clusterCache.Remove(map);
         clusterCacheTick.Remove(map);
+        cleaningStatusCache.Remove(map);
+    }
+
+    /**
+     * Drops a map's remembered cleaning verdicts. Every change to a cluster's
+     * pooled waste or flock size must call this, or the work giver acts on a
+     * stale answer until the layout cache expires.
+     */
+    public static void InvalidateCleaning(Map map)
+    {
+        if (map == null)
+        {
+            return;
+        }
+
+        cleaningStatusCache.Remove(map);
+    }
+
+    /// Drops a cluster's remembered verdict through whichever member still
+    /// knows its map, for callers that only hold the cluster itself.
+    static void InvalidateCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        if (cluster == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < cluster.Count; i++)
+        {
+            Map map = cluster[i]?.Map;
+            if (map != null)
+            {
+                InvalidateCleaning(map);
+                return;
+            }
+        }
     }
 
     /// Drops cluster caches for maps that have gone away, so static state does
@@ -199,6 +246,7 @@ public static class CageNetwork
         {
             clusterCache.Remove(map);
             clusterCacheTick.Remove(map);
+            cleaningStatusCache.Remove(map);
         }
     }
 
@@ -495,6 +543,11 @@ public static class CageNetwork
 
         float stored = StoredNutrition(cluster);
         int birds = ChickenCount(cluster);
+
+        // Waste is read before it accrues so the toxicity step integrates from
+        // the density the flock actually began the interval with.
+        float wasteAtStart = WastePacks(cluster);
+
         // A negative starting duration represents the feed still available.
         // Once that duration reaches zero, the empty-store clock begins.
         double starvingDaysAtStart = CageMortalityMath.StarvingDaysAtStart(
@@ -523,6 +576,14 @@ public static class CageNetwork
             elapsed);
 
         WriteNutrition(cluster, remaining, starving);
+
+        // Manure is billed to each cage's own flock over the same elapsed
+        // interval, so a member is never counted twice, and the flock's virtual
+        // Toxic Buildup is advanced from the pooled waste density. The daily
+        // production roll is seeded from the cluster, so every member gets the
+        // same rate and the cluster moves as one flock.
+        AccrueManure(cluster, last, elapsed);
+        UpdateToxicBuildup(cluster, wasteAtStart, birds, elapsed);
     }
 
     static int WorstStarvingTicks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
@@ -661,6 +722,272 @@ public static class CageNetwork
         }
     }
 
+    // ---- Manure, cleaning, and virtual Toxic Buildup ---------------------
+
+    /// Pack-equivalents of manure pooled across the whole cluster.
+    public static float WastePacks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float total = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                total += cage.WastePacks;
+            }
+        }
+        return total;
+    }
+
+    /// The waste gauge's full mark for the cluster, scaled to the flock size.
+    public static float WasteCapacity(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.CapacityPacks(ChickenCount(cluster));
+    }
+
+    /// Pack-equivalents at which a cleaner is asked to visit the cluster. This
+    /// is now a reference daily output for the inspect panel; the actual visit
+    /// is scheduled by the 24-hour countdown.
+    public static float CleaningThresholdPacks(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.CleaningThresholdPacks(ChickenCount(cluster));
+    }
+
+    /// The oldest cleaning tick among the cluster's live members. Because every
+    /// service stamps the whole cluster, the members normally agree; when a
+    /// cage joins with an older clock, the cluster does not escape the cleaning
+    /// it already owed.
+    public static int CleanedAtTick(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        int oldest = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (!any || CagedChickenMath.IsAfter(oldest, cage.CleanedAtTick))
+            {
+                oldest = cage.CleanedAtTick;
+                any = true;
+            }
+        }
+
+        return oldest;
+    }
+
+    /// Ticks elapsed since the cluster was last cleaned, clamped at zero for a
+    /// future-dated or corrupt marker.
+    public static int TicksSinceCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
+    {
+        if (cluster == null || cluster.Count == 0)
+        {
+            return 0;
+        }
+
+        int elapsed = now - CleanedAtTick(cluster);
+        return elapsed < 0 ? 0 : elapsed;
+    }
+
+    /// Stamps the whole cluster as cleaned, restarting the 24-hour countdown.
+    public static void MarkCleaned(IReadOnlyList<Building_ChickenBatteryCage> cluster, int now)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.CleanedAtTickValue = now;
+            }
+        }
+
+        InvalidateCleaning(cluster);
+    }
+
+    /// The highest virtual Toxic Buildup severity any member carries. Members
+    /// are kept in step, so this is the flock's severity.
+    public static float ToxicBuildup(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float worst = 0f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage) && cage.ToxicBuildup > worst)
+            {
+                worst = cage.ToxicBuildup;
+            }
+        }
+        return worst;
+    }
+
+    /// How dirty the cluster is, for the work giver and the inspection readout.
+    public static CageWasteMath.CleaningStatus CleaningStatus(
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CageWasteMath.ClassifyCleaning(
+            WastePacks(cluster),
+            ChickenCount(cluster),
+            TicksSinceCleaning(cluster, GenTicks.TicksAbs));
+    }
+
+    /**
+     * The cluster's cleaning verdict, remembered per layout so a work scan
+     * across a packed network measures the pooled waste and flock once instead
+     * of once per member.
+     *
+     * Callers must pass a <see cref="Cluster"/> result: that is the one instance
+     * every member of the cluster receives, and it is the cache key. The entry
+     * is dropped when the layout is rebuilt or the pooled waste or flock size
+     * changes, so a stale verdict is never served.
+     */
+    public static CageWasteMath.CleaningStatus CleaningStatus(
+        Map map,
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        if (map == null || cluster == null || cluster.Count == 0)
+        {
+            return CageWasteMath.CleaningStatus.Clean;
+        }
+
+        if (cleaningStatusCache.TryGetValue(map, out var byCluster)
+            && byCluster.TryGetValue(cluster, out CageWasteMath.CleaningStatus cached))
+        {
+            return cached;
+        }
+
+        CageWasteMath.CleaningStatus status = CleaningStatus(cluster);
+        if (!cleaningStatusCache.TryGetValue(map, out byCluster))
+        {
+            byCluster = new Dictionary<IReadOnlyList<Building_ChickenBatteryCage>, CageWasteMath.CleaningStatus>();
+            cleaningStatusCache[map] = byCluster;
+        }
+
+        byCluster[cluster] = status;
+        return status;
+    }
+
+    public static bool NeedsCleaning(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CleaningStatus(cluster) != CageWasteMath.CleaningStatus.Clean;
+    }
+
+    /// Cached form of <see cref="NeedsCleaning(IReadOnlyList{Building_ChickenBatteryCage})"/>
+    /// for callers that hold the cage's map.
+    public static bool NeedsCleaning(
+        Map map,
+        IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        return CleaningStatus(map, cluster) != CageWasteMath.CleaningStatus.Clean;
+    }
+
+    /**
+     * Removes <paramref name="amount"/> of manure from the cluster after a
+     * cleaning. Survivors scale their own stored waste down in proportion, so
+     * the fractional remainder is spread across the network rather than
+     * stranded on one member, exactly as the egg box is withdrawn.
+     */
+    public static void WithdrawWaste(IReadOnlyList<Building_ChickenBatteryCage> cluster, float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        int count = cluster.Count;
+        var stored = new float[count];
+        var result = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            stored[i] = Alive(cluster[i]) ? cluster[i].WastePacks : 0f;
+        }
+
+        float remaining = WastePacks(cluster) - amount;
+        if (remaining < 0f)
+        {
+            remaining = 0f;
+        }
+
+        CageClusterMath.ScaleToTotal(remaining, stored, result);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Alive(cluster[i]))
+            {
+                cluster[i].WastePacksValue = result[i];
+            }
+        }
+    }
+
+    /// Bills each member's own flock for the elapsed interval. A cage with no
+    /// birds accrues nothing, so summing the members is never double counting.
+    static void AccrueManure(IReadOnlyList<Building_ChickenBatteryCage> cluster, int startTick, int elapsed)
+    {
+        uint seed = ManureSeed(cluster);
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.AccrueManure(startTick, elapsed, seed);
+            }
+        }
+
+        InvalidateCleaning(cluster);
+    }
+
+    /// A stable identity for the cluster's daily production roll. The lowest
+    /// live thing ID is used so every member agrees and the choice survives a
+    /// reload even if the cluster list is rebuilt.
+    static uint ManureSeed(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        int best = 0;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (!any || cage.thingIDNumber < best)
+            {
+                best = cage.thingIDNumber;
+                any = true;
+            }
+        }
+
+        return any ? (uint)best : 0u;
+    }
+
+    /// Advances the flock's virtual Toxic Buildup from the pooled density and
+    /// writes the single result back to every member, the same way the shared
+    /// starvation clock is mirrored.
+    static void UpdateToxicBuildup(
+        IReadOnlyList<Building_ChickenBatteryCage> cluster,
+        float wasteAtStart,
+        int birds,
+        int elapsed)
+    {
+        if (elapsed <= 0)
+        {
+            return;
+        }
+
+        float current = ToxicBuildup(cluster);
+        float updated = CageWasteMath.ToxicBuildupAfter(
+            current,
+            wasteAtStart,
+            birds,
+            elapsed,
+            CageWasteMath.LethalSeverity);
+
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.ToxicBuildupValue = updated;
+            }
+        }
+    }
+
     /// True while any member still carries an outstanding refill request.
     static bool FeedTopUpRequested(IReadOnlyList<Building_ChickenBatteryCage> cluster)
     {
@@ -675,6 +1002,103 @@ public static class CageNetwork
     }
 
     // ---- Toggles, marks, and routing -------------------------------------
+
+    /// True only when every cage in the cluster allows feeding; the toggle reads
+    /// this so a partially disabled cluster shows as off.
+    // When networks join, retain the strictest admission policy.
+    public static float MaximumIntakeAgeYears(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        float maximum = -1f;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            float value = cage.MaximumIntakeAgeYears;
+            if (value >= 0f && (maximum < 0f || value < maximum))
+            {
+                maximum = value;
+            }
+        }
+        return maximum;
+    }
+
+    public static void SetMaximumIntakeAgeYears(IReadOnlyList<Building_ChickenBatteryCage> cluster, float years)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            cage.SetMaximumIntakeAgeYears(years);
+        }
+    }
+
+    public static bool FeedAllowed(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        bool any = false;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            any = true;
+            if (!cage.FeedAllowed)
+            {
+                return false;
+            }
+        }
+        return any;
+    }
+
+    public static void SetFeedAllowed(IReadOnlyList<Building_ChickenBatteryCage> cluster, bool allowed)
+    {
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.SetFeedAllowed(allowed);
+            }
+        }
+    }
+
+    /// The feed selector shared by a cluster. Like the feed store, the choice
+    /// belongs to the whole network, so one stable member (lowest thing ID)
+    /// holds the effective list and every food check reads it.
+    public static ThingFilter FeedFilter(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        Building_ChickenBatteryCage leader = null;
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (!Alive(cage))
+            {
+                continue;
+            }
+
+            if (leader == null || cage.thingIDNumber < leader.thingIDNumber)
+            {
+                leader = cage;
+            }
+        }
+
+        return leader?.FeedFilter;
+    }
+
+    /// Copies the cluster's effective selector onto every member. Called when a
+    /// cage joins and before one leaves, so a cage that outlives the leader
+    /// keeps the player's choice.
+    public static void CopyFeedFilterAcross(IReadOnlyList<Building_ChickenBatteryCage> cluster)
+    {
+        ThingFilter source = FeedFilter(cluster);
+        if (source == null)
+        {
+            return;
+        }
+
+        foreach (Building_ChickenBatteryCage cage in cluster)
+        {
+            if (Alive(cage))
+            {
+                cage.CopyFeedFilterFrom(source);
+            }
+        }
+    }
 
     /// True only when every cage in the cluster has its pen system on; the
     /// gizmo reads this so a partial cluster shows as off.

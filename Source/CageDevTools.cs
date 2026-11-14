@@ -11,6 +11,7 @@
 
 using System.Collections.Generic;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace BetterRimworlds.ChickenBatteryCage;
@@ -197,5 +198,132 @@ public static class CageDevTools
             pawns.Count,
             map.listerThings.AllThings.Count,
             estimatedBytes));
+    }
+
+    // ---- Fertilizer / waste developer tools ------------------------------
+
+    /// Spawns the given number of Fertilizer Packs near the camera, in stacks no
+    /// larger than the def's limit.
+    public static void SpawnFertilizerPacks(Map map, int count)
+    {
+        ThingDef def = ChickenBatteryCageDefOf.CBC_FertilizerPack;
+        if (map == null || def == null || count <= 0)
+        {
+            return;
+        }
+
+        IntVec3 near = Find.CameraDriver != null
+            ? Find.CameraDriver.MapPosition
+            : map.Center;
+
+        int perStack = Mathf.Max(1, def.stackLimit);
+        int spawned = 0;
+        int remaining = count;
+        while (remaining > 0)
+        {
+            int size = Mathf.Min(perStack, remaining);
+            Thing pack = ThingMaker.MakeThing(def);
+            pack.stackCount = size;
+            if (GenPlace.TryPlaceThing(pack, near, map, ThingPlaceMode.Near))
+            {
+                spawned += size;
+            }
+            else if (!pack.Destroyed)
+            {
+                pack.Destroy();
+            }
+
+            remaining -= size;
+        }
+
+        Log.Message("[ChickenBatteryCage] Dev: spawned " + spawned + " fertilizer packs.");
+    }
+
+    /// Forces every spawned Fertilizer Pack to dissolve its whole stack, so the
+    /// spread can be watched without waiting out the dissolution clock.
+    public static void AdvanceFertilizerDecomposition(Map map)
+    {
+        ThingDef def = ChickenBatteryCageDefOf.CBC_FertilizerPack;
+        if (map == null || def == null)
+        {
+            return;
+        }
+
+        int improved = 0;
+        var packs = new List<Thing>(map.listerThings.ThingsOfDef(def));
+        foreach (Thing pack in packs)
+        {
+            if (pack == null || pack.Destroyed)
+            {
+                continue;
+            }
+
+            CompFertilizerDissolution comp = pack.TryGetComp<CompFertilizerDissolution>();
+            if (comp != null)
+            {
+                improved += comp.TriggerDissolution(pack.stackCount);
+            }
+        }
+
+        Log.Message("[ChickenBatteryCage] Dev: fertilizer decomposed, " +
+            improved + " terrain cells improved.");
+    }
+
+    /// Fills one cage's waste to its gauge full mark, so cleaning and toxicity
+    /// can be tested immediately.
+    public static void FillCageWaste(Building_ChickenBatteryCage cage)
+    {
+        if (cage == null)
+        {
+            return;
+        }
+
+        cage.SettleNutrition();
+        float target = CageWasteMath.CapacityPacks(cage.ChickenCount);
+        cage.WastePacksValue = target;
+        Log.Message("[ChickenBatteryCage] Dev: set waste to " + target.ToString("0.0") +
+            " packs for one cage.");
+    }
+
+    /// Runs one cleaning service on a cage right away.
+    public static void CleanCageInstantly(Building_ChickenBatteryCage cage)
+    {
+        if (cage == null)
+        {
+            return;
+        }
+
+        int produced = CageCleaning.Clean(cage);
+        Log.Message("[ChickenBatteryCage] Dev: cleaning produced " + produced + " packs.");
+    }
+
+    /// Drives a cage into the toxic range so mortality and the inspect trend can
+    /// be observed.
+    public static void ForceToxicProgression(Building_ChickenBatteryCage cage)
+    {
+        if (cage == null)
+        {
+            return;
+        }
+
+        cage.SettleNutrition();
+        cage.WastePacksValue = CageWasteMath.CapacityPacks(cage.ChickenCount);
+        cage.ToxicBuildupValue = 0.6f;
+        Log.Message("[ChickenBatteryCage] Dev: forced toxic buildup progression.");
+    }
+
+    /// Empties the cage's waste and leaves a severity behind so it visibly
+    /// recovers instead of resetting to zero at once.
+    public static void ForceToxicRecovery(Building_ChickenBatteryCage cage)
+    {
+        if (cage == null)
+        {
+            return;
+        }
+
+        cage.SettleNutrition();
+        cage.WastePacksValue = 0f;
+        cage.ToxicBuildupValue = Mathf.Max(cage.ToxicBuildup, 0.8f);
+        Log.Message("[ChickenBatteryCage] Dev: forced toxic buildup recovery.");
     }
 }

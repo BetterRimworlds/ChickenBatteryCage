@@ -41,4 +41,33 @@
 			<li>Manipulation</li>
 		</requiredCapacities>
 	</WorkGiverDef>
+	<WorkGiverDef>
+		<defName>CBC_CleanBatteryCages</defName>
+		<label>clean battery cages</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_CleanBatteryCages</giverClass>
+		<workType>Handling</workType>
+		<verb>clean</verb>
+		<gerund>cleaning</gerund>
+		<!-- Below loading and unloading so live birds are moved first, but above
+		     ordinary animal handling, so a dirty cage is serviced promptly. -->
+		<priorityInType>165</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
+	<WorkGiverDef>
+		<defName>CBC_SpreadFertilizer</defName>
+		<label>spread fertilizer</label>
+		<giverClass>BetterRimworlds.ChickenBatteryCage.WorkGiver_SpreadFertilizer</giverClass>
+		<workType>Growing</workType>
+		<verb>spread</verb>
+		<gerund>spreading fertilizer</gerund>
+		<!-- Below sowing (50). Automatic work is outdoor natural ground only.
+		     An indoor pack is spread only when the player orders it. The job
+		     spreads the whole stack. -->
+		<priorityInType>40</priorityInType>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+	</WorkGiverDef>
 </Defs>

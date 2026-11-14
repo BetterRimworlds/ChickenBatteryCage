@@ -59,6 +59,13 @@ public class WorkGiver_TakeHensToBatteryCage : WorkGiver_InteractAnimal
             return null;
         }
 
+        // Respect handlers already moving this bird, even for forced work.
+        // Otherwise cage intake can compete with both other cages and pens.
+        if (animal.roping.RopedByPawn != null || !pawn.CanReserve(animal))
+        {
+            return null;
+        }
+
         if (animal.MentalStateDef != null && animal.MentalStateDef != MentalStateDefOf.Roaming)
         {
             JobFailReason.Is("CantRopeAnimalMentalState".Translate(animal, animal.MentalStateDef.label));
@@ -95,20 +102,20 @@ public class WorkGiver_TakeHensToBatteryCage : WorkGiver_InteractAnimal
             return null;
         }
 
-        Building_ChickenBatteryCage cage = Building_ChickenBatteryCage.FindAcceptingCage(animal, pawn);
-        if (cage == null)
+        if (!Building_ChickenBatteryCage.TryFindAcceptingCage(
+                animal,
+                pawn,
+                out Building_ChickenBatteryCage cage,
+                out Building_ChickenBatteryCage serviceCage,
+                out IntVec3 standCell))
         {
             JobFailReason.Is(Building_ChickenBatteryCage.NoAcceptingCageReason(animal.Map));
             return null;
         }
 
-        IntVec3 standCell = cage.FindStandCellForHandler(pawn);
-        if (!standCell.IsValid)
-        {
-            JobFailReason.Is("CantRopeAnimalNoSpace".Translate());
-            return null;
-        }
-
+        // The rope driver walks to the stand cell (B) but files the bird into
+        // the accepting cage (C). The stand cell may belong to a reachable
+        // neighbour when the accepting cage is buried in a packed network.
         return JobMaker.MakeJob(
             ChickenBatteryCageDefOf.CBC_RopeHenToBatteryCage,
             animal,

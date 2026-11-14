@@ -2,10 +2,12 @@
 
 RimWorld chicken battery cages that keep huge chicken flocks without game lag. World hunger solved??
 
-Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×3 cage
+Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×2 cage
 from wood, steel, or glitterworld metals. Housed chickens are managed as a flock.
 
 Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection.
+
+*Schrodinger's Chickens produce Schrodinger Eggs ^_^*
 
 ## Supported RimWorld Versions
 
@@ -41,6 +43,101 @@ vanilla RimWorld.
 
 \*A RimWorld year is 60 days. The decline softens to a floor of 0.325 eggs/day
 (about 19.5 per year) around age 20, so even an old hen still lays.
+
+## Chicken manure, fertilizer, and sanitation
+
+A caged flock produces manure the same way it eats and lays: as a pure function
+of hen count and elapsed game time, never as a spawned waste `Thing` or a
+per-bird need.
+
+RimWorld chickens are **superchickens**, so the rate scales with what the game
+actually shows rather than with a Terran hen. A vanilla chicken sprite is about
+six times the volume of a real hen, and a vanilla chicken egg is 0.15 kg — about
+two and a half large eggs. Accordingly a caged flock rolls a fresh production
+rate every day: **0.25–0.8 packs per hen**, or **25–80 packs a day for a
+standard hundred-hen installation**. The roll is seeded by the cage cluster and
+the absolute game day, so it is stable across save/reload and every cage in a
+cluster shares the same rate.
+
+| Hens | Packs/day |
+|---:|---:|
+| 1 | 0.25–0.8 |
+| 10 | 2.5–8 |
+| 50 | 12.5–40 |
+| 100 | 25–80 |
+| 200 | 50–160 |
+
+A standard 100-hen installation therefore makes **25–80 packs a day** — about
+**53 on average**, or roughly **3,150 packs a RimWorld year**.
+
+### Cleaning
+
+The flock is serviced on a **daily** schedule. A cage becomes serviceable
+twenty-four hours after its last cleaning, so the inspect panel carries a
+**24-hour countdown** that restarts after every visit. A handler empties every
+whole pack the cluster holds, drops them beside the cage as ordinary haulable
+**fertilizer packs**, and leaves the fractional remainder behind, so no manure
+is lost between visits. With the default stack limit of **75**, one stack holds
+a typical day's output from a hundred hens; a high roll may need a second
+stack.
+
+### Fertilizer packs
+
+Fertilizer packs are the beneficial inverse of vanilla toxic wastepacks. They
+use the same dissolution clock and the same deterioration rate, and each pack
+stacks **75 to a tile**. **One pack dissolves at a time** on natural ground: every
+eight days on natural ground, or every four days in the rain or snow. Indoors
+it does not dissolve on its own. A grower spreads an outdoor stack on natural
+ground after sowing, the whole stack at once. An indoor pack, including one
+on the rough stone of an underground base, is never spread unless you order
+it: right-click the pack and choose spread fertilizer. On a constructed floor
+or a shelf the clock waits and growers will not spread it. Freezing stops the
+clock and keeps its progress. They produce no pollution, no tox gas, and no
+infestations.
+
+If the stack deteriorates or is otherwise destroyed, every pack still in it
+improves the ground at once, the same way a destroyed wastepack pollutes for
+every pack it held. Each dissolved pack **strikes six cells of natural ground**,
+using the same irregular, outward-creeping cell selection that vanilla pollution
+uses; a cell changes only after **three strikes**, so a pack nets about two
+improved cells. Repeated dissolution grows the fertile patch outward the
+same way repeated wastepack dissolution grows a polluted one. Fertilizer works
+a progression up toward rich **soil**: soft sand becomes sand, sand and rough
+natural cave stone become stony soil, stony soil becomes lichen-covered soil,
+marshy soil becomes stony soil, lichen-covered soil becomes soil, and soil
+becomes rich soil. Any other natural ground converts too: mud dries straight to
+soil, and ground with no succession of its own becomes stony soil first. Only
+smoothed floors, built floors, bridges, water, and buildings are never touched,
+and natural rock walls block the spread exactly as they block pollution.
+
+For scale, a hundred hens make enough fertilizer in a year — about 3,150 packs
+on average — to improve roughly **6,300 cells**: a genuine terraforming project
+for desert, sandy, underground, or otherwise poor colonies.
+
+### Dirty cages and toxic buildup
+
+Neglect has a cost. Below about ten days of accumulated manure the flock is
+merely dirty; past that the cage accumulates vanilla **toxic buildup** at the
+same rate a pawn does on polluted ground, and it recovers at vanilla's natural
+rate once the cage is cleaned. A flock can be pushed through the full range of
+Toxic Buildup stages and will begin losing birds if the cage is left long
+enough.
+
+The condition stays virtual while the birds do — no Pawn is spawned to carry a
+Hediff. But when a hen is unloaded and materialized, she leaves with the real
+`Toxic Buildup` Hediff she accumulated, so the condition becomes visible.
+
+### Inspecting a cage
+
+Selecting a cage reports, for the whole touching cluster:
+
+```text
+Waste:         {stored} / {capacity} packs
+Cleaning:      clean, next visit in {hours}h
+Fertilizer:    {n} packs if cleaned now
+Toxic buildup: {severity} (stable / increasing / recovering)
+```
+
 
 ## Changelog
 

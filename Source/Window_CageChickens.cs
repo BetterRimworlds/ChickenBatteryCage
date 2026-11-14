@@ -68,7 +68,9 @@ public class Window_CageChickens : Window
         absorbInputAroundWindow = false;
         closeOnClickedOutside = false;
         preventCameraMotion = false;
-        draggable = true;
+        // The picker stays where it opens so it cannot drift away from the cage
+        // the player is inspecting.
+        draggable = false;
         resizeable = true;
         // One picker at a time: it always shows a whole cluster, so a second
         // window would be a duplicate view of the same flock.
@@ -407,7 +409,11 @@ public class Window_CageChickens : Window
         else
         {
             bool ticked = selected.ContainsKey(row.record);
-            Widgets.Checkbox(checkRect.x, checkRect.y, ref ticked, 20f);
+            // `paintable` is the drag behaviour the animals window's checkbox
+            // columns use: the press picks the value (tick or clear) and, while
+            // the button stays down, every bird the cursor passes gets that
+            // same value. Without it each checkbox would only answer a click.
+            Widgets.Checkbox(checkRect.x, checkRect.y, ref ticked, 20f, paintable: true);
             if (ticked)
             {
                 selected[row.record] = row.cage;

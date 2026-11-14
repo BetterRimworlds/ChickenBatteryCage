@@ -56,11 +56,35 @@ public class JobDriver_RopeHenToBatteryCage : JobDriver_RopeToDestination
     {
         this.FailOnDespawnedNullOrForbidden(DestMarkerInd);
         this.FailOn(() => Cage == null || !Cage.PenSystemEnabled);
+        this.FailOn(() => !CanLeadRopeesToDestination());
 
         foreach (Toil toil in base.MakeNewToils())
         {
             yield return toil;
         }
+    }
+
+    // A handler can cross fences that a led chicken cannot. Match vanilla pen
+    // routing: start at the bird and apply her fence restrictions to the handler.
+    public static bool CanLeadToCell(Pawn handler, Pawn animal, IntVec3 destination)
+    {
+        return animal != null && animal.Spawned && handler.Map == animal.Map
+            && destination.IsValid
+            && animal.Map.reachability.CanReach(animal.Position, destination,
+                PathEndMode.OnCell, TraverseParms.For(handler).WithFenceblockedOf(animal));
+    }
+
+    private bool CanLeadRopeesToDestination()
+    {
+        IntVec3 destination = job.GetTarget(TargetIndex.B).Cell;
+        foreach (Pawn animal in pawn.roping.Ropees)
+        {
+            if (!CanLeadToCell(pawn, animal, destination))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected override bool HasRopeeArrived(Pawn ropee, bool roperWaitingAtDest)
@@ -81,7 +105,10 @@ public class JobDriver_RopeHenToBatteryCage : JobDriver_RopeToDestination
 
     protected override bool ShouldOpportunisticallyRopeAnimal(Pawn animal)
     {
-        if (animal == null || animal.roping.RopedByPawn == pawn)
+        // Never take a bird from another handler, including one who has
+        // reserved her but has not reached her yet. The base driver reserves
+        // each additional animal after this selection succeeds.
+        if (animal == null || animal.roping.RopedByPawn != null || !pawn.CanReserve(animal))
         {
             return false;
         }
@@ -97,6 +124,7 @@ public class JobDriver_RopeHenToBatteryCage : JobDriver_RopeToDestination
             return false;
         }
 
-        return cage.CanAcceptChicken(animal);
+        return cage.CanAcceptChicken(animal)
+            && CanLeadToCell(pawn, animal, job.GetTarget(TargetIndex.B).Cell);
     }
 }

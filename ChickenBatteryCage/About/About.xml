@@ -6,10 +6,11 @@
 	<url>https://github.com/BetterRimworlds/BetterRimworlds.ChickenBatteryCage</url>
 	<supportedVersions>
 		<li>1.6</li>
+		<li>1.7</li>
 	</supportedVersions>
 	<description>RimWorld chicken battery cages that keep huge chicken flocks without game lag. World hunger solved??
 
-Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×3 cage from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Housed hens are managed as a flock. Must be fully roofed.</description>
+Unlock confined poultry husbandry in the medieval era, then build a four-tier 2×2 cage from wood, steel, or glitterworld metals. Animal handlers lead hens here automatically, ahead of ordinary pens. Housed hens are managed as a flock. Must be fully roofed: an unroofed cage is exposed to the sky and collapses in about thirty days if made of wood or steel, or sixty days for any other material — and rots four times as fast in rain, fog, or snow.</description>
 	<modDependencies>
 		<li>
 			<packageId>brrainz.harmony</packageId>
